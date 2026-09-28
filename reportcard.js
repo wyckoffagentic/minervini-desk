@@ -75,7 +75,7 @@
       kv('EPS growth, last 3 qtrs',(e.ea&&e.ea.length)?e.ea.map(g).join(' → '):'n/a')+
       kv('Sales growth, last 3 qtrs',(e.sa&&e.sa.length)?e.sa.map(g).join(' → '):'n/a')+
       kv('Consensus FY EPS growth',g(fw.cg)+' this yr · '+g(fw.ng)+' next')+
-      kv('Last report',(e.lr||'n/a')+(e.su!=null?' · '+(e.su>=0?'beat ':'miss ')+Math.abs(e.su).toFixed(0)+'%':''))+kv('Next report',e.nr||'n/a')+
+      kv('Last report',(e.lr||'n/a')+(e.su!=null?' · '+(e.su>=0?'beat ':'miss ')+(Math.abs(e.su)>100?'>100%':Math.abs(e.su).toFixed(0)+'%'):''))+kv('Next report',e.nr||'n/a')+
       (e.smed!=null?kv('Sector median score',e.smed+(e.srk?' · this: '+ord(e.srk)+' of '+e.sn:'')):''));
     if(e.b&&e.b.length) eb.push('<ul>'+e.b.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul>');
     eb.push('</div>');
