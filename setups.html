@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en"><head><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Minervini Desk"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setups · Minervini Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@500;700&display=swap" rel="stylesheet">
+<style>:root{--ink:#1d1b3a;--paper:#fffaf0;--sun:#ffd23f;--pink:#ff5d8f;--mint:#34c38f;--grape:#7b61ff;--orange:#ff9f1c;--blue:#2bb3e6;
+--shadow:6px 6px 0 var(--ink);--r:22px;--font:'Fredoka','Baloo 2','Comic Neue','Comic Sans MS','Chalkboard SE',system-ui,sans-serif}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font);color:var(--ink);background:#bfe9ff;
+background-image:radial-gradient(circle at 20px 20px,rgba(255,255,255,.6) 3px,transparent 3.5px);background-size:40px 40px;line-height:1.4;overflow-x:hidden}
+a{color:var(--grape);font-weight:600}
+.wrap{max-width:1240px;margin:0 auto;padding:18px 20px 60px}
+/* header */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.logo .mark{width:58px;height:58px;border-radius:18px;background:var(--sun);border:4px solid var(--ink);box-shadow:4px 4px 0 var(--ink);display:grid;place-items:center;font-size:30px;transform:rotate(-6deg)}
+.logo h1{margin:0;font-size:36px;line-height:1;font-weight:700;letter-spacing:.5px;color:#fff;-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 var(--ink)}
+.logo h1 span{color:var(--sun)}
+.logo .sub{font-size:14px;font-weight:600;margin-top:5px;opacity:.85}
+nav.pills{display:flex;gap:10px;flex-wrap:wrap}
+nav.pills a{text-decoration:none;color:var(--ink);background:#fff;border:3px solid var(--ink);border-radius:999px;padding:6px 16px;font-weight:600;box-shadow:3px 3px 0 var(--ink);transition:transform .15s}
+nav.pills a:hover{transform:translate(-2px,-2px) rotate(-2deg);background:var(--sun)}
+nav.pills a.on{background:var(--pink);color:#fff}
+/* panels */
+.panel{background:var(--paper);border:4px solid var(--ink);border-radius:var(--r);box-shadow:var(--shadow);padding:20px 22px;margin:28px 0}
+.sec-title{display:inline-flex;align-items:center;gap:10px;margin:40px 0 16px;font-size:28px;font-weight:700;background:#fff;border:4px solid var(--ink);border-radius:16px;padding:4px 18px 4px 12px;box-shadow:4px 4px 0 var(--ink);transform:rotate(-1.2deg)}
+.sec-title{flex-wrap:wrap;max-width:100%}
+.sec-title small{font-size:15px;font-weight:500;opacity:.7}
+/* trading floor */
+.floor{position:relative;border:5px solid var(--ink);border-radius:30px;box-shadow:8px 8px 0 var(--ink);overflow:hidden;
+background:#fff3c9;background-image:repeating-linear-gradient(90deg,rgba(255,190,90,.14) 0 22px,transparent 22px 44px);padding:0}
+.floor .deco{position:absolute;inset:0;pointer-events:none}
+.tape{position:relative;background:var(--ink);color:#fff;overflow:hidden;white-space:nowrap;font-weight:600;font-size:17px;padding:8px 0;z-index:2}
+.tape .run{display:inline-block;padding-left:100%;animation:tape 40s linear infinite;animation-delay:-9s}
+.tape b{color:var(--sun);margin-left:30px}.tape .up{color:#6dff9e}
+@keyframes tape{to{transform:translateX(-100%)}}
+.floor-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 24px 4px;position:relative;flex-wrap:wrap;z-index:2}
+.floor-head h2{margin:0;font-size:27px;font-weight:700}
+.posture{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:6px 14px;font-weight:600;box-shadow:3px 3px 0 var(--ink);max-width:620px;font-size:15px;transform:rotate(.6deg)}
+.posture b{color:var(--pink)}
+.stations{display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:0;position:relative;z-index:2}
+.station{position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 14px 0;
+background:linear-gradient(to bottom,transparent calc(100% - 50px),#c97c3c calc(100% - 50px),#c97c3c calc(100% - 44px),transparent calc(100% - 44px)),
+repeating-linear-gradient(90deg,#f0b46f 0 70px,#e6a25c 70px 72px,#eaa963 72px 140px,#e6a25c 140px 142px);background-size:100% 100%,100% 44px;background-position:0 0,0 100%;background-repeat:no-repeat}
+.bubble{position:relative;background:#fff;border:4px solid var(--ink);border-radius:24px;padding:10px 14px;font-size:15.5px;font-weight:500;line-height:1.3;min-height:78px;width:100%;max-width:340px;
+box-shadow:4px 4px 0 var(--ink);display:flex;align-items:center;justify-content:center;text-align:center;z-index:3;animation:pop .6s cubic-bezier(.3,1.6,.5,1) both}
+.bubble:after{content:"";position:absolute;bottom:-16px;left:50%;margin-left:-12px;width:22px;height:22px;background:inherit;border-right:4px solid var(--ink);border-bottom:4px solid var(--ink);transform:rotate(45deg);border-bottom-right-radius:5px}
+.bubble.empty{background:#eef0fb;font-style:italic;color:#4a4870}
+.bubble b{color:#e0306a}
+.bubble .src{display:block;font-size:11.5px;font-style:normal;opacity:.6;margin-top:3px}
+.actor{position:relative;width:100%;max-width:300px;height:214px;margin-top:10px}
+.bot{position:absolute;left:0;right:0;top:0;height:172px;z-index:1;animation:bob 2.6s ease-in-out infinite;transform-origin:50% 90%}
+.bot-svg,.desk-svg{width:100%;height:100%;overflow:visible;display:block}
+.desk{position:absolute;left:0;right:0;bottom:0;height:92px;z-index:2}
+.nameplate{position:absolute;left:50%;bottom:6px;transform:translateX(-50%) rotate(-2deg);background:var(--ink);color:#fff;font-weight:700;font-size:15px;padding:2px 12px;border-radius:10px;white-space:nowrap;z-index:4;border:3px solid #fff;box-shadow:0 0 0 3px var(--ink)}
+.station:nth-child(2) .bot{animation-delay:-.4s}.station:nth-child(3) .bot{animation-delay:-1.1s}.station:nth-child(4) .bot{animation-delay:-1.7s}
+.station:nth-child(5) .bot{animation-delay:-.8s}.station:nth-child(6) .bot{animation-delay:-2.1s}
+.station:nth-child(2) .bubble{animation-delay:.1s}.station:nth-child(3) .bubble{animation-delay:.2s}.station:nth-child(4) .bubble{animation-delay:.3s}.station:nth-child(5) .bubble{animation-delay:.4s}.station:nth-child(6) .bubble{animation-delay:.5s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+.eyes,.bulb,.arm,.rays,.cloud,.wave,.magnifier,.notif,.coin,.vane,.piggy,.phone{transform-box:fill-box}
+.eyes{transform-origin:center;animation:blink 4.2s infinite}
+.station:nth-child(2n) .eyes{animation-delay:-1.3s}.station:nth-child(3n) .eyes{animation-delay:-2.6s}
+@keyframes blink{0%,90%,100%{transform:scaleY(1)}94%{transform:scaleY(.1)}}
+.bulb{transform-origin:center;animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{50%{filter:brightness(1.4);transform:scale(1.2)}}
+.rays{transform-origin:center;animation:spin 9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cloud{animation:drift 3.5s ease-in-out infinite}
+@keyframes drift{50%{transform:translateX(-6px)}}
+.vane{transform-origin:50% 100%;animation:sway 3s ease-in-out infinite}
+@keyframes sway{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+.wave{opacity:0;animation:wave 1.4s ease-out infinite}.w2{animation-delay:.35s}
+@keyframes wave{0%{opacity:0;transform:translateX(-4px)}40%{opacity:1}100%{opacity:0;transform:translateX(7px)}}
+.magnifier{transform-origin:0% 100%;animation:sway 2.4s ease-in-out infinite}
+.notif{transform-origin:center;animation:ping 2s ease-in-out infinite}
+@keyframes ping{0%,70%,100%{transform:scale(1)}80%{transform:scale(1.35)}}
+.coin{animation:coin 2.8s ease-in infinite}
+@keyframes coin{0%{transform:translateY(-14px);opacity:0}20%{opacity:1}60%{transform:translateY(18px);opacity:1}70%,100%{transform:translateY(22px);opacity:0}}
+.piggy{transform-origin:50% 100%;animation:squish 2.8s ease-in-out infinite}
+@keyframes squish{0%,58%,100%{transform:scale(1)}64%{transform:scale(1.08,.9)}}
+.arm-l{transform-origin:100% 0%;animation:wiggle-arm 3s ease-in-out infinite}
+.arm-r{transform-origin:0% 0%}
+@keyframes wiggle-arm{0%,100%{transform:rotate(0)}50%{transform:rotate(8deg)}}
+.boss-point .arm-r{animation:point 2.2s ease-in-out infinite}
+@keyframes point{0%,100%{transform:rotate(0)}50%{transform:rotate(-8deg)}}
+/* setup cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(275px,1fr));gap:30px 26px}
+.card{display:flex;flex-direction:column;position:relative;background:#fff;border:4px solid var(--ink);border-radius:var(--r);box-shadow:var(--shadow);padding:0 0 14px;transition:transform .18s,box-shadow .18s}
+.card:hover{transform:translate(-3px,-3px) rotate(-.6deg);box-shadow:9px 9px 0 var(--ink)}
+.card .head{border-bottom:4px solid var(--ink);border-radius:18px 18px 0 0;padding:12px 16px 10px;background:var(--c,#ffd23f);min-height:112px;
+background-image:radial-gradient(rgba(255,255,255,.35) 2px,transparent 2.5px);background-size:12px 12px}
+.card .rank{display:inline-block;background:var(--ink);color:#fff;font-weight:700;border-radius:9px;padding:0 8px;font-size:14px;margin-bottom:4px}
+.card .tk{font-size:42px;font-weight:700;line-height:1;color:#fff;-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:3px 3px 0 var(--ink);letter-spacing:1px}
+.card .co{font-weight:600;font-size:15px;margin-top:4px;padding-right:80px}
+.card > .score-badge{position:absolute;top:-20px;right:-16px}
+.card .body{padding:12px 16px 0;flex:1}
+.card .setup{font-weight:700;font-size:17px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 10px}
+.nums div{background:#f4f1ff;border:3px solid var(--ink);border-radius:12px;padding:4px 2px;text-align:center;min-width:0}
+.nums small{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.nums b{font-size:14.5px;white-space:nowrap}
+.nums b.sm{font-size:12px;white-space:normal;display:block;line-height:1.1}
+.nums div.pv{background:#e3fff0}.nums div.sp{background:#ffe9ee}.nums div.rk{background:#fff6d6}
+.topiv{font-size:13.5px;font-weight:600;margin:-2px 0 10px}
+.verdict{position:relative;background:#fffbe6;border:3px solid var(--ink);border-radius:16px;padding:8px 12px;font-weight:600;font-size:15px;margin:4px 0 12px 18px}
+.verdict:before{content:"";position:absolute;left:-11px;top:12px;width:16px;height:16px;background:inherit;border-left:3px solid var(--ink);border-bottom:3px solid var(--ink);transform:rotate(45deg)}
+.verdict.yes{background:#e3ffe9}.verdict.no{background:#ffe8e8}.verdict.wait{background:#fff3d1}
+.card .foot{display:flex;justify-content:space-between;align-items:center;padding:0 12px 0 10px;gap:8px}
+.card .foot a{font-size:14px}
+.card.hot{animation:wobble 2.4s ease-in-out infinite;box-shadow:var(--shadow),0 0 0 7px #fff36b,0 0 40px 18px rgba(255,196,0,.95)}
+body.party .card.hot{animation:wobble 1.2s ease-in-out infinite}
+@keyframes wobble{0%,100%{transform:rotate(0)}8%{transform:rotate(-1.6deg)}16%{transform:rotate(1.6deg)}24%{transform:rotate(-1deg)}32%{transform:rotate(0)}}
+/* stickers */
+.sticker{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:14px;padding:3px 12px 3px 8px;border-radius:999px;border:3px solid var(--ink);box-shadow:0 0 0 3px #fff,0 0 0 5.5px var(--ink),3px 4px 0 5.5px var(--ink);transform:rotate(-4deg);white-space:nowrap;margin:8px}
+.st-building{background:#c9b6ff}.st-watching{background:#8fe3ff}.st-actionable{background:#7dff8a;animation:throb 1.4s ease-in-out infinite}
+.st-entered{background:#ffb347}.st-exited{background:#b8c4cc}.st-dropped{background:#ff8f8f}.st-unknown{background:#eee}
+@keyframes throb{50%{transform:rotate(-4deg) scale(1.1)}}
+.legend{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin:0 0 6px;font-weight:600;font-size:14px}
+/* score badge */
+.score-badge{position:relative;width:78px;height:78px;filter:drop-shadow(3px 3px 0 var(--ink));z-index:5;flex:0 0 auto}
+.score-badge.big{width:94px;height:94px}
+table .score-badge{width:62px;height:62px}table .score-badge .score-num b{font-size:24px}table .score-badge .score-num small{font-size:10px}
+.score-badge svg{position:absolute;inset:0;width:100%;height:100%;animation:spin 40s linear infinite}
+.score-badge path{stroke:var(--ink);stroke-width:5;stroke-linejoin:round;fill:#ddd}
+.score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:.85}
+.score-num b{font-size:30px;font-weight:700}
+.score-badge.big .score-num b{font-size:38px}
+.score-num small{font-size:12px;font-weight:700}
+.tier-perfect path{fill:#ffd700}.tier-hot path{fill:#ffb000}.tier-great path{fill:#7dff8a}.tier-good path{fill:#8fe3ff}.tier-meh path{fill:#ffc58f}.tier-cold path{fill:#ff9d9d}.tier-none path{fill:#e5e5ee}
+.tier-none .score-num b{font-size:26px}.tier-none .score-num small{font-size:9px}
+.stars{position:relative;display:inline-block;font-size:20px;letter-spacing:1px;line-height:1;white-space:nowrap}
+.stars .s-bg{color:#e2dff0;-webkit-text-stroke:1.5px var(--ink)}
+.stars .s-fg{position:absolute;left:0;top:0;overflow:hidden;white-space:nowrap;color:#ffc400;-webkit-text-stroke:1.5px var(--ink)}
+/* catalysts */
+.strip{display:flex;gap:20px;overflow-x:auto;padding:16px 8px 18px;scroll-snap-type:x mandatory}
+.cat{flex:0 0 290px;scroll-snap-align:start;background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:12px 14px;font-size:14.5px;position:relative}
+.cat:nth-child(odd){transform:rotate(-1deg)}.cat:nth-child(even){transform:rotate(1deg)}
+.cat.key{background:#fff36b;flex-basis:340px}
+.cat .tag{display:inline-block;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.8px;background:var(--ink);color:#fff;border-radius:8px;padding:1px 8px;margin-bottom:6px}
+.countdown{position:absolute;top:-15px;right:10px;background:var(--pink);color:#fff;font-weight:700;border:3px solid var(--ink);border-radius:999px;padding:1px 10px;font-size:13px;transform:rotate(4deg)}
+/* watchlist table */
+.tbl-wrap{overflow-x:auto;padding:0 6px 6px}
+table.cartoon{width:100%;border-collapse:separate;border-spacing:0 10px;font-size:15px}
+table.cartoon th{text-align:left;font-size:13px;text-transform:uppercase;letter-spacing:.6px;padding:0 10px;opacity:.75}
+table.cartoon td{background:#fff;border-top:3px solid var(--ink);border-bottom:3px solid var(--ink);padding:6px 10px;vertical-align:middle}
+table.cartoon td:first-child{border-left:3px solid var(--ink);border-radius:14px 0 0 14px}
+table.cartoon td:last-child{border-right:3px solid var(--ink);border-radius:0 14px 14px 0}
+table.cartoon tr:hover td{background:#fffbe0}
+table.cartoon .tkc{font-weight:700;font-size:19px}
+table.cartoon .tkc a{color:var(--ink)}
+.days{display:inline-grid;place-items:center;min-width:34px;height:34px;border-radius:50%;background:var(--sun);border:3px solid var(--ink);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{background:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 12px;font-weight:600;font-size:14px;box-shadow:2px 2px 0 var(--ink)}
+.chip.avoid{background:#ffe0e0}.chip.ext{background:#e8f7ff}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.two .panel{margin:0}
+.panel h3{margin:0 0 10px;font-size:21px}
+/* timeline */
+.timeline{position:relative;padding-left:48px}
+.timeline:before{content:"";position:absolute;left:18px;top:6px;bottom:6px;width:6px;border-radius:6px;background:repeating-linear-gradient(var(--ink) 0 12px,transparent 12px 20px)}
+.tl-item{position:relative;margin-bottom:18px}
+.tl-item:before{content:"";position:absolute;left:-40px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--pink);border:4px solid var(--ink)}
+.tl-item .date{display:inline-block;background:var(--ink);color:#fff;font-weight:700;border-radius:10px;padding:2px 10px;font-size:14px;margin-bottom:6px}
+.tl-item .txt{background:#fff;border:3px solid var(--ink);border-radius:18px;padding:10px 14px;box-shadow:4px 4px 0 var(--ink);font-size:15.5px;max-width:900px}
+.archive{display:flex;flex-wrap:wrap;gap:14px}
+.archive a{text-decoration:none;color:var(--ink);background:#fff;border:4px solid var(--ink);border-radius:18px;padding:10px 16px;box-shadow:4px 4px 0 var(--ink);font-weight:700;display:flex;flex-direction:column}
+.archive a small{font-weight:500;font-size:13px;opacity:.75}
+.archive a:hover{background:var(--sun)}
+footer{margin-top:44px;text-align:center;font-size:14px;opacity:.8}
+/* report page */
+.hero{display:grid;grid-template-columns:210px 1fr;gap:26px;align-items:center}
+.hero .mini-bot{height:180px;position:relative}
+.hero .mini-bot .bot{height:180px}
+.hero .bubble{max-width:none;display:block;text-align:left;font-size:16px;animation:none}
+.hero .bubble p{margin:6px 0}
+.hero .bubble:after{left:-15px;top:46px;bottom:auto;margin:0;transform:rotate(135deg)}
+.hero h2{margin:0 0 4px;font-size:26px}
+.asof{font-size:13px;opacity:.75;margin-bottom:6px}
+.detail{display:grid;grid-template-columns:120px 1fr;gap:18px;align-items:start;background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:16px 18px;margin-bottom:20px;scroll-margin-top:20px}
+.detail:target{box-shadow:5px 5px 0 var(--ink),0 0 0 6px var(--sun)}
+.detail h3{margin:0 0 6px;font-size:28px}
+.detail h3 small{font-size:16px;opacity:.7}
+.detail p{margin:6px 0;font-size:15.5px}
+.detail .side{display:flex;flex-direction:column;align-items:center;gap:8px}
+.md{font-size:15.5px}
+.md table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14.5px;background:#fff}
+.md th,.md td{border:3px solid var(--ink);padding:6px 8px;text-align:left}
+.md th{background:var(--sun)}
+.md li{margin:5px 0}
+.md h1{font-size:30px;margin-top:0}
+.table-scroll{overflow-x:auto}
+/* party mode */
+#banner{display:none}
+body.party #banner{display:flex;position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:1000;align-items:center;gap:14px;
+background:var(--pink);color:#fff;border:5px solid var(--ink);border-radius:26px;box-shadow:8px 8px 0 var(--ink);padding:10px 26px;font-size:48px;font-weight:700;letter-spacing:1px;
+-webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink);white-space:nowrap;animation:banner 1s cubic-bezier(.3,1.7,.5,1) both,bannerpulse 1.2s 1s ease-in-out infinite}
+#banner .tk{color:var(--sun)}
+#banner .demo{font-size:14px;-webkit-text-stroke:0;text-shadow:none;background:var(--ink);border-radius:10px;padding:2px 8px;letter-spacing:0}
+#banner .x{cursor:pointer;font-size:22px;-webkit-text-stroke:0;text-shadow:none;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:50%;width:36px;height:36px;display:grid;place-items:center;letter-spacing:0}
+@keyframes banner{from{transform:translateX(-50%) scale(0) rotate(-20deg)}to{transform:translateX(-50%) scale(1) rotate(-2deg)}}
+@keyframes bannerpulse{0%,100%{transform:translateX(-50%) scale(1) rotate(-2deg)}50%{transform:translateX(-50%) scale(1.06) rotate(2deg)}}
+body.party .bot{animation:dance 1.1s ease-in-out infinite}
+body.party .station:nth-child(2n) .bot{animation:dance2 1.3s ease-in-out infinite}
+body.party .station:nth-child(3) .bot,body.party .station:nth-child(5) .bot{animation:spinhop 1.6s ease-in-out infinite}
+body.party .station:nth-child(2) .bot{animation-delay:-.3s}body.party .station:nth-child(4) .bot{animation-delay:-.6s}body.party .station:nth-child(5) .bot{animation-delay:-.8s}
+@keyframes dance{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(-16px,-40px) rotate(-14deg)}50%{transform:translate(0,0) scale(1.06,.9)}75%{transform:translate(16px,-40px) rotate(14deg)}}
+@keyframes dance2{0%,100%{transform:translate(0,0) scale(1)}30%{transform:translate(20px,-28px) rotate(12deg)}60%{transform:translate(-20px,-46px) rotate(-12deg)}85%{transform:translate(0,0) scale(1.08,.9)}}
+@keyframes spinhop{0%{transform:translateY(0) rotate(0)}45%{transform:translateY(-54px) rotate(180deg)}85%,100%{transform:translateY(0) rotate(360deg)}}
+body.party .arm-l{animation:wave-l .4s ease-in-out infinite alternate}
+body.party .arm-r{animation:wave-r .4s ease-in-out infinite alternate}
+@keyframes wave-l{from{transform:rotate(-15deg)}to{transform:rotate(70deg)}}
+@keyframes wave-r{from{transform:rotate(15deg)}to{transform:rotate(-70deg)}}
+body.party .eyes{animation:blink .8s infinite}
+body.party .station .bubble{animation:jiggle .5s ease-in-out infinite alternate}
+@keyframes jiggle{from{transform:rotate(-2deg)}to{transform:rotate(2deg) scale(1.03)}}
+body.party .floor{animation:disco 1.2s steps(1) infinite}
+@keyframes disco{0%{box-shadow:8px 8px 0 var(--ink),0 0 0 8px #ff5d8f}33%{box-shadow:8px 8px 0 var(--ink),0 0 0 8px #ffd23f}66%{box-shadow:8px 8px 0 var(--ink),0 0 0 8px #34c38f}}
+body.party .card{animation:partycard 1.2s ease-in-out infinite}
+body.party .card:nth-child(2n){animation-delay:-.6s}
+@keyframes partycard{0%,100%{transform:rotate(-1deg) translateY(0)}50%{transform:rotate(1deg) translateY(-6px)}}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:999;overflow:hidden}
+.cf{position:absolute;top:-30px;width:12px;height:18px;border:2px solid var(--ink);border-radius:3px;animation:fall linear infinite}
+.cf.round{border-radius:50%;width:14px;height:14px}
+.cf.strip{width:8px;height:26px}
+@keyframes fall{0%{transform:translate3d(0,-40px,0) rotate(0)}100%{transform:translate3d(var(--dx),110vh,0) rotate(var(--rot))}}
+@media (prefers-reduced-motion:reduce){*:not(.burst){animation-duration:.01s!important;animation-iteration-count:1!important}}
+/* responsive */
+@media (max-width:1000px){.stations{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){
+ .wrap{padding:12px 12px 40px}.logo h1{font-size:27px}.logo .mark{width:46px;height:46px;font-size:24px}.logo .sub{font-size:12px}
+ nav.pills a{padding:4px 12px;font-size:14px}
+ .floor-head{padding:12px 14px 4px}.floor-head h2{font-size:21px}.posture{font-size:14px}
+ .stations{grid-template-columns:1fr;gap:6px;padding:6px 10px 0}
+ .station{display:grid;grid-template-columns:140px 1fr;align-items:end;gap:14px;padding:8px 12px 0}
+ .station .actor{grid-row:1;grid-column:1;height:156px;margin:0}
+ .station .bot{height:124px}.station .desk{height:70px}
+ .station .bubble{grid-row:1;grid-column:2;font-size:14px;min-height:60px;padding:8px 10px;align-self:center;margin-bottom:34px}
+ .station .bubble:after{left:-15px;top:50%;bottom:auto;margin:-11px 0 0;transform:rotate(135deg)}
+ .nameplate{font-size:12.5px;padding:1px 8px}
+ .two{grid-template-columns:1fr}
+ .hero{grid-template-columns:1fr}.hero .mini-bot{height:150px;width:200px;margin:0 auto}.hero .mini-bot .bot{height:150px}
+ .hero .bubble:after{left:50%;top:-15px;margin-left:-11px;transform:rotate(-135deg)}
+ .detail{grid-template-columns:1fr}.detail .side{flex-direction:row;flex-wrap:wrap;justify-content:flex-start}
+ body.party #banner{font-size:25px;padding:8px 14px;top:12px;gap:8px}
+ .sec-title{font-size:22px;row-gap:0}.sec-title small{flex-basis:100%;font-size:13px;margin-top:-2px}
+ .card > .score-badge{right:-6px;top:-16px}
+ .legend .sticker{font-size:12px;margin:6px}
+ html,body{overflow-x:clip}
+ table.cartoon .hide-sm{display:none}
+}
+/* ---- equity research: earnings strip ---- */
+.earnstrip{padding-top:18px}
+.earn{flex:0 0 280px;scroll-snap-align:start;display:flex;gap:12px;align-items:flex-start;background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:12px 14px;position:relative}
+.earn:nth-child(odd){transform:rotate(-1deg)}.earn:nth-child(even){transform:rotate(1deg)}
+.earn.key{background:#fff36b;flex-basis:330px}
+.earn.est{border-style:dashed;background:#fbfaff}
+.earn.est.key{background:#fff9c2}
+.calpage{flex:0 0 62px;text-align:center;background:#fff;border:3px solid var(--ink);border-radius:12px;overflow:hidden;box-shadow:2px 2px 0 var(--ink);line-height:1}
+.calpage span{display:block;background:var(--pink);color:#fff;font-weight:700;font-size:13px;text-transform:uppercase;padding:3px 0;border-bottom:3px solid var(--ink)}
+.calpage b{display:block;font-size:28px;padding:4px 0 0}
+.calpage small{display:block;font-size:11px;font-weight:600;padding:0 0 4px;opacity:.7}
+.calpage.tbd span{background:#9a98b8}
+.einfo{min-width:0}
+.etk{font-size:24px;font-weight:700;line-height:1.05}
+.etk a{color:var(--ink);text-decoration:none;border-bottom:3px solid var(--sun)}
+.etk .wl{font-size:11px;font-weight:700;background:var(--mint);color:#fff;border:2px solid var(--ink);border-radius:8px;padding:0 5px;vertical-align:middle}
+.emeta{font-size:13px;font-weight:600;opacity:.8;margin:2px 0 4px}
+.enote{font-size:13.5px;margin-top:6px}
+.conf{display:inline-block;font-weight:700;font-size:12px;border:2px solid var(--ink);border-radius:999px;padding:0 8px;transform:rotate(-2deg)}
+.conf.yes{background:#7dff8a}.conf.est{background:#e6e4f5;border-style:dashed}
+.conf.sm{font-size:11px;padding:0 6px}
+.countdown.inline{position:static;display:inline-block;transform:rotate(3deg);margin-left:4px}
+/* tracked table */
+.yn{display:inline-block;font-weight:700;font-size:13px;border:2px solid var(--ink);border-radius:999px;padding:1px 9px}
+.yn.y{background:#b5ffbf}.yn.n{background:#eee}
+table.tracked td{font-size:14.5px}
+/* ticker page */
+.tkhead{display:grid;grid-template-columns:170px 1fr auto;gap:22px;align-items:center}
+.tkhead .mini-bot{height:150px;position:relative}.tkhead .mini-bot .bot{height:150px}
+.tkbig{font-size:56px;font-weight:700;line-height:1;color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:4px 4px 0 var(--ink)}
+.tkname{font-size:20px;font-weight:600;margin:4px 0 8px}
+.tkmeta{font-size:15px;margin:4px 0}
+.tkback{margin:8px 0 0;font-size:14px}
+.tkhead .side{display:flex;flex-direction:column;align-items:center;gap:8px}
+.devlog .tl-item.mat:before{background:#ff3b3b;box-shadow:0 0 0 4px #ffd23f}
+.devlog .tl-item.mat .txt{background:#fff6f6}
+.ltag{display:inline-block;margin-left:8px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.6px;border:2px solid var(--ink);border-radius:8px;padding:0 7px;background:#e8f7ff;transform:rotate(-2deg)}
+.ltag.t-material{background:#ff8f8f}.ltag.t-routine{background:#e6e4f5}.ltag.t-earnings{background:#ffd23f}.ltag.t-insider{background:#c9b6ff}
+.empty-log{font-style:italic}
+@media (max-width:760px){
+ .tkhead{grid-template-columns:1fr;text-align:center}.tkhead .mini-bot{width:170px;margin:0 auto}
+ .tkhead .side{flex-direction:row;justify-content:center;flex-wrap:wrap}
+ .tkbig{font-size:44px}
+ .earn{flex-basis:260px}
+}
+.earnstrip{align-items:flex-start}
+.src-note{font-size:12px;opacity:.6}
+/* =====================================================================
+   LOONEY MOTION: squash & stretch, takes, slapstick gags (Chris, 2026-09-26)
+   Layers: .bot = position/hops/spins · .bot-svg = squash & stretch breathing
+           .fx-* SVG groups (build.py looney_fx) = wild faces, hidden until a gag shows them
+   Hooks (app.js toggles these; future alert logic can too):
+     .station.alert / .mini-bot.alert / .card.alert   → replays the big "take" every ~12-16s
+     .station.anvil / .card.anvil                      → ACME anvil gag (failed breakout / stop breached)
+     .station.pratfall / .card.pratfall                → banana-peel pratfall (breakout on weak volume)
+     .play-take .play-double .play-anvil .play-pratfall → one-shot gag currently playing (set by DeskGags.play)
+   ===================================================================== */
+.bot{animation:none;will-change:transform}
+.bot-svg{transform-origin:50% 95%;animation:lt-breathe 2.4s infinite;will-change:transform}
+.station:nth-child(2) .bot-svg{animation-delay:-.5s}.station:nth-child(3) .bot-svg{animation-delay:-1.1s}.station:nth-child(4) .bot-svg{animation-delay:-1.6s}
+.station:nth-child(5) .bot-svg{animation-delay:-.8s}.station:nth-child(6) .bot-svg{animation-delay:-2s}
+/* hang at the top, drop fast, SQUASH on the down beat, rubbery rebound */
+@keyframes lt-breathe{
+ 0%{transform:translate(0,0) scale(1.08,.9);animation-timing-function:cubic-bezier(.2,1.6,.4,1)}
+ 14%{transform:translate(0,-2px) scale(.95,1.06);animation-timing-function:cubic-bezier(.3,.6,.4,1)}
+ 42%{transform:translate(0,-9px) scale(.99,1.02)}
+ 60%{transform:translate(0,-9px) scale(1,1);animation-timing-function:cubic-bezier(.7,0,.95,.4)}
+ 86%{transform:translate(0,0) scale(.96,1.05);animation-timing-function:linear}
+ 91%{transform:translate(0,1px) scale(1.1,.88)}
+ 100%{transform:translate(0,0) scale(1.08,.9)}}
+.hat,.fx,.stalk,.fx-jaw,.fx-grin,.fx-stars,.fx-dizzy,.fx-feet,.tongue,.mouth,.orb{transform-box:fill-box}
+.fx{opacity:0;pointer-events:none}
+.stalk{transform-origin:50% 100%}
+.fx-jaw,.fx-grin{transform-origin:50% 0%}
+.fx-stars polygon{transform-box:fill-box;transform-origin:center}
+.hat{transform-origin:50% 100%}
+.orb{transform-box:view-box;transform-origin:0 0}
+/* snappy blink: hold... SNAP shut, pop open with a squash */
+.eyes{animation:lt-blink 4.6s infinite}
+@keyframes lt-blink{0%,88%,100%{transform:scale(1,1)}90%{transform:scale(1.15,.08)}92%{transform:scale(.9,1.2)}95%{transform:scale(1.04,.95)}97%{transform:scale(1,1)}}
+.mouth{transform-origin:center}
+
+/* gag overlay (created by app.js inside .actor/.mini-bot, sized like the bot's SVG box) */
+.station[class*=play-] .actor{z-index:4}
+.gfx{position:absolute;top:0;left:50%;height:172px;aspect-ratio:220/170;transform:translateX(-50%);pointer-events:none;z-index:6}
+.mini-bot .gfx{height:100%}
+.gfx > *{position:absolute}
+.gfx .anvil{left:24%;top:34%;width:42%;opacity:0;transform-origin:50% 100%}
+.gfx .anvil svg,.gfx .banana svg,.card-prop svg{display:block;width:100%;height:auto;overflow:visible}
+.gfx .anvil:before{content:"";position:absolute;left:12%;right:12%;bottom:100%;height:240%;opacity:0;
+ background:repeating-linear-gradient(90deg,transparent 0 9px,var(--ink) 9px 12px,transparent 12px 22px);-webkit-mask:linear-gradient(to top,#000,transparent);mask:linear-gradient(to top,#000,transparent);animation:inherit;animation-name:lt-speedv}
+.gfx .dust{left:8%;top:80%;width:84%;height:20%;opacity:0}
+.gfx .dust i{position:absolute;bottom:0;width:30%;height:100%;border-radius:50%;background:#fff;border:3px solid var(--ink)}
+.gfx .dust i:nth-child(1){left:0;transform:scale(.8)}.gfx .dust i:nth-child(2){left:35%;height:120%}.gfx .dust i:nth-child(3){right:0;transform:scale(.8)}
+.gfx .banana{left:14%;top:84%;width:17%;opacity:0}
+.gfx .speed{inset:8% -30%;opacity:0;background:repeating-linear-gradient(0deg,transparent 0 14px,rgba(29,27,58,.55) 14px 17px,transparent 17px 30px);
+ -webkit-mask:radial-gradient(closest-side,transparent 45%,#000 60%,transparent 100%);mask:radial-gradient(closest-side,transparent 45%,#000 60%,transparent 100%)}
+.burst{z-index:7;display:grid;place-items:center;font:700 22px/1 var(--font);letter-spacing:1px;color:#fff;padding:14px 18px;white-space:nowrap;
+ -webkit-text-stroke:2px var(--ink);paint-order:stroke fill;filter:drop-shadow(3px 3px 0 var(--ink));opacity:0;transform:scale(0);
+ animation:lt-burst .95s var(--d,0s) cubic-bezier(.2,1.8,.4,1) both}
+.burst:before{content:"";position:absolute;inset:0;z-index:-1;background:var(--bc,#ff5d8f);
+ clip-path:polygon(50% 0,59% 22%,82% 8%,74% 32%,100% 34%,79% 50%,98% 70%,72% 68%,78% 96%,57% 78%,45% 100%,38% 76%,12% 92%,22% 66%,0 60%,20% 46%,4% 22%,30% 28%,30% 4%)}
+@keyframes lt-burst{0%{opacity:1;transform:scale(0) rotate(-35deg)}28%{opacity:1;transform:scale(1.3) rotate(8deg)}42%{transform:scale(.9) rotate(-4deg)}56%{transform:scale(1.06) rotate(2deg)}70%{opacity:1;transform:scale(1) rotate(-3deg)}100%{opacity:0;transform:scale(1.15) rotate(-3deg)}}
+@keyframes lt-speedv{0%,6%{opacity:0}9%,16%{opacity:.9}18%,100%{opacity:0}}
+
+/* ---------- (b) THE TAKE: anticipation crouch → smear stretch-up → eyes zoom out → settle wobble ---------- */
+.play-take .bot{transform-origin:50% 92%;animation:lt-take 2.2s linear both!important}
+@keyframes lt-take{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 12%{transform:translate(0,0) rotate(-2deg) scale(1.02,.98)}
+ 20%{transform:translate(0,5%) rotate(2deg) scale(1.2,.72);animation-timing-function:cubic-bezier(.1,.9,.2,1)}
+ 26%{transform:translate(0,-20%) rotate(0) scale(.7,1.45)}
+ 34%{transform:translate(0,0) rotate(0) scale(1.18,.84)}
+ 40%{transform:translate(0,-3%) rotate(0) scale(.92,1.09)}
+ 46%{transform:translate(0,0) rotate(0) scale(1.06,.95)}
+ 52%{transform:translate(0,0) rotate(0) scale(.98,1.02)}
+ 58%,82%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 86%{transform:translate(0,0) rotate(3deg) scale(1.03,.97)}
+ 92%,100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+.play-take .eyes{animation:lt-eyes-hide 2.2s steps(1) both}
+@keyframes lt-eyes-hide{0%,23%{opacity:1}24%,84%{opacity:0}85%,100%{opacity:1}}
+.play-take .fx-bigeyes{animation:lt-show 2.2s steps(1) both}
+@keyframes lt-show{0%,23%{opacity:0}24%,84%{opacity:1}85%,100%{opacity:0}}
+.play-take .stalk{animation:lt-stalk 2.2s linear both}
+@keyframes lt-stalk{0%,23%{transform:scale(1,.1)}29%{transform:scale(1.25,1.45)}35%{transform:scale(.9,.85)}41%{transform:scale(1.06,1.12)}47%,76%{transform:scale(1,1)}84%,100%{transform:scale(1,.1)}}
+.play-take .pupil{animation:lt-pupil 2.2s linear both}
+@keyframes lt-pupil{0%,30%{transform:scale(1)}33%{transform:scale(.45)}45%,100%{transform:scale(1)}}
+.play-take .mouth{animation:lt-eyes-hide 2.2s steps(1) both}
+.play-take .fx-jaw{animation:lt-jaw 2.2s linear both}
+@keyframes lt-jaw{0%,23%{opacity:0;transform:scale(1,.2)}24%{opacity:1;transform:scale(1,.2)}30%{opacity:1;transform:scale(1.1,1.35)}38%{transform:scale(.95,.9)}46%,78%{opacity:1;transform:scale(1,1)}84%,100%{opacity:0;transform:scale(1,.2)}}
+.play-take .hat{animation:lt-hat 2.2s linear both}
+@keyframes lt-hat{0%,22%{transform:translate(0,0) rotate(0)}30%{transform:translate(0,-30px) rotate(-22deg);animation-timing-function:cubic-bezier(.2,.8,.4,1)}44%{transform:translate(4px,-42px) rotate(14deg);animation-timing-function:cubic-bezier(.7,0,1,.6)}56%{transform:translate(0,0) rotate(0)}60%{transform:translate(0,-6px) rotate(-4deg)}64%,100%{transform:translate(0,0) rotate(0)}}
+
+/* ---------- (2) DOUBLE-TAKE: glance · look away · SNAP back, eyes on stalks, hat flies ---------- */
+.play-double .bot{transform-origin:50% 92%;animation:lt-double 2.8s linear both!important}
+@keyframes lt-double{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 7%,20%{transform:translate(2%,0) rotate(4deg) scale(1,1)}
+ 27%,36%{transform:translate(-1%,0) rotate(-2deg) scale(1,1)}
+ 40%{transform:translate(0,4%) rotate(0) scale(1.16,.8);animation-timing-function:cubic-bezier(.1,.9,.2,1)}
+ 45%{transform:translate(0,-22%) rotate(-5deg) scale(.72,1.42)}
+ 52%{transform:translate(0,0) rotate(0) scale(1.15,.86)}
+ 58%{transform:translate(0,-3%) rotate(0) scale(.94,1.07)}
+ 64%{transform:translate(0,0) rotate(0) scale(1.04,.97)}
+ 70%,100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+.play-double .eyes{animation:lt-look 2.8s linear both}
+@keyframes lt-look{0%{transform:translate(0,0);opacity:1}6%,20%{transform:translate(5px,0);opacity:1}25%,38%{transform:translate(-3px,0);opacity:1}40%,85%{opacity:0;transform:translate(0,0)}86%,100%{opacity:1;transform:translate(0,0)}}
+.play-double .fx-bigeyes{animation:lt-show2 2.8s steps(1) both}
+@keyframes lt-show2{0%,43%{opacity:0}44%,85%{opacity:1}86%,100%{opacity:0}}
+.play-double .stalk{animation:lt-stalk2 2.8s linear both}
+@keyframes lt-stalk2{0%,43%{transform:scale(1,.1)}48%{transform:scale(1.3,1.6)}54%{transform:scale(.88,.82)}60%{transform:scale(1.07,1.12)}66%,78%{transform:scale(1,1)}85%,100%{transform:scale(1,.1)}}
+.play-double .mouth{animation:lt-mouth-hide2 2.8s steps(1) both}
+@keyframes lt-mouth-hide2{0%,43%{opacity:1}44%,82%{opacity:0}83%,100%{opacity:1}}
+.play-double .fx-jaw{animation:lt-jaw2 2.8s linear both}
+@keyframes lt-jaw2{0%,43%{opacity:0;transform:scale(1,.2)}48%{opacity:1;transform:scale(1.1,1.4)}56%{opacity:1;transform:scale(.95,.9)}64%,78%{opacity:1;transform:scale(1,1)}83%,100%{opacity:0;transform:scale(1,.2)}}
+.play-double .hat{animation:lt-hat2 2.8s linear both}
+@keyframes lt-hat2{0%,43%{transform:translate(0,0) rotate(0)}50%{transform:translate(-4px,-46px) rotate(-30deg);animation-timing-function:cubic-bezier(.2,.8,.4,1)}62%{transform:translate(3px,-56px) rotate(20deg);animation-timing-function:cubic-bezier(.7,0,1,.6)}72%{transform:translate(0,0) rotate(0)}75%{transform:translate(0,-7px) rotate(-5deg)}79%,100%{transform:translate(0,0) rotate(0)}}
+
+/* ---------- (1) ANVIL GAG: gulp · WHOOSH · BONK pancake · rubber pop-up · dizzy · shake it off ---------- */
+.play-anvil .bot{transform-origin:50% 94%;animation:lt-anvil-bot 3.8s linear both!important}
+@keyframes lt-anvil-bot{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 5%{transform:translate(0,0) rotate(-3deg) scale(.97,1.04)}
+ 10%,15%{transform:translate(0,2%) rotate(0) scale(1.05,.95)}
+ 17%{transform:translate(0,0) rotate(0) scale(1.62,.24)}
+ 20%{transform:translate(0,0) rotate(0) scale(1.48,.3)}
+ 23%{transform:translate(0,0) rotate(0) scale(1.58,.26)}
+ 26%,42%{transform:translate(0,0) rotate(0) scale(1.55,.27)}
+ 44%{transform:translate(0,0) rotate(0) scale(1.62,.24);animation-timing-function:cubic-bezier(.1,.9,.2,1)}
+ 49%{transform:translate(0,-18%) rotate(0) scale(.68,1.45)}
+ 55%{transform:translate(0,0) rotate(0) scale(1.18,.84)}
+ 60%{transform:translate(0,0) rotate(0) scale(.93,1.08)}
+ 65%{transform:translate(0,0) rotate(-6deg) scale(1.03,.97)}
+ 71%{transform:translate(0,0) rotate(6deg) scale(1,1)}
+ 77%{transform:translate(0,0) rotate(-5deg) scale(1,1)}
+ 83%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 85%{transform:translate(0,0) rotate(11deg) scale(1.04,.96)}
+ 87%{transform:translate(0,0) rotate(-11deg) scale(1.04,.96)}
+ 89%{transform:translate(0,0) rotate(9deg) scale(1,1)}
+ 91%{transform:translate(0,0) rotate(-7deg) scale(1,1)}
+ 93%{transform:translate(0,0) rotate(4deg) scale(1,1)}
+ 96%,100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+.play-anvil .anvil{animation:lt-anvil 3.8s linear both}
+@keyframes lt-anvil{
+ 0%,6%{opacity:0;transform:translate(0,-520%) rotate(0) scale(1,1)}
+ 7%{opacity:1;transform:translate(0,-520%) rotate(0) scale(.9,1.25);animation-timing-function:cubic-bezier(.6,0,1,.6)}
+ 17%{opacity:1;transform:translate(0,0) rotate(0) scale(1.12,.86)}
+ 19%{transform:translate(0,-10%) rotate(-3deg) scale(.97,1.03)}
+ 21%,42%{opacity:1;transform:translate(0,0) rotate(0) scale(1,1)}
+ 44%{opacity:1;transform:translate(0,-6%) rotate(-6deg) scale(1,1);animation-timing-function:cubic-bezier(.3,0,.8,.6)}
+ 56%{opacity:0;transform:translate(150%,70%) rotate(80deg) scale(1,1)}
+ 100%{opacity:0;transform:translate(150%,70%) rotate(80deg) scale(1,1)}}
+.play-anvil .dust{animation:lt-dust 3.8s linear both}
+@keyframes lt-dust{0%,16%{opacity:0;transform:scale(.3,.3)}18%{opacity:1;transform:scale(1,.9)}30%{opacity:.9;transform:scale(1.35,1.2) translateY(-8%)}40%,100%{opacity:0;transform:scale(1.5,1.3) translateY(-14%)}}
+.play-anvil .eyes,.play-anvil .mouth{animation:lt-hide-anvil 3.8s steps(1) both}
+@keyframes lt-hide-anvil{0%,16%{opacity:1}17%,83%{opacity:0}84%,100%{opacity:1}}
+.play-anvil .fx-bigeyes{animation:lt-show-anvil-eyes 3.8s steps(1) both}
+@keyframes lt-show-anvil-eyes{0%,4%{opacity:0}5%,16%{opacity:1}17%,100%{opacity:0}}
+.play-anvil .stalk{animation:lt-stalk-a 3.8s linear both}
+@keyframes lt-stalk-a{0%,4%{transform:scale(1,.1) rotate(0)}8%{transform:scale(1.2,1.4) rotate(0)}11%,16%{transform:scale(1,1) rotate(0)}}
+.play-anvil .pupil{animation:lt-pupil-up 3.8s linear both}
+@keyframes lt-pupil-up{0%,5%{transform:translate(0,0)}8%,16%{transform:translate(0,-6px)}}
+.play-anvil .fx-dizzy{animation:lt-show-dizzy 3.8s steps(1) both}
+@keyframes lt-show-dizzy{0%,16%{opacity:0}17%,83%{opacity:1}84%,100%{opacity:0}}
+.play-anvil .fx-orbit{animation:lt-show-orbit 3.8s steps(1) both}
+@keyframes lt-show-orbit{0%,48%{opacity:0}49%,86%{opacity:1}87%,100%{opacity:0}}
+.play-anvil .orb,.play-pratfall .orb{animation:lt-orbit .9s linear infinite}
+.o2{animation-delay:-.3s!important}.o3{animation-delay:-.6s!important}.o4{animation-delay:-.45s!important}
+@keyframes lt-orbit{
+ 0%{transform:translate(42px,0) scale(1)}12.5%{transform:translate(30px,8px) scale(1.15)}25%{transform:translate(0,11px) scale(1.3)}37.5%{transform:translate(-30px,8px) scale(1.15)}
+ 50%{transform:translate(-42px,0) scale(1)}62.5%{transform:translate(-30px,-8px) scale(.8)}75%{transform:translate(0,-11px) scale(.65)}87.5%{transform:translate(30px,-8px) scale(.8)}100%{transform:translate(42px,0) scale(1)}}
+.play-anvil .hat{animation:lt-hat-anvil 3.8s linear both}
+@keyframes lt-hat-anvil{0%,16%{transform:translate(0,0) rotate(0)}17%,44%{transform:translate(0,0) scale(1.3,.4)}49%{transform:translate(0,-26px) rotate(18deg)}58%{transform:translate(0,0) rotate(0)}100%{transform:none}}
+
+/* ---------- (3) PRATFALL: banana peel · WHOOPS · legs-up flop · BOING back up ---------- */
+.play-pratfall .bot{transform-origin:50% 55%;animation:lt-pratfall 3.6s linear both!important}
+@keyframes lt-pratfall{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 6%{transform:translate(-3%,0) rotate(5deg) scale(1,1)}
+ 12%{transform:translate(2%,0) rotate(-4deg) scale(1,1)}
+ 16%{transform:translate(4%,2%) rotate(-12deg) scale(1.06,.95);animation-timing-function:cubic-bezier(.1,.8,.3,1)}
+ 22%{transform:translate(-4%,-40%) rotate(-150deg) scale(.82,1.22)}
+ 28%{transform:translate(0,-26%) rotate(-185deg) scale(1,1);animation-timing-function:cubic-bezier(.6,0,1,.6)}
+ 32%{transform:translate(0,-8%) rotate(-180deg) scale(1.25,.72)}
+ 36%{transform:translate(0,-20%) rotate(-180deg) scale(.93,1.08)}
+ 40%{transform:translate(0,-14%) rotate(-180deg) scale(1.04,.96)}
+ 46%{transform:translate(0,-14%) rotate(-176deg) scale(1,1)}
+ 52%{transform:translate(0,-14%) rotate(-184deg) scale(1,1)}
+ 58%{transform:translate(0,-12%) rotate(-180deg) scale(1.1,.88);animation-timing-function:cubic-bezier(.1,.9,.2,1)}
+ 66%{transform:translate(0,-36%) rotate(-300deg) scale(.78,1.3)}
+ 74%{transform:translate(0,0) rotate(-360deg) scale(1.2,.82)}
+ 80%{transform:translate(0,-3%) rotate(-360deg) scale(.93,1.08)}
+ 86%{transform:translate(0,0) rotate(-360deg) scale(1.04,.97)}
+ 92%,100%{transform:translate(0,0) rotate(-360deg) scale(1,1)}}
+.play-pratfall .banana{animation:lt-banana 3.6s linear both}
+@keyframes lt-banana{0%{opacity:0;transform:translate(0,-60%) rotate(0)}5%{opacity:1;transform:translate(0,8%) rotate(0) scale(1.2,.8)}9%,15%{opacity:1;transform:translate(0,0) rotate(0)}24%{opacity:1;transform:translate(-80%,-160%) rotate(-260deg)}32%,100%{opacity:0;transform:translate(-120%,-60%) rotate(-400deg)}}
+.play-pratfall .fx-feet{animation:lt-feet 3.6s linear both}
+@keyframes lt-feet{0%,17%{opacity:0;transform:rotate(0)}18%{opacity:1}40%{opacity:1;transform:rotate(-8deg)}44%{transform:rotate(8deg)}48%{transform:rotate(-8deg)}52%{transform:rotate(8deg)}56%{transform:rotate(0)}66%{opacity:1}72%,100%{opacity:0}}
+.play-pratfall .eyes,.play-pratfall .mouth{animation:lt-hide-prat 3.6s steps(1) both}
+@keyframes lt-hide-prat{0%,15%{opacity:1}16%,73%{opacity:0}74%,100%{opacity:1}}
+.play-pratfall .fx-bigeyes{animation:lt-show-prat-eyes 3.6s steps(1) both}
+@keyframes lt-show-prat-eyes{0%,15%{opacity:0}16%,31%{opacity:1}32%,100%{opacity:0}}
+.play-pratfall .stalk{animation:lt-stalk-p 3.6s linear both}
+@keyframes lt-stalk-p{0%,15%{transform:scale(1,.1)}19%{transform:scale(1.25,1.5)}24%,31%{transform:scale(1,1)}}
+.play-pratfall .fx-jaw{animation:lt-show-prat-eyes 3.6s steps(1) both}
+.play-pratfall .fx-dizzy{animation:lt-show-prat-dizzy 3.6s steps(1) both}
+@keyframes lt-show-prat-dizzy{0%,31%{opacity:0}32%,73%{opacity:1}74%,100%{opacity:0}}
+.play-pratfall .fx-orbit{animation:lt-show-prat-dizzy 3.6s steps(1) both}
+.play-pratfall .arm-l{animation:lt-flail .18s linear infinite alternate}
+.play-pratfall .arm-r{animation:lt-flail-r .18s linear infinite alternate}
+@keyframes lt-flail{from{transform:rotate(-30deg)}to{transform:rotate(60deg)}}
+@keyframes lt-flail-r{from{transform:rotate(30deg)}to{transform:rotate(-60deg)}}
+
+/* ---------- cards: take / bonk / slip (short, then hold still so numbers stay readable) ---------- */
+.card.alert{animation:lt-cardtake 8s linear infinite}
+body.party .card.alert{animation:lt-cardtake 4s linear infinite}
+@keyframes lt-cardtake{0%{transform:translate(0,0) rotate(0) scale(1,1)}3%{transform:translate(0,6px) rotate(0) scale(1.04,.94)}6%{transform:translate(0,-16px) rotate(-1deg) scale(.97,1.05)}9%{transform:translate(0,0) rotate(0) scale(1.03,.97)}12%{transform:translate(0,-3px) rotate(.5deg) scale(.99,1.01)}15%,100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+.card.anvil,.card.pratfall{animation:lt-cardbonk 8s linear infinite;transform-origin:50% 100%}
+.card.pratfall{animation-name:lt-cardslip}
+@keyframes lt-cardbonk{0%,5%{transform:scale(1,1)}6%{transform:scale(1.05,.9)}8%{transform:scale(.98,1.03)}10%{transform:scale(1.01,.99)}12%,100%{transform:scale(1,1)}}
+@keyframes lt-cardslip{0%,4%{transform:translate(0,0) rotate(0)}7%{transform:translate(8px,-10px) rotate(-7deg)}10%{transform:translate(-4px,0) rotate(3deg)}13%{transform:translate(2px,0) rotate(-1deg)}16%,100%{transform:translate(0,0) rotate(0)}}
+.card-prop{position:absolute;z-index:5;pointer-events:none;top:-34px;left:48%;width:54px}
+.card.anvil .card-prop{animation:lt-cardanvil 8s linear infinite}
+@keyframes lt-cardanvil{0%{transform:translate(0,-200px);opacity:0}2%{opacity:1;animation-timing-function:cubic-bezier(.6,0,1,.6)}6%{transform:translate(0,0) scale(1.15,.85)}8%{transform:translate(0,-5px)}10%,100%{transform:translate(0,0);opacity:1}}
+.card.pratfall .card-prop{top:auto;bottom:-12px;left:auto;right:18px;width:40px;animation:lt-cardpeel 8s linear infinite}
+@keyframes lt-cardpeel{0%,4%{transform:rotate(0)}7%{transform:translate(20px,-24px) rotate(160deg)}12%,100%{transform:rotate(0)}}
+
+/* ---------- (5) PARTY: cartoon-physics chaos. bots bonk into their neighbours, spin-hop back, squash on landing ---------- */
+body.party .stations{--reach:44%}
+body.party .bot,body.party .station:nth-child(2n) .bot,body.party .station:nth-child(3) .bot,body.party .station:nth-child(5) .bot{transform-origin:50% 62%;animation:lt-bonk-r 2.4s linear infinite}
+body.party .station:nth-child(3n+2) .bot{animation-name:lt-bonk-mid}
+body.party .station:nth-child(3n) .bot{animation-name:lt-bonk-l;animation-delay:-1.2s}
+body.party .station:nth-child(n+4) .bot{animation-duration:2.8s}
+body.party .station:nth-child(6) .bot{animation-delay:-1.4s}
+body.party .bot-svg{animation:lt-partysquish .6s infinite}
+@keyframes lt-partysquish{0%,100%{transform:translate(0,0) scale(1.06,.93)}50%{transform:translate(0,-3px) scale(.95,1.06)}}
+@keyframes lt-bonk-r{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 7%{transform:translate(-6%,2%) rotate(-10deg) scale(1.1,.9);animation-timing-function:cubic-bezier(.5,0,.9,.5)}
+ 21%{transform:translate(var(--reach),-10%) rotate(12deg) scale(1.25,.85)}
+ 25%{transform:translate(calc(var(--reach) + 2%),0) rotate(0) scale(.7,1.16)}
+ 30%{transform:translate(calc(var(--reach) - 6%),-6%) rotate(-6deg) scale(1.14,.9);animation-timing-function:cubic-bezier(.2,.6,.4,1)}
+ 44%{transform:translate(10%,-34%) rotate(-200deg) scale(.85,1.2)}
+ 56%{transform:translate(0,0) rotate(-360deg) scale(1.28,.74)}
+ 62%{transform:translate(0,-6%) rotate(-360deg) scale(.9,1.14)}
+ 68%{transform:translate(0,0) rotate(-360deg) scale(1.05,.96)}
+ 76%{transform:translate(-4%,-16%) rotate(-372deg) scale(.95,1.08)}
+ 84%{transform:translate(0,0) rotate(-360deg) scale(1.14,.88)}
+ 92%{transform:translate(4%,-10%) rotate(-350deg) scale(.97,1.05)}
+ 100%{transform:translate(0,0) rotate(-360deg) scale(1,1)}}
+@keyframes lt-bonk-l{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 7%{transform:translate(6%,2%) rotate(10deg) scale(1.1,.9);animation-timing-function:cubic-bezier(.5,0,.9,.5)}
+ 21%{transform:translate(calc(var(--reach) * -1),-10%) rotate(-12deg) scale(1.25,.85)}
+ 25%{transform:translate(calc(var(--reach) * -1 - 2%),0) rotate(0) scale(.7,1.16)}
+ 30%{transform:translate(calc(var(--reach) * -1 + 6%),-6%) rotate(6deg) scale(1.14,.9);animation-timing-function:cubic-bezier(.2,.6,.4,1)}
+ 44%{transform:translate(-10%,-34%) rotate(200deg) scale(.85,1.2)}
+ 56%{transform:translate(0,0) rotate(360deg) scale(1.28,.74)}
+ 62%{transform:translate(0,-6%) rotate(360deg) scale(.9,1.14)}
+ 68%{transform:translate(0,0) rotate(360deg) scale(1.05,.96)}
+ 76%{transform:translate(4%,-16%) rotate(372deg) scale(.95,1.08)}
+ 84%{transform:translate(0,0) rotate(360deg) scale(1.14,.88)}
+ 92%{transform:translate(-4%,-10%) rotate(350deg) scale(.97,1.05)}
+ 100%{transform:translate(0,0) rotate(360deg) scale(1,1)}}
+@keyframes lt-bonk-mid{
+ 0%{transform:translate(0,0) rotate(0) scale(1,1)}
+ 7%{transform:translate(6%,2%) rotate(10deg) scale(1.1,.9);animation-timing-function:cubic-bezier(.5,0,.9,.5)}
+ 21%{transform:translate(calc(var(--reach) * -1),-10%) rotate(-12deg) scale(1.25,.85)}
+ 25%{transform:translate(calc(var(--reach) * -1 - 2%),0) rotate(0) scale(.7,1.16)}
+ 30%{transform:translate(calc(var(--reach) * -1 + 6%),-6%) rotate(6deg) scale(1.14,.9);animation-timing-function:cubic-bezier(.2,.6,.4,1)}
+ 40%{transform:translate(0,-26%) rotate(180deg) scale(.85,1.2)}
+ 50%{transform:translate(0,0) rotate(360deg) scale(1.2,.8)}
+ 57%{transform:translate(-6%,2%) rotate(350deg) scale(1.1,.9);animation-timing-function:cubic-bezier(.5,0,.9,.5)}
+ 71%{transform:translate(var(--reach),-10%) rotate(372deg) scale(1.25,.85)}
+ 75%{transform:translate(calc(var(--reach) + 2%),0) rotate(360deg) scale(.7,1.16)}
+ 80%{transform:translate(calc(var(--reach) - 6%),-6%) rotate(354deg) scale(1.14,.9);animation-timing-function:cubic-bezier(.2,.6,.4,1)}
+ 90%{transform:translate(0,-26%) rotate(180deg) scale(.85,1.2)}
+ 100%{transform:translate(0,0) rotate(0) scale(1,1)}}
+body.party .gfx .speed{animation:lt-speed 2.4s linear infinite}
+body.party .station:nth-child(3n+2) .gfx .speed{animation-name:lt-speed-mid}
+body.party .station:nth-child(3n) .gfx .speed{animation-delay:-1.2s}
+body.party .station:nth-child(n+4) .gfx .speed{animation-duration:2.8s}
+body.party .station:nth-child(6) .gfx .speed{animation-delay:-1.4s}
+@keyframes lt-speed{0%,10%{opacity:0}16%,22%{opacity:.8}26%,36%{opacity:0}40%,50%{opacity:.6}56%,100%{opacity:0}}
+@keyframes lt-speed-mid{0%,10%{opacity:0}16%,22%{opacity:.8}26%,32%{opacity:0}36%,44%{opacity:.6}48%,60%{opacity:0}66%,72%{opacity:.8}76%,84%{opacity:0}86%,94%{opacity:.6}98%,100%{opacity:0}}
+/* rubber-hose arms */
+body.party .arm-l{animation:lt-hose-l .42s cubic-bezier(.3,1.6,.5,1) infinite alternate}
+body.party .arm-r{animation:lt-hose-r .42s cubic-bezier(.3,1.6,.5,1) infinite alternate}
+body.party .station:nth-child(2n) .arm-l,body.party .station:nth-child(2n) .arm-r{animation-duration:.36s}
+@keyframes lt-hose-l{from{transform:rotate(-25deg) scale(1,1)}to{transform:rotate(80deg) scale(1.3,1.15)}}
+@keyframes lt-hose-r{from{transform:rotate(20deg) scale(1,1)}to{transform:rotate(-75deg) scale(1.3,1.15)}}
+/* party faces: open grin + waggling tongue; starry eyes on every other bot */
+body.party .mouth{opacity:0}
+body.party .fx-grin{opacity:1;animation:lt-grin .6s infinite}
+body.party .tongue{transform-origin:50% 0;animation:lt-tongue .3s infinite alternate}
+@keyframes lt-grin{0%,100%{transform:scale(1,1)}50%{transform:scale(1.08,.8)}}
+@keyframes lt-tongue{from{transform:rotate(-14deg)}to{transform:rotate(14deg) scale(1,1.15)}}
+body.party .station:nth-child(2n) .eyes,body.party .mini-bot .eyes{opacity:0}
+body.party .station:nth-child(2n) .fx-stars,body.party .mini-bot .fx-stars{opacity:1}
+body.party .fx-stars polygon{animation:lt-starpulse .5s infinite alternate}
+@keyframes lt-starpulse{from{transform:scale(.8) rotate(-12deg)}to{transform:scale(1.25) rotate(12deg)}}
+body.party .hat{animation:lt-hatbop .6s infinite}
+@keyframes lt-hatbop{0%,60%,100%{transform:translate(0,0) rotate(0)}30%{transform:translate(0,-10px) rotate(-10deg)}}
+/* during a gag in party mode the gag face wins */
+body.party .play-anvil .fx-grin,body.party .play-pratfall .fx-grin,body.party .play-take .fx-grin,body.party .play-double .fx-grin,
+body.party [class*=play-] .fx-stars{opacity:0}
+body.party [class*=play-] .gfx .speed{opacity:0;animation:none}
+@media (max-width:1000px){body.party .stations{--reach:0%}}
+@media (max-width:760px){.gfx{height:124px}.burst{font-size:15px;padding:9px 12px;-webkit-text-stroke:1.5px var(--ink)}}
+
+/* ---------- reduced motion: no flying anvils/pratfalls; faces + bursts still show, statically ---------- */
+@media (prefers-reduced-motion:reduce){
+ .bot-svg,.eyes,.hat,.stalk,.pupil,body.party .bot,body.party .bot-svg,body.party .arm-l,body.party .arm-r,body.party .tongue,body.party .fx-grin,body.party .fx-stars polygon,body.party .hat,.card.alert,.card.anvil,.card.pratfall,.card-prop{animation:none!important}
+ [class*=play-] .bot,[class*=play-] .fx-feet,[class*=play-] .arm-l,[class*=play-] .arm-r,.gfx .anvil,.gfx .banana,.gfx .dust,.gfx .speed,.orb{animation:none!important;opacity:0!important}
+ [class*=play-] .fx{opacity:0!important}
+ .burst{animation:lt-fade 1.6s var(--d,0s) both!important;transform:none}
+ @keyframes lt-fade{0%{opacity:0}10%,80%{opacity:1}100%{opacity:0}}
+}
+
+.rt-note{background:#fff;border:3px dashed var(--ink);border-radius:16px;padding:8px 14px;font-size:14px;font-weight:500;margin:10px 0}
+.rt-note.warn{background:#fff3d1}
+.stb{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:13px;padding:3px 11px;border-radius:999px;border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);white-space:nowrap;background:#eee}
+.s-breakout-confirmed{background:#7dff8a}.s-breakout-weak-volume{background:#fff36b}.s-extended{background:#ffb347}
+.s-near-pivot{background:#8fe3ff}.s-below-pivot{background:#e2dcff}.s-stop-breached{background:#ff8f8f}.s-failed-breakout{background:#ff9ecf}
+.s-data-unavailable{background:#ddd}.s-flag{background:#ffe0e0}
+.card .head.h-breakout-confirmed{--c:#9dffb0}.card .head.h-breakout-weak-volume{--c:#fff36b}.card .head.h-extended{--c:#ffc58f}
+.card .head.h-near-pivot{--c:#8fe3ff}.card .head.h-below-pivot{--c:#c9b6ff}.card .head.h-stop-breached{--c:#ff8f8f}
+.card .head.h-failed-breakout{--c:#ff9ecf}.card .head.h-data-unavailable{--c:#ddd}
+.card .head .stb{margin-top:8px}
+.card .co{padding-right:0}
+.ladder{position:relative;height:30px;margin:10px 6px 22px;border:3px solid var(--ink);border-radius:999px;
+background:linear-gradient(90deg,#ffb3b3 0 var(--sp),#e9e6ff var(--sp) var(--pp),#b9ffc6 var(--pp) var(--tp),#ffd9a8 var(--tp) 100%)}
+.ladder .mk{position:absolute;top:-6px;bottom:-6px;width:4px;background:var(--ink);border-radius:2px}
+.ladder .mk small{position:absolute;top:34px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:700;white-space:nowrap}
+.ladder .dot{position:absolute;top:50%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:var(--pink);border:3px solid var(--ink);z-index:2}
+.hist{list-style:none;margin:6px 0 0;padding:0;font-size:13px}
+.hist li{padding:3px 0;border-top:2px dotted #c9c3e6}
+.hist li b{font-weight:700}
+.muted{opacity:.7}
+.card .detail-line{font-size:13.5px;font-weight:600;margin:0 0 6px}
+.nums.two-row{grid-template-columns:repeat(4,1fr)}
+.sig{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;background:#fff;border:3px solid var(--ink);border-radius:16px;padding:9px 12px;margin:10px 0;box-shadow:3px 3px 0 var(--ink);font-size:14.5px}
+.sig.bullish{background:#e3ffe9}.sig.bearish{background:#ffe8e8}.sig.watch{background:#fff6d6}.sig.info{background:#eef6ff}
+.sig .tkb{font-weight:700;font-size:18px;background:var(--ink);color:#fff;border-radius:10px;padding:1px 9px}
+.sig .ty{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.6px;opacity:.8;display:block}
+table.mini{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;margin:8px 0}
+table.mini th,table.mini td{border:2.5px solid var(--ink);padding:4px 7px;text-align:left;vertical-align:top}
+table.mini th{background:var(--sun);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+table.mini td.r,table.mini th.r{text-align:right}
+table.mini tr.buy td{background:#e3ffe9}table.mini tr.sell td{background:#fff3f3}
+.tkpanel h3{font-size:26px;margin:0 0 4px}.tkpanel h3 small{font-size:15px;opacity:.7;font-weight:500}
+.chips.tight{gap:8px;margin:8px 0}.chip.g{background:#e3ffe9}.chip.r{background:#ffe8e8}.chip.y{background:#fff6d6}
+details summary{cursor:pointer;font-weight:700;margin:6px 0}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:10px 0}
+.stat{background:#fff;border:3px solid var(--ink);border-radius:16px;padding:8px 10px;text-align:center;box-shadow:3px 3px 0 var(--ink)}
+.stat small{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.stat b{font-size:24px}
+.pos{color:#138a4a;font-weight:700}.neg{color:#d0103a;font-weight:700}
+.agent{background:var(--paper);border:4px solid var(--ink);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px;margin:20px 0}
+.agent h3{margin:0 0 4px;font-size:24px}
+.banner-note{background:var(--sun);border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:12px 18px;font-weight:700;font-size:17px;transform:rotate(-.6deg);margin:10px 0 18px}
+@media (max-width:760px){.nums.two-row{grid-template-columns:repeat(2,1fr)}table.mini{font-size:12px}}
+
+.rs-stamp{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:10px 16px;margin:8px 0 12px}
+.rs-stamp b.upd{background:var(--sun);border:3px solid var(--ink);border-radius:999px;padding:3px 12px;font-size:15px}
+.rs-stamp .span{font-weight:700;font-size:18px}
+.bigsec{font-family:'Baloo 2',Fredoka,system-ui;font-size:34px;margin:30px 0 4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.bigsec small{font-size:15px;font-weight:600;opacity:.7}
+.idx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px;margin:10px 0}
+.idx{background:#fff;border:3px solid var(--ink);border-radius:18px;box-shadow:3px 3px 0 var(--ink);padding:8px 12px}
+.idx small{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;opacity:.7}
+.idx b.v{font-size:26px;display:block}.idx .c{font-size:13px;font-weight:600}
+.idx.up{background:#e3ffe9}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:center}
+.filters button{font:inherit;font-weight:700;font-size:14px;background:#fff;color:var(--ink);border:3px solid var(--ink);border-radius:999px;padding:4px 12px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
+.filters button.on{background:var(--sun);transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink)}
+.filters input{font:inherit;font-size:14px;border:3px solid var(--ink);border-radius:999px;padding:4px 12px;width:130px}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px}
+table.mini th.sort{cursor:pointer;user-select:none;white-space:nowrap}
+table.mini th.sort:after{content:" ⇅";opacity:.45}
+table.mini th.sort.asc:after{content:" ▲";opacity:1}table.mini th.sort.desc:after{content:" ▼";opacity:1}
+table.mini td.tkc b{font-size:15px}
+.rsb{display:inline-block;min-width:34px;text-align:center;font-weight:700;border:2.5px solid var(--ink);border-radius:10px;padding:0 5px;background:#c8ffd2}
+.rsb.r99{background:#7dff8a}.rsb.lo{background:#ffe8a3}.rsb.bad{background:#ffd0d0}
+.tt{font-weight:700;font-size:12px;border:2px solid var(--ink);border-radius:8px;padding:0 6px;white-space:nowrap}
+.tt.y{background:#7dff8a}.tt.n{background:#eee}
+.sh{font-size:11px;font-weight:700;background:#e9e4ff;border:2px solid var(--ink);border-radius:6px;padding:0 4px;margin-left:4px}
+tr.mine td{background:#fff6d6}
+.hide{display:none!important}
+.mob{display:none}
+.arw{display:inline-block;min-width:44px;text-align:center;font-weight:700;font-size:12.5px;border:2px solid var(--ink);border-radius:8px;padding:0 5px;white-space:nowrap}
+.arw.up{background:#7dff8a}.arw.dn{background:#ffb3b3}.arw.eq{background:#eee}.arw.nw{background:var(--sun)}
+.flag{font-size:11px;font-weight:700;background:#ff9ecf;border:2px solid var(--ink);border-radius:6px;padding:0 5px;white-space:nowrap}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.two .panel{margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chip{display:inline-block;background:#fff;border:2.5px solid var(--ink);border-radius:999px;padding:2px 10px;font-weight:700;font-size:13.5px;box-shadow:2px 2px 0 var(--ink)}
+.chip.today{background:var(--sun)}.chip.out{background:#ffe0e0}
+.chip small{font-weight:600;opacity:.75}
+details.more summary{cursor:pointer;font-weight:700}
+@media (max-width:760px){.two{grid-template-columns:1fr}table.mini{font-size:11.5px}table.mini th,table.mini td{padding:3px 3px}table.mini th{font-size:10px;letter-spacing:0}.arw{min-width:0;font-size:11px;padding:0 3px}.rsb{min-width:24px;padding:0 3px}.tt{font-size:10.5px;padding:0 3px}.sh{font-size:9.5px;padding:0 2px}td.tkc b{font-size:13px!important}.panel{padding:10px 6px}.wrap{padding:10px 8px 40px}.dsk{display:none}.mob{display:inline}table.mini th.sort{white-space:normal}table.mini th.sort:not(.asc):not(.desc):after{content:""}}
+.back{display:inline-block;margin:6px 0 0;font-weight:700;color:var(--ink);background:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 14px;box-shadow:3px 3px 0 var(--ink);text-decoration:none}
+@media (max-width:760px){.bigsec{font-size:25px}.idx b.v{font-size:21px}.rs-stamp .span{font-size:15px}table.mini{font-size:12px}table.mini th,table.mini td{padding:3px 4px}.hm{display:none}}
+
+.pulse{border:4px solid var(--ink);border-radius:20px;box-shadow:5px 5px 0 var(--ink);padding:10px 16px;margin:8px 0 14px}
+.pulse.aggressive{background:#9dffb0}.pulse.cautious{background:#fff36b}.pulse.defensive{background:#ff9e9e}.pulse.unavailable{background:#ddd}
+.pulse .rg{font-family:'Baloo 2',Fredoka,system-ui;font-size:26px;font-weight:700}
+.pulse .ix{display:inline-block;margin:6px 14px 0 0;font-size:13.5px;vertical-align:top}
+.pulse .ix b{font-size:15px}.pulse .ok{color:#0a6b2a;font-weight:700}.pulse .no{color:#a3001b;font-weight:700}
+.pulse ul{margin:2px 0 0;padding-left:0;list-style:none}
+@media (max-width:760px){.pulse .rg{font-size:21px}.pulse .ix{font-size:12px;margin-right:8px}}
+
+.st{display:inline-block;font-weight:700;font-size:12px;border:2px solid var(--ink);border-radius:8px;padding:0 6px;white-space:nowrap}
+.st.trig{background:#7dff8a}.st.coil{background:#8fe3ff}.st.base{background:#e2dcff}.st.pend{background:#ffe8a3}.st.none{background:#eee}
+.dep{white-space:nowrap;font-size:12.5px}
+.why{font-size:12px}
+.pend-box{background:#fff8dc;border:4px dashed var(--ink);border-radius:20px;padding:14px 18px;font-weight:600}
+.meth{font-size:13px;margin:8px 0 0;line-height:1.4}
+.also{font-size:10.5px;font-weight:700;background:#ffd9a8;border:2px solid var(--ink);border-radius:6px;padding:0 4px;margin-left:3px;white-space:nowrap}
+.szc{font-size:12px;white-space:nowrap}.ph{background:#ff9ecf;border:2px solid var(--ink);border-radius:6px;padding:0 5px;font-weight:700;font-size:12px}
+.cnt{display:inline-block;background:var(--sun);border:3px solid var(--ink);border-radius:999px;padding:0 10px;font-size:15px;margin-left:4px}
+@media (max-width:760px){.st{font-size:10.5px;padding:0 3px}.dep{font-size:11px}.why{font-size:10.5px}}
+</style></head>
+<body>
+<div class="wrap">
+<header class="topbar"><a class="logo" href="index.html"><div class="mark">🤖</div><div><h1>Minervini <span>Desk</span></h1>
+<div class="sub">SEPA research floor · six bots, zero sleep</div></div></a><nav class="pills"><a href="index.html" class="">🏠 Floor</a><a href="reports/latest.html" class="">📰 Today's report</a><a href="watchlist.html" class="">👀 Watchlist</a><a href="alerts.html" class="">🚨 Alerts</a><a href="insiders.html" class="">🕵️ Insiders</a><a href="scorecard.html" class="">🏆 Scorecard</a><a href="weekly.html" class="">🗓️ Weekly</a><a href="charts/index.html" class="">🕹️ Charts</a><a href="rs.html" class="">📈 RS Leaders</a><a href="setups.html" class="on">🎯 Setups</a></nav></header>
+<a class="back" href="index.html">← Back to the Floor</a>
+<div class="pulse cautious"><span class="rg">🟡 Market pulse: CAUTIOUS</span> <small>Trend Template on SPY &amp; QQQ · US close Fri 25 Sep · both pass = aggressive, one = cautious, neither = defensive</small><div><div class="ix"><b>SPY FAIL</b> 5/6 · 771.35 (-0.8% vs 52-wk high)<ul><li><span class="ok">✓</span> close &gt; 50-day</li><li><span class="ok">✓</span> 50-day &gt; 150-day</li><li><span class="ok">✓</span> 150-day &gt; 200-day</li><li><span class="ok">✓</span> 200-day rising (vs 21 sessions ago)</li><li><span class="no">✗</span> ≥ 30% above 52-wk low</li><li><span class="ok">✓</span> within 25% of 52-wk high</li></ul></div><div class="ix"><b>QQQ PASS</b> 6/6 · 744.50 (-0.4% vs 52-wk high)<ul><li><span class="ok">✓</span> close &gt; 50-day</li><li><span class="ok">✓</span> 50-day &gt; 150-day</li><li><span class="ok">✓</span> 150-day &gt; 200-day</li><li><span class="ok">✓</span> 200-day rising (vs 21 sessions ago)</li><li><span class="ok">✓</span> ≥ 30% above 52-wk low</li><li><span class="ok">✓</span> within 25% of 52-wk high</li></ul></div></div></div>
+<div class="rs-stamp"><span class="span">🎯 Setup scanners · US close Fri 25 Sep 2026</span><b class="upd">research, not advice</b></div>
+<div class="banner-note">Three specialist detectors scan the 2,751-stock RS universe every morning. Each has its own rules and thresholds (listed under each table). Tap a column header to sort.</div>
+<div class="idx-grid"><div class="idx up"><small>VCP triggered</small><b class="v">0</b><span class="c">last 3 sessions</span></div><div class="idx"><small>VCP coiling</small><b class="v">38</b><span class="c">tight, near pivot</span></div><div class="idx up"><small>Power play breakout</small><b class="v">1</b><span class="c">last 3 sessions</span></div><div class="idx"><small>Power play base</small><b class="v">1</b><span class="c">forming</span></div><div class="idx up"><small>HTF breakout</small><b class="v">0</b><span class="c">1 flag forming</span></div><div class="idx up"><small>Flat base breakout</small><b class="v">4</b><span class="c">56 base forming</span></div><div class="idx"><small>SEPA</small><b class="v">—</b><span class="c">rules pending</span></div></div>
+<h2 class="bigsec">💰 Today's triggers &amp; sizing <small>every detector · ATR stop vs structure stop</small><span class="cnt">5</span></h2><div class="panel"><p class="meth" style="margin-top:0"><b>Account $100,000</b> <span class="ph">placeholder - set your account size</span> · risk 0.75% per trade (hard cap 1%) = $750 · ATR stop = entry − 2×ATR(14, Wilder) · structure stop = the detector's own stop. Entry = trigger-day close. Config: research-tools/sizing_config.json.</p><div class="tscroll"><table class="mini sortable" id="trg"><thead><tr><th class="sort" data-k="tk" data-t="s">Ticker</th><th class="sort r" data-k="rs" data-t="n">RS</th><th class="sort r" data-k="en" data-t="n">Entry</th><th class="">ATR</th><th class="">ATR stop</th><th class="sort r" data-k="as" data-t="n">Sh (ATR)</th><th class="">Struct stop</th><th class="sort r" data-k="ss" data-t="n">Sh (struct)</th><th class="">$ risk ATR / struct</th><th class="">Position $ ATR / struct</th></tr></thead><tbody><tr data-tk="QMCO" data-rs="99" data-en="29.49" data-as="158" data-ss="138"><td class="tkc"><b>QMCO</b><br><small>power play · 09-24</small></td><td><span class="rsb r99">99</span></td><td class="r">29.49</td><td class="r">2.36<br><small>8.0%</small></td><td class="r">24.77<br><small>−16.0%</small></td><td class="r"><b>158</b></td><td class="r">24.06<br><small>−18.4%</small></td><td class="r"><b>138</b></td><td class="r">$746<br>$749</td><td class="r">$4,659<br>$4,070</td></tr><tr data-tk="KRT" data-rs="97" data-en="53.05" data-as="206" data-ss="161"><td class="tkc"><b>KRT</b><br><small>flat base · 09-23</small></td><td><span class="rsb r99">97</span></td><td class="r">53.05</td><td class="r">1.81<br><small>3.4%</small></td><td class="r">49.42<br><small>−6.8%</small></td><td class="r"><b>206</b></td><td class="r">48.41<br><small>−8.7%</small></td><td class="r"><b>161</b></td><td class="r">$747<br>$747</td><td class="r">$10,928<br>$8,541</td></tr><tr data-tk="AVT" data-rs="93" data-en="101.15" data-as="100" data-ss="67"><td class="tkc"><b>AVT</b><br><small>flat base · 09-23</small></td><td><span class="rsb ">93</span></td><td class="r">101.15</td><td class="r">3.73<br><small>3.7%</small></td><td class="r">93.68<br><small>−7.4%</small></td><td class="r"><b>100</b></td><td class="r">89.99<br><small>−11.0%</small></td><td class="r"><b>67</b></td><td class="r">$747<br>$748</td><td class="r">$10,115<br>$6,777</td></tr><tr data-tk="TBBB" data-rs="92" data-en="53.56" data-as="228" data-ss="195"><td class="tkc"><b>TBBB</b><br><small>flat base · 09-25</small></td><td><span class="rsb ">92</span></td><td class="r">53.56</td><td class="r">1.64<br><small>3.1%</small></td><td class="r">50.28<br><small>−6.1%</small></td><td class="r"><b>228</b></td><td class="r">49.73<br><small>−7.2%</small></td><td class="r"><b>195</b></td><td class="r">$749<br>$747</td><td class="r">$12,212<br>$10,444</td></tr><tr data-tk="BIIB" data-rs="78" data-en="227.53" data-as="63" data-ss="49"><td class="tkc"><b>BIIB</b><br><small>flat base · 09-23</small></td><td><span class="rsb lo">78</span></td><td class="r">227.53</td><td class="r">5.94<br><small>2.6%</small></td><td class="r">215.65<br><small>−5.2%</small></td><td class="r"><b>63</b></td><td class="r">212.44<br><small>−6.6%</small></td><td class="r"><b>49</b></td><td class="r">$748<br>$739</td><td class="r">$14,334<br>$11,149</td></tr></tbody></table></div></div>
+<h2 class="bigsec">🌀 VCP <small>triggered first, then coiling</small><span class="cnt">0 + 38</span></h2><div class="panel"><div class="tscroll"><table class="mini sortable" id="vcp"><thead><tr><th class="sort r" data-k="st" data-t="n">Status</th><th class="sort" data-k="tk" data-t="s">Ticker</th><th class="sort r" data-k="rs" data-t="n">RS</th><th class="sort r" data-k="n" data-t="n">#</th><th class="sort r" data-k="d1" data-t="n">Pullbacks %</th><th class="sort r hm" data-k="tr" data-t="n">Tight</th><th class="sort r hm" data-k="v10" data-t="n">Volume (pullback avg ÷ 50d)</th><th class="sort r" data-k="pv" data-t="n">Pivot</th><th class="sort r hm" data-k="px" data-t="n">Close</th><th class="sort r" data-k="vs" data-t="n">vs pivot</th><th class="sort r" data-k="sp" data-t="n">Stop</th><th class="sort r hm" data-k="bw" data-t="n">Base wks</th><th class="hm">Size (triggers)</th></tr></thead><tbody><tr data-st="1" data-tk="MTRN" data-rs="93" data-n="3" data-d1="25.9" data-tr="7.5" data-v10="0.78" data-pv="267.22" data-px="264.96" data-vs="-0.8" data-sp="244.78" data-rk="8.4" data-bw="7.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>MTRN</b></td><td><span class="rsb ">93</span></td><td class="r">3</td><td class="dep">25.9 / 13 / 10.1</td><td class="r hm">7.5%</td><td class="hm why">↘ 1.19 → 0.72 → 0.92× <span style="opacity:.7">10d/50d 0.78</span></td><td class="r">267.22</td><td class="r hm">264.96</td><td class="r">-0.8%</td><td class="r">244.78<br><small>−8.4%</small></td><td class="r hm">7.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NIQ" data-rs="93" data-n="3" data-d1="11.1" data-tr="5.2" data-v10="0.79" data-pv="18.59" data-px="17.83" data-vs="-4.1" data-sp="17.45" data-rk="6.1" data-bw="4.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>NIQ</b><span class="also">+power play</span><span class="also">+HTF</span></td><td><span class="rsb ">93</span></td><td class="r">3</td><td class="dep">11.1 / 7.3 / 5.2</td><td class="r hm">5.2%</td><td class="hm why">↘ 0.69 → 0.74 → 0.65× <span style="opacity:.7">10d/50d 0.79</span></td><td class="r">18.59</td><td class="r hm">17.83</td><td class="r">-4.1%</td><td class="r">17.45<br><small>−6.1%</small></td><td class="r hm">4.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NTAP" data-rs="93" data-n="2" data-d1="23.0" data-tr="6.4" data-v10="0.94" data-pv="203.91" data-px="201.15" data-vs="-1.4" data-sp="188.98" data-rk="7.3" data-bw="6.2"><td><span class="st coil">coiling</span></td><td class="tkc"><b>NTAP</b></td><td><span class="rsb ">93</span></td><td class="r">2</td><td class="dep">23 / 6.8</td><td class="r hm">6.4%</td><td class="hm why">↘ 1.09 → 0.93× <span style="opacity:.7">10d/50d 0.94</span></td><td class="r">203.91</td><td class="r hm">201.15</td><td class="r">-1.4%</td><td class="r">188.98<br><small>−7.3%</small></td><td class="r hm">6.2</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AMN" data-rs="92" data-n="3" data-d1="15.2" data-tr="4.5" data-v10="0.99" data-pv="35.56" data-px="34.56" data-vs="-2.8" data-sp="33.08" data-rk="7.0" data-bw="6.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>AMN</b><span class="also">+flat base</span></td><td><span class="rsb ">92</span></td><td class="r">3</td><td class="dep">15.2 / 10.8 / 6</td><td class="r hm">4.5%</td><td class="hm why">↘ 1.54 → 0.84 → 0.95× <span style="opacity:.7">10d/50d 0.99</span></td><td class="r">35.56</td><td class="r hm">34.56</td><td class="r">-2.8%</td><td class="r">33.08<br><small>−7.0%</small></td><td class="r hm">6.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="PLPC" data-rs="92" data-n="3" data-d1="23.9" data-tr="6.7" data-v10="0.8" data-pv="441.39" data-px="423.33" data-vs="-4.1" data-sp="407.53" data-rk="7.7" data-bw="6.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>PLPC</b><span class="also">+flat base</span></td><td><span class="rsb ">92</span></td><td class="r">3</td><td class="dep">23.9 / 8.8 / 5.6</td><td class="r hm">6.7%</td><td class="hm why">↘ 0.97 → 0.74 → 0.94× <span style="opacity:.7">10d/50d 0.80</span></td><td class="r">441.39</td><td class="r hm">423.33</td><td class="r">-4.1%</td><td class="r">407.53<br><small>−7.7%</small></td><td class="r hm">6.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SNOW" data-rs="92" data-n="2" data-d1="17.5" data-tr="5.9" data-v10="0.8" data-pv="348.61" data-px="335.94" data-vs="-3.6" data-sp="324.93" data-rk="6.8" data-bw="3.2"><td><span class="st coil">coiling</span></td><td class="tkc"><b>SNOW</b></td><td><span class="rsb ">92</span></td><td class="r">2</td><td class="dep">17.5 / 5.9</td><td class="r hm">5.9%</td><td class="hm why">↘ 1.36 → 0.69× <span style="opacity:.7">10d/50d 0.80</span></td><td class="r">348.61</td><td class="r hm">335.94</td><td class="r">-3.6%</td><td class="r">324.93<br><small>−6.8%</small></td><td class="r hm">3.2</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ZBRA" data-rs="91" data-n="2" data-d1="12.9" data-tr="7.6" data-v10="0.89" data-pv="374.94" data-px="370.04" data-vs="-1.3" data-sp="342.97" data-rk="8.5" data-bw="6.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>ZBRA</b><span class="also">+flat base</span></td><td><span class="rsb ">91</span></td><td class="r">2</td><td class="dep">12.9 / 5.1</td><td class="r hm">7.6%</td><td class="hm why">↘ 0.82 → 0.76× <span style="opacity:.7">10d/50d 0.89</span></td><td class="r">374.94</td><td class="r hm">370.04</td><td class="r">-1.3%</td><td class="r">342.97<br><small>−8.5%</small></td><td class="r hm">6.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ANET" data-rs="90" data-n="2" data-d1="15.6" data-tr="6.2" data-v10="0.87" data-pv="212" data-px="206.55" data-vs="-2.6" data-sp="196.77" data-rk="7.2" data-bw="7.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>ANET</b><span class="also">+flat base</span></td><td><span class="rsb ">90</span></td><td class="r">2</td><td class="dep">15.6 / 7.3</td><td class="r hm">6.2%</td><td class="hm why">↘ 1.05 → 0.69× <span style="opacity:.7">10d/50d 0.87</span></td><td class="r">212.00</td><td class="r hm">206.55</td><td class="r">-2.6%</td><td class="r">196.77<br><small>−7.2%</small></td><td class="r hm">7.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TIGO" data-rs="88" data-n="2" data-d1="19.6" data-tr="6.5" data-v10="0.7" data-pv="97.2" data-px="92.63" data-vs="-4.7" data-sp="89.2" data-rk="8.2" data-bw="7.2"><td><span class="st coil">coiling</span></td><td class="tkc"><b>TIGO</b></td><td><span class="rsb ">88</span></td><td class="r">2</td><td class="dep">19.6 / 7.3</td><td class="r hm">6.5%</td><td class="hm why">↘ 1.36 → 0.66× <span style="opacity:.7">10d/50d 0.70</span></td><td class="r">97.20</td><td class="r hm">92.63</td><td class="r">-4.7%</td><td class="r">89.20<br><small>−8.2%</small></td><td class="r hm">7.2</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="FCX" data-rs="87" data-n="2" data-d1="16.5" data-tr="5.5" data-v10="0.75" data-pv="74.9" data-px="72.31" data-vs="-3.5" data-sp="70.1" data-rk="6.4" data-bw="4.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>FCX</b></td><td><span class="rsb ">87</span></td><td class="r">2</td><td class="dep">16.5 / 5.2</td><td class="r hm">5.5%</td><td class="hm why">↘ 1.03 → 0.66× <span style="opacity:.7">10d/50d 0.75</span></td><td class="r">74.90</td><td class="r hm">72.31</td><td class="r">-3.5%</td><td class="r">70.10<br><small>−6.4%</small></td><td class="r hm">4.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SCCO" data-rs="87" data-n="2" data-d1="16.9" data-tr="7.1" data-v10="0.84" data-pv="208.0" data-px="203.92" data-vs="-2.0" data-sp="191.35" data-rk="8.0" data-bw="4.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>SCCO</b></td><td><span class="rsb ">87</span></td><td class="r">2</td><td class="dep">16.9 / 5.2</td><td class="r hm">7.1%</td><td class="hm why">↘ 1.02 → 0.88× <span style="opacity:.7">10d/50d 0.84</span></td><td class="r">208.00</td><td class="r hm">203.92</td><td class="r">-2.0%</td><td class="r">191.35<br><small>−8.0%</small></td><td class="r hm">4.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="FNKO" data-rs="86" data-n="2" data-d1="29.0" data-tr="7.6" data-v10="0.92" data-pv="5.68" data-px="5.5" data-vs="-3.2" data-sp="5.2" data-rk="8.5" data-bw="4.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>FNKO</b></td><td><span class="rsb ">86</span></td><td class="r">2</td><td class="dep">29 / 6.8</td><td class="r hm">7.6%</td><td class="hm why">↘ 1.13 → 1.05× <span style="opacity:.7">10d/50d 0.92</span></td><td class="r">5.68</td><td class="r hm">5.50</td><td class="r">-3.2%</td><td class="r">5.20<br><small>−8.5%</small></td><td class="r hm">4.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TECK" data-rs="85" data-n="2" data-d1="13.0" data-tr="7.5" data-v10="0.87" data-pv="69.38" data-px="66.05" data-vs="-4.8" data-sp="63.54" data-rk="8.4" data-bw="4.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>TECK</b></td><td><span class="rsb ">85</span></td><td class="r">2</td><td class="dep">13 / 7.5</td><td class="r hm">7.5%</td><td class="hm why">↘ 1.06 → 1.03× <span style="opacity:.7">10d/50d 0.87</span></td><td class="r">69.38</td><td class="r hm">66.05</td><td class="r">-4.8%</td><td class="r">63.54<br><small>−8.4%</small></td><td class="r hm">4.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NVT" data-rs="84" data-n="2" data-d1="18.9" data-tr="4.4" data-v10="0.9" data-pv="164.52" data-px="164.41" data-vs="-0.1" data-sp="155.67" data-rk="5.4" data-bw="5.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>NVT</b><span class="also">+flat base</span></td><td><span class="rsb ">84</span></td><td class="r">2</td><td class="dep">18.9 / 12.1</td><td class="r hm">4.4%</td><td class="hm why">↘ 1.23 → 1.05× <span style="opacity:.7">10d/50d 0.90</span></td><td class="r">164.52</td><td class="r hm">164.41</td><td class="r">-0.1%</td><td class="r">155.67<br><small>−5.4%</small></td><td class="r hm">5.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SCSC" data-rs="84" data-n="2" data-d1="20.0" data-tr="5.0" data-v10="0.93" data-pv="59.31" data-px="58.3" data-vs="-1.7" data-sp="55.77" data-rk="6.0" data-bw="5.2"><td><span class="st coil">coiling</span></td><td class="tkc"><b>SCSC</b><span class="also">+flat base</span></td><td><span class="rsb ">84</span></td><td class="r">2</td><td class="dep">20 / 7.3</td><td class="r hm">5.0%</td><td class="hm why">↘ 2.49 → 1.03× <span style="opacity:.7">10d/50d 0.93</span></td><td class="r">59.31</td><td class="r hm">58.30</td><td class="r">-1.7%</td><td class="r">55.77<br><small>−6.0%</small></td><td class="r hm">5.2</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="HURN" data-rs="82" data-n="3" data-d1="24.4" data-tr="4.2" data-v10="0.93" data-pv="165.37" data-px="157.98" data-vs="-4.5" data-sp="153.5" data-rk="7.2" data-bw="8.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>HURN</b></td><td><span class="rsb ">82</span></td><td class="r">3</td><td class="dep">24.4 / 16.6 / 12.8</td><td class="r hm">4.2%</td><td class="hm why">↘ 5.05 → 1.37 → 0.73× <span style="opacity:.7">10d/50d 0.93</span></td><td class="r">165.37</td><td class="r hm">157.98</td><td class="r">-4.5%</td><td class="r">153.50<br><small>−7.2%</small></td><td class="r hm">8.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="IESC" data-rs="82" data-n="3" data-d1="28.0" data-tr="6.0" data-v10="0.79" data-pv="341.08" data-px="324.13" data-vs="-5.0" data-sp="306.0" data-rk="10.3" data-bw="6.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>IESC</b></td><td><span class="rsb ">82</span></td><td class="r">3</td><td class="dep">28 / 11.3 / 9.4</td><td class="r hm">6.0%</td><td class="hm why">↘ 0.85 → 0.89 → 0.80× <span style="opacity:.7">10d/50d 0.79</span></td><td class="r">341.08</td><td class="r hm">324.13</td><td class="r">-5.0%</td><td class="r">306.00<br><small>−10.3%</small></td><td class="r hm">6.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AAPL" data-rs="80" data-n="2" data-d1="12.9" data-tr="3.6" data-v10="0.84" data-pv="345.34" data-px="341.07" data-vs="-1.2" data-sp="329.72" data-rk="4.5" data-bw="8.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>AAPL</b><span class="also">+flat base</span></td><td><span class="rsb ">80</span></td><td class="r">2</td><td class="dep">12.9 / 6.3</td><td class="r hm">3.6%</td><td class="hm why">↘ 1.88 → 0.95× <span style="opacity:.7">10d/50d 0.84</span></td><td class="r">345.34</td><td class="r hm">341.07</td><td class="r">-1.2%</td><td class="r">329.72<br><small>−4.5%</small></td><td class="r hm">8.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ADI" data-rs="79" data-n="3" data-d1="18.3" data-tr="6.3" data-v10="0.97" data-pv="395.92" data-px="393.6" data-vs="-0.6" data-sp="367.26" data-rk="7.2" data-bw="13.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>ADI</b></td><td><span class="rsb lo">79</span></td><td class="r">3</td><td class="dep">18.3 / 12.3 / 5.7</td><td class="r hm">6.3%</td><td class="hm why">↘ 1.25 → 1.07 → 0.88× <span style="opacity:.7">10d/50d 0.97</span></td><td class="r">395.92</td><td class="r hm">393.60</td><td class="r">-0.6%</td><td class="r">367.26<br><small>−7.2%</small></td><td class="r hm">13.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="PWR" data-rs="77" data-n="2" data-d1="18.1" data-tr="4.3" data-v10="0.83" data-pv="654.84" data-px="649.13" data-vs="-0.9" data-sp="620.15" data-rk="5.3" data-bw="5.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>PWR</b></td><td><span class="rsb lo">77</span></td><td class="r">2</td><td class="dep">18.1 / 7.1</td><td class="r hm">4.3%</td><td class="hm why">↘ 1.18 → 0.83× <span style="opacity:.7">10d/50d 0.83</span></td><td class="r">654.84</td><td class="r hm">649.13</td><td class="r">-0.9%</td><td class="r">620.15<br><small>−5.3%</small></td><td class="r hm">5.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="IBKR" data-rs="75" data-n="2" data-d1="14.0" data-tr="5.8" data-v10="0.96" data-pv="93.94" data-px="89.24" data-vs="-5.0" data-sp="87.64" data-rk="6.7" data-bw="4.6"><td><span class="st coil">coiling</span></td><td class="tkc"><b>IBKR</b></td><td><span class="rsb lo">75</span></td><td class="r">2</td><td class="dep">14 / 5.8</td><td class="r hm">5.8%</td><td class="hm why">↘ 0.87 → 0.86× <span style="opacity:.7">10d/50d 0.96</span></td><td class="r">93.94</td><td class="r hm">89.24</td><td class="r">-5.0%</td><td class="r">87.64<br><small>−6.7%</small></td><td class="r hm">4.6</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CAT" data-rs="73" data-n="3" data-d1="27.7" data-tr="4.1" data-v10="0.94" data-pv="830.5" data-px="821.58" data-vs="-1.1" data-sp="786.26" data-rk="5.3" data-bw="12.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>CAT</b></td><td><span class="rsb lo">73</span></td><td class="r">3</td><td class="dep">27.7 / 17.5 / 6.9</td><td class="r hm">4.1%</td><td class="hm why">↘ 1.13 → 0.99 → 0.77× <span style="opacity:.7">10d/50d 0.94</span></td><td class="r">830.50</td><td class="r hm">821.58</td><td class="r">-1.1%</td><td class="r">786.26<br><small>−5.3%</small></td><td class="r hm">12.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TS" data-rs="73" data-n="2" data-d1="11.5" data-tr="4.0" data-v10="0.86" data-pv="58.16" data-px="55.47" data-vs="-4.6" data-sp="54.22" data-rk="6.8" data-bw="9.2"><td><span class="st coil">coiling</span></td><td class="tkc"><b>TS</b></td><td><span class="rsb lo">73</span></td><td class="r">2</td><td class="dep">11.5 / 6.2</td><td class="r hm">4.0%</td><td class="hm why">↘ 1.22 → 0.81× <span style="opacity:.7">10d/50d 0.86</span></td><td class="r">58.16</td><td class="r hm">55.47</td><td class="r">-4.6%</td><td class="r">54.22<br><small>−6.8%</small></td><td class="r hm">9.2</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="IFS" data-rs="71" data-n="2" data-d1="13.4" data-tr="3.8" data-v10="0.94" data-pv="56.72" data-px="56.25" data-vs="-0.8" data-sp="54.04" data-rk="4.7" data-bw="10.6"><td><span class="st coil">coiling</span></td><td class="tkc"><b>IFS</b></td><td><span class="rsb lo">71</span></td><td class="r">2</td><td class="dep">13.4 / 5.4</td><td class="r hm">3.8%</td><td class="hm why">↘ 1.07 → 0.86× <span style="opacity:.7">10d/50d 0.94</span></td><td class="r">56.72</td><td class="r hm">56.25</td><td class="r">-0.8%</td><td class="r">54.04<br><small>−4.7%</small></td><td class="r hm">10.6</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="PSMT" data-rs="71" data-n="2" data-d1="17.1" data-tr="4.5" data-v10="0.96" data-pv="182.05" data-px="174.73" data-vs="-4.0" data-sp="166.38" data-rk="8.6" data-bw="11.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>PSMT</b></td><td><span class="rsb lo">71</span></td><td class="r">2</td><td class="dep">17.1 / 8.6</td><td class="r hm">4.5%</td><td class="hm why">↘ 1.25 → 0.91× <span style="opacity:.7">10d/50d 0.96</span></td><td class="r">182.05</td><td class="r hm">174.73</td><td class="r">-4.0%</td><td class="r">166.38<br><small>−8.6%</small></td><td class="r hm">11.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="QCRH" data-rs="67" data-n="2" data-d1="10.3" data-tr="2.8" data-v10="0.89" data-pv="103.86" data-px="100.92" data-vs="-2.8" data-sp="97.81" data-rk="5.8" data-bw="6.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>QCRH</b></td><td><span class="rsb lo">67</span></td><td class="r">2</td><td class="dep">10.3 / 6</td><td class="r hm">2.8%</td><td class="hm why">↘ 1.23 → 1.03× <span style="opacity:.7">10d/50d 0.89</span></td><td class="r">103.86</td><td class="r hm">100.92</td><td class="r">-2.8%</td><td class="r">97.81<br><small>−5.8%</small></td><td class="r hm">6.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ADEA" data-rs="66" data-n="4" data-d1="32.6" data-tr="5.9" data-v10="0.96" data-pv="25.93" data-px="25.48" data-vs="-1.7" data-sp="24.16" data-rk="6.8" data-bw="12.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>ADEA</b></td><td><span class="rsb lo">66</span></td><td class="r">4</td><td class="dep">32.6 / 25 / 11 / 5.9</td><td class="r hm">5.9%</td><td class="hm why">↘ 1.32 → 0.92 → 0.96 → 0.72× <span style="opacity:.7">10d/50d 0.96</span></td><td class="r">25.93</td><td class="r hm">25.48</td><td class="r">-1.7%</td><td class="r">24.16<br><small>−6.8%</small></td><td class="r hm">12.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CBRS" data-rs="66" data-n="3" data-d1="36.5" data-tr="7.6" data-v10="0.83" data-pv="213.21" data-px="206.75" data-vs="-3.0" data-sp="195.07" data-rk="8.5" data-bw="6.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>CBRS</b><span class=sh>new</span></td><td><span class="rsb lo">66</span></td><td class="r">3</td><td class="dep">36.5 / 20.2 / 7.6</td><td class="r hm">7.6%</td><td class="hm why">↘ 1.36 → 0.73 → 0.65× <span style="opacity:.7">10d/50d 0.83</span></td><td class="r">213.21</td><td class="r hm">206.75</td><td class="r">-3.0%</td><td class="r">195.07<br><small>−8.5%</small></td><td class="r hm">6.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="KODK" data-rs="65" data-n="3" data-d1="15.6" data-tr="5.2" data-v10="0.96" data-pv="9.89" data-px="9.51" data-vs="-3.8" data-sp="9.28" data-rk="6.2" data-bw="6.4"><td><span class="st coil">coiling</span></td><td class="tkc"><b>KODK</b></td><td><span class="rsb lo">65</span></td><td class="r">3</td><td class="dep">15.6 / 6.2 / 5.2</td><td class="r hm">5.2%</td><td class="hm why">↘ 0.98 → 0.93 → 0.70× <span style="opacity:.7">10d/50d 0.96</span></td><td class="r">9.89</td><td class="r hm">9.51</td><td class="r">-3.8%</td><td class="r">9.28<br><small>−6.2%</small></td><td class="r hm">6.4</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="URI" data-rs="65" data-n="2" data-d1="17.9" data-tr="4.8" data-v10="0.93" data-pv="1056.99" data-px="1047.06" data-vs="-0.9" data-sp="996.14" data-rk="5.8" data-bw="7.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>URI</b></td><td><span class="rsb lo">65</span></td><td class="r">2</td><td class="dep">17.9 / 8.1</td><td class="r hm">4.8%</td><td class="hm why">↘ 0.89 → 0.88× <span style="opacity:.7">10d/50d 0.93</span></td><td class="r">1,056.99</td><td class="r hm">1,047.06</td><td class="r">-0.9%</td><td class="r">996.14<br><small>−5.8%</small></td><td class="r hm">7.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="GRND" data-rs="63" data-n="3" data-d1="18.0" data-tr="5.6" data-v10="0.98" data-pv="16.3" data-px="15.77" data-vs="-3.2" data-sp="15.23" data-rk="6.6" data-bw="7.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>GRND</b></td><td><span class="rsb lo">63</span></td><td class="r">3</td><td class="dep">18 / 14.7 / 5.6</td><td class="r hm">5.6%</td><td class="hm why">↘ 1.43 → 0.90 → 0.98× <span style="opacity:.7">10d/50d 0.98</span></td><td class="r">16.30</td><td class="r hm">15.77</td><td class="r">-3.2%</td><td class="r">15.23<br><small>−6.6%</small></td><td class="r hm">7.8</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="IHG" data-rs="60" data-n="2" data-d1="13.1" data-tr="3.0" data-v10="0.66" data-pv="166.02" data-px="158.16" data-vs="-4.7" data-sp="152.07" data-rk="8.4" data-bw="13.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>IHG</b></td><td><span class="rsb lo">60</span></td><td class="r">2</td><td class="dep">13.1 / 8.5</td><td class="r hm">3.0%</td><td class="hm why">↘ 1.13 → 0.82× <span style="opacity:.7">10d/50d 0.66</span></td><td class="r">166.02</td><td class="r hm">158.16</td><td class="r">-4.7%</td><td class="r">152.07<br><small>−8.4%</small></td><td class="r hm">13.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SHO" data-rs="60" data-n="2" data-d1="14.7" data-tr="2.9" data-v10="0.89" data-pv="11.46" data-px="11.19" data-vs="-2.4" data-sp="10.84" data-rk="5.4" data-bw="12.6"><td><span class="st coil">coiling</span></td><td class="tkc"><b>SHO</b></td><td><span class="rsb lo">60</span></td><td class="r">2</td><td class="dep">14.7 / 6</td><td class="r hm">2.9%</td><td class="hm why">↘ 1.14 → 1.05× <span style="opacity:.7">10d/50d 0.89</span></td><td class="r">11.46</td><td class="r hm">11.19</td><td class="r">-2.4%</td><td class="r">10.84<br><small>−5.4%</small></td><td class="r hm">12.6</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CSW" data-rs="58" data-n="2" data-d1="20.2" data-tr="6.8" data-v10="0.97" data-pv="305.34" data-px="296.8" data-vs="-2.8" data-sp="281.75" data-rk="7.7" data-bw="6.6"><td><span class="st coil">coiling</span></td><td class="tkc"><b>CSW</b></td><td><span class="rsb lo">58</span></td><td class="r">2</td><td class="dep">20.2 / 5.2</td><td class="r hm">6.8%</td><td class="hm why">↘ 0.82 → 0.73× <span style="opacity:.7">10d/50d 0.97</span></td><td class="r">305.34</td><td class="r hm">296.80</td><td class="r">-2.8%</td><td class="r">281.75<br><small>−7.7%</small></td><td class="r hm">6.6</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="FMX" data-rs="56" data-n="2" data-d1="18.5" data-tr="4.3" data-v10="0.99" data-pv="125" data-px="119.62" data-vs="-4.3" data-sp="115.85" data-rk="7.3" data-bw="8.6"><td><span class="st coil">coiling</span></td><td class="tkc"><b>FMX</b></td><td><span class="rsb lo">56</span></td><td class="r">2</td><td class="dep">18.5 / 7.6</td><td class="r hm">4.3%</td><td class="hm why">↘ 1.28 → 0.73× <span style="opacity:.7">10d/50d 0.99</span></td><td class="r">125.00</td><td class="r hm">119.62</td><td class="r">-4.3%</td><td class="r">115.85<br><small>−7.3%</small></td><td class="r hm">8.6</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SKY" data-rs="56" data-n="3" data-d1="16.8" data-tr="6.9" data-v10="0.98" data-pv="90.02" data-px="87.72" data-vs="-2.6" data-sp="82.95" data-rk="7.9" data-bw="6.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>SKY</b></td><td><span class="rsb lo">56</span></td><td class="r">3</td><td class="dep">16.8 / 6.7 / 6.6</td><td class="r hm">6.9%</td><td class="hm why">↘ 0.91 → 1.49 → 0.79× <span style="opacity:.7">10d/50d 0.98</span></td><td class="r">90.02</td><td class="r hm">87.72</td><td class="r">-2.6%</td><td class="r">82.95<br><small>−7.9%</small></td><td class="r hm">6.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BNTX" data-rs="55" data-n="2" data-d1="20.8" data-tr="5.5" data-v10="0.68" data-pv="102.23" data-px="98.52" data-vs="-3.6" data-sp="95.64" data-rk="6.4" data-bw="5.0"><td><span class="st coil">coiling</span></td><td class="tkc"><b>BNTX</b></td><td><span class="rsb lo">55</span></td><td class="r">2</td><td class="dep">20.8 / 5.1</td><td class="r hm">5.5%</td><td class="hm why">↘ 1.01 → 0.79× <span style="opacity:.7">10d/50d 0.68</span></td><td class="r">102.23</td><td class="r hm">98.52</td><td class="r">-3.6%</td><td class="r">95.64<br><small>−6.4%</small></td><td class="r hm">5.0</td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AIN" data-rs="46" data-n="2" data-d1="29.7" data-tr="4.0" data-v10="0.89" data-pv="63.85" data-px="60.98" data-vs="-4.5" data-sp="58.39" data-rk="8.6" data-bw="8.8"><td><span class="st coil">coiling</span></td><td class="tkc"><b>AIN</b></td><td><span class="rsb bad">46</span></td><td class="r">2</td><td class="dep">29.7 / 8.3</td><td class="r hm">4.0%</td><td class="hm why">↘ 1.07 → 0.98× <span style="opacity:.7">10d/50d 0.89</span></td><td class="r">63.85</td><td class="r hm">60.98</td><td class="r">-4.5%</td><td class="r">58.39<br><small>−8.6%</small></td><td class="r hm">8.8</td><td class="r hm szc">—</td></tr></tbody></table></div><p class="meth"><b>Method:</b> Prior uptrend (base top ≥30% above the 126-session low before it, or ≥25% over the 200-day at base start; close &gt; 200-day now). Base = highest high 15–65 sessions back (right side ≤5% above it). Pullbacks from a 5% high/low zigzag (lower lows merged): 2–4, each shallower, first 10–40%. Volume: last pullback&#x27;s avg &lt; first&#x27;s and 10-day avg &lt; 50-day. Tight: final 5 sessions&#x27; range ≤8%. Coiling = close within 5% below the pivot (highest high since the last pullback began). Triggered = close above the pivot on &gt;1.5× 50-day volume in the last 3 sessions, still above it. Stop = 1% under the final 5-session low.</p></div>
+<h2 class="bigsec">🚀 Power play <small>breakouts first, then bases forming</small><span class="cnt">1 + 1</span></h2><div class="panel"><div class="tscroll"><table class="mini sortable" id="pp"><thead><tr><th class="sort r" data-k="st" data-t="n">Status</th><th class="sort" data-k="tk" data-t="s">Ticker</th><th class="sort r" data-k="rs" data-t="n">RS</th><th class="sort r" data-k="g" data-t="n">Stage 1</th><th class="sort hm" data-k="pk" data-t="s">Peak</th><th class="sort r" data-k="bd" data-t="n">Base depth</th><th class="sort r" data-k="bw" data-t="n">Base wks</th><th class="sort r hm" data-k="bv" data-t="n">Base vol ÷ advance</th><th class="sort r" data-k="pv" data-t="n">Pivot</th><th class="sort r hm" data-k="px" data-t="n">Close</th><th class="sort r" data-k="sp" data-t="n">Stop</th><th class="hm">Size (triggers)</th></tr></thead><tbody><tr data-st="0" data-tk="QMCO" data-rs="99" data-g="172.0" data-gw="4.2" data-pk="2026-08-14" data-bd="21.5" data-bw="5.4" data-bv="0.58" data-pv="29.15" data-px="31.68" data-sp="24.06"><td><span class="st trig">breakout</span><br><small>09-24 · 3.18× vol</small></td><td class="tkc"><b>QMCO</b></td><td><span class="rsb r99">99</span></td><td class="r">+172%<br><small>4.2 wk</small></td><td class="hm">2026-08-14</td><td class="r">21.5%</td><td class="r">5.4</td><td class="r hm">0.58×</td><td class="r">29.15</td><td class="r hm">31.68</td><td class="r">24.06<br><small>−17.5%</small></td><td class="r hm szc">ATR 158 sh @ 24.77<br>struct 138 sh @ 24.06</td></tr><tr data-st="1" data-tk="NIQ" data-rs="93" data-g="105.8" data-gw="7.8" data-pk="2026-08-25" data-bd="8.3" data-bw="4.4" data-bv="0.65" data-pv="19.69" data-px="17.83" data-sp="17.45"><td><span class="st base">base forming</span></td><td class="tkc"><b>NIQ</b><span class="also">+VCP</span><span class="also">+HTF</span></td><td><span class="rsb ">93</span></td><td class="r">+106%<br><small>7.8 wk</small></td><td class="hm">2026-08-25</td><td class="r">8.3%</td><td class="r">4.4</td><td class="r hm">0.65×</td><td class="r">19.69</td><td class="r hm">17.83</td><td class="r">17.45<br><small>−11.4%</small></td><td class="r hm szc">—</td></tr></tbody></table></div><p class="meth"><b>Method:</b> Stage 1: ≥100% close-to-close gain within the 40 sessions (8 weeks) ending at the peak close, 15–75 sessions ago. Stage 2 base: lowest close ≤25% below the peak, no close under the 50-day, 15–75 sessions (3–15 weeks), average volume below the advance&#x27;s. Pivot = highest high since the peak. Breakout = close above it on ≥1.4× 50-day volume in the last 3 sessions, still above; else base forming. Stop = 1% under the base&#x27;s last 5-session low.</p></div>
+<h2 class="bigsec">🏳️ High tight flag <small>breakouts first, then flags forming</small><span class="cnt">0 + 1</span></h2><div class="panel"><div class="tscroll"><table class="mini sortable" id="htf"><thead><tr><th class="sort r" data-k="st" data-t="n">Status</th><th class="sort" data-k="tk" data-t="s">Ticker</th><th class="sort r" data-k="rs" data-t="n">RS</th><th class="sort r" data-k="g" data-t="n">Run</th><th class="sort r" data-k="fw" data-t="n">Flag wks</th><th class="sort r" data-k="fd" data-t="n">Flag depth</th><th class="sort r hm" data-k="fv" data-t="n">Flag vol ÷ run</th><th class="sort r" data-k="pv" data-t="n">Pivot</th><th class="sort r hm" data-k="px" data-t="n">Close</th><th class="sort r" data-k="sp" data-t="n">Stop</th><th class="hm">Size (triggers)</th></tr></thead><tbody><tr data-st="1" data-tk="NIQ" data-rs="93" data-g="105.8" data-fw="4.4" data-fd="11.1" data-fv="0.65" data-pv="19.69" data-px="17.83" data-sp="17.45"><td><span class="st base">flag forming</span></td><td class="tkc"><b>NIQ</b><span class="also">+VCP</span><span class="also">+power play</span></td><td><span class="rsb ">93</span></td><td class="r">+106%<br><small>7.8 wk</small></td><td class="r">4.4</td><td class="r">11.1%</td><td class="r hm">0.65×</td><td class="r">19.69</td><td class="r hm">17.83</td><td class="r">17.45<br><small>−11.4%</small></td><td class="r hm szc">—</td></tr></tbody></table></div><p class="meth"><b>Method:</b> Run: ≥100% close-to-close within the 40 sessions ending at the peak close. Flag: 15–25 sessions (3–5 weeks) since the peak, high-low depth ≤20%, average volume ≤0.75× the run&#x27;s and 10-day &lt; 50-day. Pivot = flag high. Breakout = close above it on ≥1.4× 50-day volume in the last 3 sessions; else flag forming. Stop = 1% under the last 5-session low. Overlap: an HTF is an early, tighter power play; names meeting both are cross-labelled.</p></div>
+<h2 class="bigsec">➖ Flat base <small>breakouts first, then bases forming</small><span class="cnt">4 + 56</span></h2><div class="panel"><div class="tscroll"><table class="mini sortable" id="fb"><thead><tr><th class="sort r" data-k="st" data-t="n">Status</th><th class="sort" data-k="tk" data-t="s">Ticker</th><th class="sort r" data-k="rs" data-t="n">RS</th><th class="sort r" data-k="bw" data-t="n">Base wks</th><th class="sort r" data-k="adr" data-t="n">Avg day range</th><th class="sort r hm" data-k="bd" data-t="n">Depth</th><th class="sort r hm" data-k="vh" data-t="n">Vol 2nd ÷ 1st half</th><th class="sort r" data-k="pv" data-t="n">Pivot</th><th class="sort r" data-k="vs" data-t="n">vs pivot</th><th class="sort r" data-k="sp" data-t="n">Stop</th><th class="hm">Size (triggers)</th></tr></thead><tbody><tr data-st="0" data-tk="KRT" data-rs="97" data-bw="6.4" data-bd="14.5" data-adr="3.88" data-vh="0.91" data-pv="52.43" data-px="53.09" data-vs="1.3" data-sp="48.41"><td><span class="st trig">breakout</span><br><small>09-23 · 1.63× vol</small></td><td class="tkc"><b>KRT</b></td><td><span class="rsb r99">97</span></td><td class="r">6.4</td><td class="r">3.9%</td><td class="r hm">14.5%</td><td class="r hm">0.91×</td><td class="r">52.43</td><td class="r">+1.3%</td><td class="r">48.41<br><small>−7.7%</small></td><td class="r hm szc">ATR 206 sh @ 49.42<br>struct 161 sh @ 48.41</td></tr><tr data-st="0" data-tk="AVT" data-rs="93" data-bw="7.6" data-bd="14.5" data-adr="3.79" data-vh="0.98" data-pv="100" data-px="103.08" data-vs="3.1" data-sp="89.99"><td><span class="st trig">breakout</span><br><small>09-23 · 1.46× vol</small></td><td class="tkc"><b>AVT</b></td><td><span class="rsb ">93</span></td><td class="r">7.6</td><td class="r">3.8%</td><td class="r hm">14.5%</td><td class="r hm">0.98×</td><td class="r">100.00</td><td class="r">+3.1%</td><td class="r">89.99<br><small>−10.0%</small></td><td class="r hm szc">ATR 100 sh @ 93.68<br>struct 67 sh @ 89.99</td></tr><tr data-st="0" data-tk="TBBB" data-rs="92" data-bw="5.8" data-bd="12.8" data-adr="3.1" data-vh="0.61" data-pv="53.33" data-px="53.56" data-vs="0.4" data-sp="49.73"><td><span class="st trig">breakout</span><br><small>09-25 · 1.58× vol</small></td><td class="tkc"><b>TBBB</b></td><td><span class="rsb ">92</span></td><td class="r">5.8</td><td class="r">3.1%</td><td class="r hm">12.8%</td><td class="r hm">0.61×</td><td class="r">53.33</td><td class="r">+0.4%</td><td class="r">49.73<br><small>−6.8%</small></td><td class="r hm szc">ATR 228 sh @ 50.28<br>struct 195 sh @ 49.73</td></tr><tr data-st="0" data-tk="BIIB" data-rs="78" data-bw="9.6" data-bd="14.0" data-adr="2.83" data-vh="0.83" data-pv="226.43" data-px="227.6" data-vs="0.5" data-sp="212.44"><td><span class="st trig">breakout</span><br><small>09-23 · 1.5× vol</small></td><td class="tkc"><b>BIIB</b></td><td><span class="rsb lo">78</span></td><td class="r">9.6</td><td class="r">2.8%</td><td class="r hm">14.0%</td><td class="r hm">0.83×</td><td class="r">226.43</td><td class="r">+0.5%</td><td class="r">212.44<br><small>−6.2%</small></td><td class="r hm szc">ATR 63 sh @ 215.65<br>struct 49 sh @ 212.44</td></tr><tr data-st="1" data-tk="FET" data-rs="97" data-bw="5.4" data-bd="12.9" data-adr="4.12" data-vh="0.99" data-pv="85.3" data-px="82.83" data-vs="-2.9" data-sp="77.53"><td><span class="st base">base forming</span></td><td class="tkc"><b>FET</b></td><td><span class="rsb r99">97</span></td><td class="r">5.4</td><td class="r">4.1%</td><td class="r hm">12.9%</td><td class="r hm">0.99×</td><td class="r">85.30</td><td class="r">-2.9%</td><td class="r">77.53<br><small>−9.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="HAE" data-rs="93" data-bw="5.6" data-bd="9.0" data-adr="2.46" data-vh="0.75" data-pv="110.45" data-px="105.3" data-vs="-4.7" data-sp="103.66"><td><span class="st base">base forming</span></td><td class="tkc"><b>HAE</b></td><td><span class="rsb ">93</span></td><td class="r">5.6</td><td class="r">2.5%</td><td class="r hm">9.0%</td><td class="r hm">0.75×</td><td class="r">110.45</td><td class="r">-4.7%</td><td class="r">103.66<br><small>−6.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AMN" data-rs="92" data-bw="6.6" data-bd="13.0" data-adr="3.79" data-vh="0.99" data-pv="36.24" data-px="34.56" data-vs="-4.6" data-sp="33.08"><td><span class="st base">base forming</span></td><td class="tkc"><b>AMN</b><span class="also">+VCP</span></td><td><span class="rsb ">92</span></td><td class="r">6.6</td><td class="r">3.8%</td><td class="r hm">13.0%</td><td class="r hm">0.99×</td><td class="r">36.24</td><td class="r">-4.6%</td><td class="r">33.08<br><small>−8.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ARW" data-rs="92" data-bw="6.8" data-bd="14.5" data-adr="3.06" data-vh="0.99" data-pv="233.94" data-px="232.8" data-vs="-0.5" data-sp="214.94"><td><span class="st base">base forming</span></td><td class="tkc"><b>ARW</b></td><td><span class="rsb ">92</span></td><td class="r">6.8</td><td class="r">3.1%</td><td class="r hm">14.5%</td><td class="r hm">0.99×</td><td class="r">233.94</td><td class="r">-0.5%</td><td class="r">214.94<br><small>−8.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="MLAB" data-rs="92" data-bw="5.2" data-bd="14.6" data-adr="3.66" data-vh="0.95" data-pv="138.66" data-px="134.04" data-vs="-3.3" data-sp="125.14"><td><span class="st base">base forming</span></td><td class="tkc"><b>MLAB</b></td><td><span class="rsb ">92</span></td><td class="r">5.2</td><td class="r">3.7%</td><td class="r hm">14.6%</td><td class="r hm">0.95×</td><td class="r">138.66</td><td class="r">-3.3%</td><td class="r">125.14<br><small>−9.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="PLPC" data-rs="92" data-bw="5.2" data-bd="13.0" data-adr="4.36" data-vh="0.93" data-pv="441.39" data-px="423.33" data-vs="-4.1" data-sp="407.53"><td><span class="st base">base forming</span></td><td class="tkc"><b>PLPC</b><span class="also">+VCP</span></td><td><span class="rsb ">92</span></td><td class="r">5.2</td><td class="r">4.4%</td><td class="r hm">13.0%</td><td class="r hm">0.93×</td><td class="r">441.39</td><td class="r">-4.1%</td><td class="r">407.53<br><small>−7.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="RDVT" data-rs="92" data-bw="5.2" data-bd="14.9" data-adr="3.45" data-vh="0.91" data-pv="80.39" data-px="78.55" data-vs="-2.3" data-sp="71.72"><td><span class="st base">base forming</span></td><td class="tkc"><b>RDVT</b></td><td><span class="rsb ">92</span></td><td class="r">5.2</td><td class="r">3.5%</td><td class="r hm">14.9%</td><td class="r hm">0.91×</td><td class="r">80.39</td><td class="r">-2.3%</td><td class="r">71.72<br><small>−10.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="IMAX" data-rs="91" data-bw="7.8" data-bd="14.7" data-adr="3.46" data-vh="0.74" data-pv="56.68" data-px="56.05" data-vs="-1.1" data-sp="52.04"><td><span class="st base">base forming</span></td><td class="tkc"><b>IMAX</b></td><td><span class="rsb ">91</span></td><td class="r">7.8</td><td class="r">3.5%</td><td class="r hm">14.7%</td><td class="r hm">0.74×</td><td class="r">56.68</td><td class="r">-1.1%</td><td class="r">52.04<br><small>−8.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ZBRA" data-rs="91" data-bw="7.6" data-bd="14.7" data-adr="3.18" data-vh="0.74" data-pv="386.23" data-px="370.04" data-vs="-4.2" data-sp="342.97"><td><span class="st base">base forming</span></td><td class="tkc"><b>ZBRA</b><span class="also">+VCP</span></td><td><span class="rsb ">91</span></td><td class="r">7.6</td><td class="r">3.2%</td><td class="r hm">14.7%</td><td class="r hm">0.74×</td><td class="r">386.23</td><td class="r">-4.2%</td><td class="r">342.97<br><small>−11.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ANET" data-rs="90" data-bw="7.2" data-bd="14.5" data-adr="3.5" data-vh="0.78" data-pv="212" data-px="206.55" data-vs="-2.6" data-sp="196.77"><td><span class="st base">base forming</span></td><td class="tkc"><b>ANET</b><span class="also">+VCP</span></td><td><span class="rsb ">90</span></td><td class="r">7.2</td><td class="r">3.5%</td><td class="r hm">14.5%</td><td class="r hm">0.78×</td><td class="r">212.00</td><td class="r">-2.6%</td><td class="r">196.77<br><small>−7.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NHC" data-rs="88" data-bw="7.2" data-bd="12.5" data-adr="3.12" data-vh="0.97" data-pv="239.29" data-px="227.36" data-vs="-5.0" data-sp="217.52"><td><span class="st base">base forming</span></td><td class="tkc"><b>NHC</b></td><td><span class="rsb ">88</span></td><td class="r">7.2</td><td class="r">3.1%</td><td class="r hm">12.5%</td><td class="r hm">0.97×</td><td class="r">239.29</td><td class="r">-5.0%</td><td class="r">217.52<br><small>−9.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BZH" data-rs="87" data-bw="11.4" data-bd="10.9" data-adr="1.25" data-vh="0.84" data-pv="34.54" data-px="33.37" data-vs="-3.4" data-sp="33.01"><td><span class="st base">base forming</span></td><td class="tkc"><b>BZH</b></td><td><span class="rsb ">87</span></td><td class="r">11.4</td><td class="r">1.2%</td><td class="r hm">10.9%</td><td class="r hm">0.84×</td><td class="r">34.54</td><td class="r">-3.4%</td><td class="r">33.01<br><small>−4.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="KB" data-rs="87" data-bw="5.0" data-bd="12.0" data-adr="1.6" data-vh="0.82" data-pv="133.29" data-px="127.26" data-vs="-4.5" data-sp="121.78"><td><span class="st base">base forming</span></td><td class="tkc"><b>KB</b></td><td><span class="rsb ">87</span></td><td class="r">5.0</td><td class="r">1.6%</td><td class="r hm">12.0%</td><td class="r hm">0.82×</td><td class="r">133.29</td><td class="r">-4.5%</td><td class="r">121.78<br><small>−8.6%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ROKU" data-rs="87" data-bw="12.2" data-bd="13.2" data-adr="1.22" data-vh="0.73" data-pv="159.89" data-px="152.68" data-vs="-4.5" data-sp="150.68"><td><span class="st base">base forming</span></td><td class="tkc"><b>ROKU</b></td><td><span class="rsb ">87</span></td><td class="r">12.2</td><td class="r">1.2%</td><td class="r hm">13.2%</td><td class="r hm">0.73×</td><td class="r">159.89</td><td class="r">-4.5%</td><td class="r">150.68<br><small>−5.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="DIOD" data-rs="86" data-bw="5.4" data-bd="15.0" data-adr="4.43" data-vh="0.9" data-pv="100.89" data-px="95.84" data-vs="-5.0" data-sp="88.66"><td><span class="st base">base forming</span></td><td class="tkc"><b>DIOD</b></td><td><span class="rsb ">86</span></td><td class="r">5.4</td><td class="r">4.4%</td><td class="r hm">15.0%</td><td class="r hm">0.90×</td><td class="r">100.89</td><td class="r">-5.0%</td><td class="r">88.66<br><small>−12.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="VTRS" data-rs="86" data-bw="13.0" data-bd="14.1" data-adr="2.68" data-vh="0.83" data-pv="18.39" data-px="17.83" data-vs="-3.0" data-sp="16.7"><td><span class="st base">base forming</span></td><td class="tkc"><b>VTRS</b></td><td><span class="rsb ">86</span></td><td class="r">13.0</td><td class="r">2.7%</td><td class="r hm">14.1%</td><td class="r hm">0.83×</td><td class="r">18.39</td><td class="r">-3.0%</td><td class="r">16.70<br><small>−9.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="LGND" data-rs="85" data-bw="10.8" data-bd="14.7" data-adr="3.33" data-vh="0.72" data-pv="317.49" data-px="301.52" data-vs="-5.0" data-sp="279.63"><td><span class="st base">base forming</span></td><td class="tkc"><b>LGND</b></td><td><span class="rsb ">85</span></td><td class="r">10.8</td><td class="r">3.3%</td><td class="r hm">14.7%</td><td class="r hm">0.72×</td><td class="r">317.49</td><td class="r">-5.0%</td><td class="r">279.63<br><small>−11.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="WCC" data-rs="85" data-bw="8.2" data-bd="14.9" data-adr="3.27" data-vh="0.86" data-pv="385.37" data-px="367.44" data-vs="-4.7" data-sp="341.65"><td><span class="st base">base forming</span></td><td class="tkc"><b>WCC</b></td><td><span class="rsb ">85</span></td><td class="r">8.2</td><td class="r">3.3%</td><td class="r hm">14.9%</td><td class="r hm">0.86×</td><td class="r">385.37</td><td class="r">-4.7%</td><td class="r">341.65<br><small>−11.3%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="MUFG" data-rs="84" data-bw="11.8" data-bd="13.8" data-adr="1.35" data-vh="0.86" data-pv="24.26" data-px="23.48" data-vs="-3.2" data-sp="22.19"><td><span class="st base">base forming</span></td><td class="tkc"><b>MUFG</b></td><td><span class="rsb ">84</span></td><td class="r">11.8</td><td class="r">1.4%</td><td class="r hm">13.8%</td><td class="r hm">0.86×</td><td class="r">24.26</td><td class="r">-3.2%</td><td class="r">22.19<br><small>−8.5%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NVT" data-rs="84" data-bw="5.2" data-bd="12.6" data-adr="3.56" data-vh="0.74" data-pv="164.52" data-px="164.41" data-vs="-0.1" data-sp="155.67"><td><span class="st base">base forming</span></td><td class="tkc"><b>NVT</b><span class="also">+VCP</span></td><td><span class="rsb ">84</span></td><td class="r">5.2</td><td class="r">3.6%</td><td class="r hm">12.6%</td><td class="r hm">0.74×</td><td class="r">164.52</td><td class="r">-0.1%</td><td class="r">155.67<br><small>−5.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SCSC" data-rs="84" data-bw="5.0" data-bd="9.9" data-adr="3.22" data-vh="0.83" data-pv="59.31" data-px="58.3" data-vs="-1.7" data-sp="55.77"><td><span class="st base">base forming</span></td><td class="tkc"><b>SCSC</b><span class="also">+VCP</span></td><td><span class="rsb ">84</span></td><td class="r">5.0</td><td class="r">3.2%</td><td class="r hm">9.9%</td><td class="r hm">0.83×</td><td class="r">59.31</td><td class="r">-1.7%</td><td class="r">55.77<br><small>−6.0%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AMTB" data-rs="83" data-bw="9.0" data-bd="14.2" data-adr="2.69" data-vh="0.75" data-pv="30.6" data-px="29.57" data-vs="-3.4" data-sp="28.39"><td><span class="st base">base forming</span></td><td class="tkc"><b>AMTB</b></td><td><span class="rsb ">83</span></td><td class="r">9.0</td><td class="r">2.7%</td><td class="r hm">14.2%</td><td class="r hm">0.75×</td><td class="r">30.60</td><td class="r">-3.4%</td><td class="r">28.39<br><small>−7.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CNK" data-rs="83" data-bw="8.6" data-bd="13.5" data-adr="3.21" data-vh="0.85" data-pv="38.98" data-px="37.77" data-vs="-3.1" data-sp="34.71"><td><span class="st base">base forming</span></td><td class="tkc"><b>CNK</b></td><td><span class="rsb ">83</span></td><td class="r">8.6</td><td class="r">3.2%</td><td class="r hm">13.5%</td><td class="r hm">0.85×</td><td class="r">38.98</td><td class="r">-3.1%</td><td class="r">34.71<br><small>−11.0%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TSM" data-rs="83" data-bw="8.2" data-bd="14.8" data-adr="2.21" data-vh="0.94" data-pv="455.03" data-px="450.61" data-vs="-1.0" data-sp="432.69"><td><span class="st base">base forming</span></td><td class="tkc"><b>TSM</b></td><td><span class="rsb ">83</span></td><td class="r">8.2</td><td class="r">2.2%</td><td class="r hm">14.8%</td><td class="r hm">0.94×</td><td class="r">455.03</td><td class="r">-1.0%</td><td class="r">432.69<br><small>−4.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BBVA" data-rs="82" data-bw="9.0" data-bd="13.5" data-adr="1.22" data-vh="0.66" data-pv="29.64" data-px="28.87" data-vs="-2.6" data-sp="27.79"><td><span class="st base">base forming</span></td><td class="tkc"><b>BBVA</b></td><td><span class="rsb ">82</span></td><td class="r">9.0</td><td class="r">1.2%</td><td class="r hm">13.5%</td><td class="r hm">0.66×</td><td class="r">29.64</td><td class="r">-2.6%</td><td class="r">27.79<br><small>−6.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ING" data-rs="82" data-bw="9.8" data-bd="14.4" data-adr="1.12" data-vh="0.76" data-pv="37.52" data-px="36.55" data-vs="-2.6" data-sp="35.39"><td><span class="st base">base forming</span></td><td class="tkc"><b>ING</b></td><td><span class="rsb ">82</span></td><td class="r">9.8</td><td class="r">1.1%</td><td class="r hm">14.4%</td><td class="r hm">0.76×</td><td class="r">37.52</td><td class="r">-2.6%</td><td class="r">35.39<br><small>−5.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SMFG" data-rs="82" data-bw="13.0" data-bd="14.9" data-adr="1.33" data-vh="0.73" data-pv="27.61" data-px="26.61" data-vs="-3.6" data-sp="25.04"><td><span class="st base">base forming</span></td><td class="tkc"><b>SMFG</b></td><td><span class="rsb ">82</span></td><td class="r">13.0</td><td class="r">1.3%</td><td class="r hm">14.9%</td><td class="r hm">0.73×</td><td class="r">27.61</td><td class="r">-3.6%</td><td class="r">25.04<br><small>−9.3%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TXN" data-rs="82" data-bw="9.2" data-bd="14.3" data-adr="3.02" data-vh="0.81" data-pv="289.62" data-px="278.07" data-vs="-4.0" data-sp="259.6"><td><span class="st base">base forming</span></td><td class="tkc"><b>TXN</b></td><td><span class="rsb ">82</span></td><td class="r">9.2</td><td class="r">3.0%</td><td class="r hm">14.3%</td><td class="r hm">0.81×</td><td class="r">289.62</td><td class="r">-4.0%</td><td class="r">259.60<br><small>−10.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="EXPD" data-rs="81" data-bw="8.0" data-bd="14.8" data-adr="2.25" data-vh="0.98" data-pv="194.59" data-px="187.46" data-vs="-3.7" data-sp="181.53"><td><span class="st base">base forming</span></td><td class="tkc"><b>EXPD</b></td><td><span class="rsb ">81</span></td><td class="r">8.0</td><td class="r">2.2%</td><td class="r hm">14.8%</td><td class="r hm">0.98×</td><td class="r">194.59</td><td class="r">-3.7%</td><td class="r">181.53<br><small>−6.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="AAPL" data-rs="80" data-bw="12.0" data-bd="15.0" data-adr="2.19" data-vh="0.78" data-pv="345.34" data-px="341.07" data-vs="-1.2" data-sp="329.72"><td><span class="st base">base forming</span></td><td class="tkc"><b>AAPL</b><span class="also">+VCP</span></td><td><span class="rsb ">80</span></td><td class="r">12.0</td><td class="r">2.2%</td><td class="r hm">15.0%</td><td class="r hm">0.78×</td><td class="r">345.34</td><td class="r">-1.2%</td><td class="r">329.72<br><small>−4.5%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ANGO" data-rs="79" data-bw="8.6" data-bd="14.9" data-adr="3.09" data-vh="0.99" data-pv="16.29" data-px="15.49" data-vs="-4.9" data-sp="14.85"><td><span class="st base">base forming</span></td><td class="tkc"><b>ANGO</b></td><td><span class="rsb lo">79</span></td><td class="r">8.6</td><td class="r">3.1%</td><td class="r hm">14.9%</td><td class="r hm">0.99×</td><td class="r">16.29</td><td class="r">-4.9%</td><td class="r">14.85<br><small>−8.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BNS" data-rs="79" data-bw="13.0" data-bd="12.0" data-adr="1.66" data-vh="0.69" data-pv="95.74" data-px="93.48" data-vs="-2.4" data-sp="90.5"><td><span class="st base">base forming</span></td><td class="tkc"><b>BNS</b></td><td><span class="rsb lo">79</span></td><td class="r">13.0</td><td class="r">1.7%</td><td class="r hm">12.0%</td><td class="r hm">0.69×</td><td class="r">95.74</td><td class="r">-2.4%</td><td class="r">90.50<br><small>−5.5%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="PK" data-rs="79" data-bw="11.0" data-bd="13.3" data-adr="2.63" data-vh="0.85" data-pv="16.2" data-px="15.43" data-vs="-4.8" data-sp="14.76"><td><span class="st base">base forming</span></td><td class="tkc"><b>PK</b></td><td><span class="rsb lo">79</span></td><td class="r">11.0</td><td class="r">2.6%</td><td class="r hm">13.3%</td><td class="r hm">0.85×</td><td class="r">16.20</td><td class="r">-4.8%</td><td class="r">14.76<br><small>−8.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BOW" data-rs="77" data-bw="8.8" data-bd="14.3" data-adr="1.11" data-vh="0.6" data-pv="35.07" data-px="33.76" data-vs="-3.7" data-sp="33.36"><td><span class="st base">base forming</span></td><td class="tkc"><b>BOW</b></td><td><span class="rsb lo">77</span></td><td class="r">8.8</td><td class="r">1.1%</td><td class="r hm">14.3%</td><td class="r hm">0.60×</td><td class="r">35.07</td><td class="r">-3.7%</td><td class="r">33.36<br><small>−4.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="FRHC" data-rs="77" data-bw="5.4" data-bd="13.7" data-adr="3.88" data-vh="0.45" data-pv="178" data-px="172.08" data-vs="-3.3" data-sp="164.22"><td><span class="st base">base forming</span></td><td class="tkc"><b>FRHC</b></td><td><span class="rsb lo">77</span></td><td class="r">5.4</td><td class="r">3.9%</td><td class="r hm">13.7%</td><td class="r hm">0.45×</td><td class="r">178.00</td><td class="r">-3.3%</td><td class="r">164.22<br><small>−7.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="GSL" data-rs="77" data-bw="10.8" data-bd="13.9" data-adr="2.28" data-vh="0.84" data-pv="46.57" data-px="44.33" data-vs="-4.8" data-sp="42.97"><td><span class="st base">base forming</span></td><td class="tkc"><b>GSL</b></td><td><span class="rsb lo">77</span></td><td class="r">10.8</td><td class="r">2.3%</td><td class="r hm">13.9%</td><td class="r hm">0.84×</td><td class="r">46.57</td><td class="r">-4.8%</td><td class="r">42.97<br><small>−7.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NDSN" data-rs="77" data-bw="9.4" data-bd="14.9" data-adr="1.93" data-vh="0.93" data-pv="339.12" data-px="325.77" data-vs="-3.9" data-sp="307.39"><td><span class="st base">base forming</span></td><td class="tkc"><b>NDSN</b></td><td><span class="rsb lo">77</span></td><td class="r">9.4</td><td class="r">1.9%</td><td class="r hm">14.9%</td><td class="r hm">0.93×</td><td class="r">339.12</td><td class="r">-3.9%</td><td class="r">307.39<br><small>−9.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SHEL" data-rs="77" data-bw="10.2" data-bd="14.4" data-adr="1.38" data-vh="0.96" data-pv="99.16" data-px="95.78" data-vs="-3.4" data-sp="91.55"><td><span class="st base">base forming</span></td><td class="tkc"><b>SHEL</b></td><td><span class="rsb lo">77</span></td><td class="r">10.2</td><td class="r">1.4%</td><td class="r hm">14.4%</td><td class="r hm">0.96×</td><td class="r">99.16</td><td class="r">-3.4%</td><td class="r">91.55<br><small>−7.7%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CAC" data-rs="76" data-bw="13.0" data-bd="13.9" data-adr="2.82" data-vh="0.82" data-pv="60.59" data-px="57.82" data-vs="-4.6" data-sp="55.71"><td><span class="st base">base forming</span></td><td class="tkc"><b>CAC</b></td><td><span class="rsb lo">76</span></td><td class="r">13.0</td><td class="r">2.8%</td><td class="r hm">13.9%</td><td class="r hm">0.82×</td><td class="r">60.59</td><td class="r">-4.6%</td><td class="r">55.71<br><small>−8.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="JNJ" data-rs="76" data-bw="13.0" data-bd="14.3" data-adr="2.03" data-vh="0.75" data-pv="281.07" data-px="271.22" data-vs="-3.5" data-sp="262.39"><td><span class="st base">base forming</span></td><td class="tkc"><b>JNJ</b></td><td><span class="rsb lo">76</span></td><td class="r">13.0</td><td class="r">2.0%</td><td class="r hm">14.3%</td><td class="r hm">0.75×</td><td class="r">281.07</td><td class="r">-3.5%</td><td class="r">262.39<br><small>−6.6%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NVDA" data-rs="76" data-bw="7.6" data-bd="11.7" data-adr="2.35" data-vh="0.88" data-pv="234.76" data-px="225.07" data-vs="-4.1" data-sp="218.88"><td><span class="st base">base forming</span></td><td class="tkc"><b>NVDA</b></td><td><span class="rsb lo">76</span></td><td class="r">7.6</td><td class="r">2.4%</td><td class="r hm">11.7%</td><td class="r hm">0.88×</td><td class="r">234.76</td><td class="r">-4.1%</td><td class="r">218.88<br><small>−6.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="BATRK" data-rs="75" data-bw="13.0" data-bd="12.1" data-adr="2.35" data-vh="0.86" data-pv="54.46" data-px="54.26" data-vs="-0.4" data-sp="50.49"><td><span class="st base">base forming</span></td><td class="tkc"><b>BATRK</b></td><td><span class="rsb lo">75</span></td><td class="r">13.0</td><td class="r">2.4%</td><td class="r hm">12.1%</td><td class="r hm">0.86×</td><td class="r">54.46</td><td class="r">-0.4%</td><td class="r">50.49<br><small>−7.3%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="MET" data-rs="75" data-bw="12.0" data-bd="13.1" data-adr="1.77" data-vh="0.8" data-pv="100.93" data-px="97.7" data-vs="-3.2" data-sp="94.06"><td><span class="st base">base forming</span></td><td class="tkc"><b>MET</b></td><td><span class="rsb lo">75</span></td><td class="r">12.0</td><td class="r">1.8%</td><td class="r hm">13.1%</td><td class="r hm">0.80×</td><td class="r">100.93</td><td class="r">-3.2%</td><td class="r">94.06<br><small>−6.8%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="APH" data-rs="74" data-bw="8.2" data-bd="14.1" data-adr="3.13" data-vh="0.96" data-pv="88.17" data-px="84.09" data-vs="-4.6" data-sp="78.09"><td><span class="st base">base forming</span></td><td class="tkc"><b>APH</b></td><td><span class="rsb lo">74</span></td><td class="r">8.2</td><td class="r">3.1%</td><td class="r hm">14.1%</td><td class="r hm">0.96×</td><td class="r">88.17</td><td class="r">-4.6%</td><td class="r">78.09<br><small>−11.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="RGA" data-rs="74" data-bw="11.8" data-bd="14.5" data-adr="1.92" data-vh="0.87" data-pv="257.81" data-px="248.65" data-vs="-3.6" data-sp="241.33"><td><span class="st base">base forming</span></td><td class="tkc"><b>RGA</b></td><td><span class="rsb lo">74</span></td><td class="r">11.8</td><td class="r">1.9%</td><td class="r hm">14.5%</td><td class="r hm">0.87×</td><td class="r">257.81</td><td class="r">-3.6%</td><td class="r">241.33<br><small>−6.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="JCI" data-rs="72" data-bw="13.0" data-bd="13.5" data-adr="2.69" data-vh="0.74" data-pv="157.06" data-px="150.2" data-vs="-4.4" data-sp="141.51"><td><span class="st base">base forming</span></td><td class="tkc"><b>JCI</b></td><td><span class="rsb lo">72</span></td><td class="r">13.0</td><td class="r">2.7%</td><td class="r hm">13.5%</td><td class="r hm">0.74×</td><td class="r">157.06</td><td class="r">-4.4%</td><td class="r">141.51<br><small>−9.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="TAK" data-rs="71" data-bw="10.4" data-bd="14.9" data-adr="1.25" data-vh="0.54" data-pv="19.1" data-px="18.86" data-vs="-1.3" data-sp="18.32"><td><span class="st base">base forming</span></td><td class="tkc"><b>TAK</b></td><td><span class="rsb lo">71</span></td><td class="r">10.4</td><td class="r">1.2%</td><td class="r hm">14.9%</td><td class="r hm">0.54×</td><td class="r">19.10</td><td class="r">-1.3%</td><td class="r">18.32<br><small>−4.1%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="EHC" data-rs="70" data-bw="10.2" data-bd="14.7" data-adr="2.28" data-vh="0.91" data-pv="127.5" data-px="123.47" data-vs="-3.2" data-sp="118.29"><td><span class="st base">base forming</span></td><td class="tkc"><b>EHC</b></td><td><span class="rsb lo">70</span></td><td class="r">10.2</td><td class="r">2.3%</td><td class="r hm">14.7%</td><td class="r hm">0.91×</td><td class="r">127.50</td><td class="r">-3.2%</td><td class="r">118.29<br><small>−7.2%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="LILAK" data-rs="70" data-bw="8.6" data-bd="13.3" data-adr="3.43" data-vh="0.93" data-pv="8.91" data-px="8.49" data-vs="-4.8" data-sp="8.26"><td><span class="st base">base forming</span></td><td class="tkc"><b>LILAK</b></td><td><span class="rsb lo">70</span></td><td class="r">8.6</td><td class="r">3.4%</td><td class="r hm">13.3%</td><td class="r hm">0.93×</td><td class="r">8.91</td><td class="r">-4.8%</td><td class="r">8.26<br><small>−7.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="ABBV" data-rs="66" data-bw="13.0" data-bd="13.3" data-adr="2.2" data-vh="0.55" data-pv="269.39" data-px="264.34" data-vs="-1.9" data-sp="258.62"><td><span class="st base">base forming</span></td><td class="tkc"><b>ABBV</b></td><td><span class="rsb lo">66</span></td><td class="r">13.0</td><td class="r">2.2%</td><td class="r hm">13.3%</td><td class="r hm">0.55×</td><td class="r">269.39</td><td class="r">-1.9%</td><td class="r">258.62<br><small>−4.0%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="WABC" data-rs="66" data-bw="13.0" data-bd="13.2" data-adr="2.12" data-vh="0.98" data-pv="63.61" data-px="60.67" data-vs="-4.6" data-sp="58.25"><td><span class="st base">base forming</span></td><td class="tkc"><b>WABC</b></td><td><span class="rsb lo">66</span></td><td class="r">13.0</td><td class="r">2.1%</td><td class="r hm">13.2%</td><td class="r hm">0.98×</td><td class="r">63.61</td><td class="r">-4.6%</td><td class="r">58.25<br><small>−8.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="HAFC" data-rs="64" data-bw="13.0" data-bd="10.5" data-adr="1.79" data-vh="0.77" data-pv="33.5" data-px="32.1" data-vs="-4.2" data-sp="31.18"><td><span class="st base">base forming</span></td><td class="tkc"><b>HAFC</b></td><td><span class="rsb lo">64</span></td><td class="r">13.0</td><td class="r">1.8%</td><td class="r hm">10.5%</td><td class="r hm">0.77×</td><td class="r">33.50</td><td class="r">-4.2%</td><td class="r">31.18<br><small>−6.9%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="SFNC" data-rs="64" data-bw="13.0" data-bd="9.1" data-adr="1.9" data-vh="0.79" data-pv="24.32" data-px="23.23" data-vs="-4.5" data-sp="22.23"><td><span class="st base">base forming</span></td><td class="tkc"><b>SFNC</b></td><td><span class="rsb lo">64</span></td><td class="r">13.0</td><td class="r">1.9%</td><td class="r hm">9.1%</td><td class="r hm">0.79×</td><td class="r">24.32</td><td class="r">-4.5%</td><td class="r">22.23<br><small>−8.6%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="CWBC" data-rs="63" data-bw="13.0" data-bd="12.6" data-adr="2.34" data-vh="0.64" data-pv="28.17" data-px="26.77" data-vs="-5.0" data-sp="24.93"><td><span class="st base">base forming</span></td><td class="tkc"><b>CWBC</b></td><td><span class="rsb lo">63</span></td><td class="r">13.0</td><td class="r">2.3%</td><td class="r hm">12.6%</td><td class="r hm">0.64×</td><td class="r">28.17</td><td class="r">-5.0%</td><td class="r">24.93<br><small>−11.5%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="RNR" data-rs="63" data-bw="13.0" data-bd="12.4" data-adr="2.18" data-vh="0.78" data-pv="340.24" data-px="325.6" data-vs="-4.3" data-sp="318.59"><td><span class="st base">base forming</span></td><td class="tkc"><b>RNR</b></td><td><span class="rsb lo">63</span></td><td class="r">13.0</td><td class="r">2.2%</td><td class="r hm">12.4%</td><td class="r hm">0.78×</td><td class="r">340.24</td><td class="r">-4.3%</td><td class="r">318.59<br><small>−6.4%</small></td><td class="r hm szc">—</td></tr><tr data-st="1" data-tk="NBBK" data-rs="62" data-bw="13.0" data-bd="13.5" data-adr="2.2" data-vh="0.85" data-pv="23.47" data-px="22.6" data-vs="-3.7" data-sp="22.02"><td><span class="st base">base forming</span></td><td class="tkc"><b>NBBK</b></td><td><span class="rsb lo">62</span></td><td class="r">13.0</td><td class="r">2.2%</td><td class="r hm">13.5%</td><td class="r hm">0.85×</td><td class="r">23.47</td><td class="r">-3.7%</td><td class="r">22.02<br><small>−6.2%</small></td><td class="r hm szc">—</td></tr></tbody></table></div><p class="meth"><b>Method:</b> Trend Template pass + ≥20% advance into the base. Base = longest window of 25–65 sessions (5–13 weeks) with total depth ≤15%, average daily range 1–5%, and lower volume in its second half. Base forming = close within 5% below the pivot (base high). Breakout = close above it on ≥1.4× 50-day volume in the last 3 sessions. Stop = 1% under the last 5-session low.</p></div>
+<h2 class="bigsec">🧭 SEPA <small>pending</small></h2><div class="panel"><div class="pend-box"><span class="st pend">pending</span> rules TBD pending reference examples. 0 reference example(s) loaded. No detections are produced until the rules are written from hand-picked examples.</div><p class="meth"><b>Method:</b> Stub - rules TBD pending reference examples. Add examples with research-tools/setup_examples.py; no detections until rules are written. Example: <code>setup_examples.py add --pattern sepa --ticker X --start YYYY-MM-DD --end YYYY-MM-DD</code></p></div>
+<h2 class="bigsec">👀 Desk names <small>how the scanners see our tracked tickers</small></h2><div class="panel"><div class="tscroll"><table class="mini"><tr><th>Ticker</th><th>RS</th><th>VCP (scanner pullbacks %)</th><th>Power play / HTF</th><th>Flat base</th></tr><tr class="mine"><td class="tkc"><b>NTAP</b></td><td><span class="rsb ">93</span></td><td><span class="st coil">coiling</span> <small class="dep">23 / 6.8% · pivot 203.91</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length, volume not declining</small></td></tr><tr class="mine"><td class="tkc"><b>HNGE</b></td><td><span class="rsb ">95</span></td><td><span class="st none">none</span> <small class="dep">10.3 / 8 / 7.1% · pivot 96.66</small><br><small class=why>misses: volume not drying</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>volume not declining</small></td></tr><tr class="mine"><td class="tkc"><b>HALO</b></td><td><span class="rsb ">93</span></td><td><span class="st none">none</span> <small class="dep">5.1% · pivot 116.84</small><br><small class=why>misses: trading &gt;5% above base top, pullback count, not shallower, 1st pullback depth, volume not drying</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>volume not declining</small></td></tr><tr class="mine"><td class="tkc"><b>ASX</b></td><td><span class="rsb r99">98</span></td><td><span class="st none">none</span> <small class="dep">14.7 / 30.2 / 5.6 / 8 …% · pivot 45.24</small><br><small class=why>misses: pullback count, not shallower</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length</small></td></tr><tr class="mine"><td class="tkc"><b>HPE</b></td><td><span class="rsb r99">97</span></td><td><span class="st none">none</span> <small class="dep">28 / 11.5 / 5.3% · pivot 65.65</small><br><small class=why>misses: volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length, too volatile</small></td></tr><tr class="mine"><td class="tkc"><b>FTNT</b></td><td><span class="rsb ">95</span></td><td><span class="st none">none</span> <small class="dep">12.7 / 5.7% · pivot 181.37</small><br><small class=why>misses: volume not drying</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length, volume not declining</small></td></tr><tr class="mine"><td class="tkc"><b>KEYS</b></td><td><span class="rsb ">90</span></td><td><span class="st none">none</span> <small class="dep">20.4 / 16.3 / 8.2% · pivot 366.88</small><br><small class=why>misses: not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length</small></td></tr><tr class="mine"><td class="tkc"><b>AMD</b></td><td><span class="rsb r99">98</span></td><td><span class="st none">none</span> <small class="dep">14.8 / 26.2 / 11.7 / 16.9 …% · pivot 639.00</small><br><small class=why>misses: trading &gt;5% above base top, pullback count, not shallower, volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length</small></td></tr><tr class="mine"><td class="tkc"><b>P</b></td><td><span class="rsb ">96</span></td><td><span class="st none">none</span> <small class="dep">24.7 / 10.9 / 5.9 / 6.9% · pivot 131.41</small><br><small class=why>misses: trading &gt;5% above base top, not shallower, volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>fails Trend Template, base length, too volatile</small></td></tr><tr class="mine"><td class="tkc"><b>NTRA</b></td><td><span class="rsb ">96</span></td><td><span class="st none">none</span> <small class="dep">7.9% · pivot 415.75</small><br><small class=why>misses: trading &gt;5% above base top, pullback count, not shallower, 1st pullback depth, volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length</small></td></tr><tr class="mine"><td class="tkc"><b>SMTC</b></td><td><span class="rsb r99">97</span></td><td><span class="st none">none</span> <small class="dep">28.1 / 30.3 / 10 / 10.1 …% · pivot 190.64</small><br><small class=why>misses: trading &gt;5% above base top, pullback count, not shallower, volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length, too volatile</small></td></tr><tr class="mine"><td class="tkc"><b>CRWD</b></td><td><span class="rsb ">96</span></td><td><span class="st none">none</span> <small class="dep">14.2 / 6.4 / 7.8% · pivot 263.87</small><br><small class=why>misses: trading &gt;5% above base top, not shallower, volume not drying, not tight</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length</small></td></tr><tr class="mine"><td class="tkc"><b>DELL</b></td><td><span class="rsb r99">99</span></td><td><span class="st none">none</span> <small class="dep">9.9 / 10.1 / 7.4 / 10.9% · pivot 595.51</small><br><small class=why>misses: trading &gt;5% above base top, not shallower, 1st pullback depth, volume not drying, not tight, far from pivot</small></td><td><span class="st none">none</span><br><small class=why>no 100% run</small><br>HTF <span class="st none">none</span></td><td><span class="st none">none</span><br><small class=why>base length, too volatile, volume not declining, far from pivot</small></td></tr></table></div><p class="meth">A sanity check, not a signal. Depths are the scanner's own pullbacks (5% zigzag on highs/lows). Hand labels on the watchlist can differ: a chartist may count a longer base or use a different pivot.</p></div>
+<div class="rt-note">ℹ️ Prices: Massive (formerly Polygon.io) grouped-daily adjusted bars from the RS cache; no API calls. Volume in the cache is consolidated volume; the 50-day average excludes the day being tested. 18 Sep 2026 was the September quarterly expiry (third Friday) with heavy volume, which lifts 10-day averages for the following two weeks. Universe: feeds/rs/latest.json (2026-09-25). RS = IBD-style RS (our calc).</div>
+<footer>Last updated Mon 28 Sep 2026, 10:23 (Sydney) by research-tools/setups_page.py from feeds/setups/latest.json (research-tools/setup_scan.py) · Data: Massive (formerly Polygon.io) daily bars · RS = IBD-style RS (our calc, not IBD's official rating) · Research, not financial advice. Verify everything before trading.</footer>
+</div><script>
+(function(){
+  document.querySelectorAll('table.sortable').forEach(function(tbl){
+    var tb=tbl.querySelector('tbody'), ths=tbl.querySelectorAll('th.sort');
+    ths.forEach(function(th){th.addEventListener('click',function(){
+      var k=th.getAttribute('data-k'), t=th.getAttribute('data-t');
+      var asc=th.classList.contains('desc')?true:(th.classList.contains('asc')?false:(t==='s'||th.hasAttribute('data-asc')));
+      ths.forEach(function(x){x.classList.remove('asc','desc');}); th.classList.add(asc?'asc':'desc');
+      var rows=Array.prototype.slice.call(tb.querySelectorAll('tr'));
+      rows.sort(function(a,b){
+        var x=a.getAttribute('data-'+k), y=b.getAttribute('data-'+k);
+        if(t==='n'){x=x===''?(asc?1e18:-1e18):+x; y=y===''?(asc?1e18:-1e18):+y;}
+        return (x<y?-1:x>y?1:0)*(asc?1:-1);
+      });
+      rows.forEach(function(r){tb.appendChild(r);});
+    });});
+  });
+  var tb=document.querySelector('#rs90 tbody'); if(!tb) return;
+  var mode='all', q='';
+  function apply(){
+    var n=0;
+    tb.querySelectorAll('tr').forEach(function(tr){
+      var ok=(mode==='all'||tr.getAttribute('data-tt')==='1')&&(!q||tr.getAttribute('data-q').indexOf(q)>=0);
+      tr.classList.toggle('hide',!ok); if(ok) n++;
+    });
+    document.getElementById('shown').textContent=n;
+  }
+  document.querySelectorAll('.filters button').forEach(function(b){b.addEventListener('click',function(){
+    mode=b.getAttribute('data-f');
+    document.querySelectorAll('.filters button').forEach(function(x){x.classList.toggle('on',x===b);});
+    apply();
+    try{history.replaceState(null,'',mode==='all'?location.pathname:'#tt');}catch(e){}
+  });});
+  var inp=document.getElementById('q'); if(inp) inp.addEventListener('input',function(){q=inp.value.trim().toUpperCase();apply();});
+  if(location.hash==='#tt'){var b=document.querySelector('.filters button[data-f="tt"]'); if(b) b.click();}
+  apply();
+})();
+</script></body></html>
