@@ -116,3 +116,7 @@ body.tc-embed .tc-chart{height:clamp(300px,calc(100vh - 330px),600px)}
 .tc-ovl .ol{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.5}.tc-ovl .ol span{white-space:nowrap}
 .tc-ovl .ol i{display:inline-block;width:14px;height:4px;vertical-align:middle;margin-right:5px}.tc-ovl .oa{opacity:.7}
 @media (max-width:760px){.tc-ovl .ol span{white-space:normal}}
+.tc-ovl details.onote{flex-basis:100%;font:12.5px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#d9d4ff}
+.tc-ovl details.onote summary{cursor:pointer;font:8px/1.6 inherit;font-family:inherit;color:#ffd23f;min-height:24px}
+.tc-ovl details.onote p{margin:4px 0 2px;max-width:900px;white-space:pre-line}
+.tc-tip .tc-otip{display:inline-block;max-width:260px;white-space:normal;font:11px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
