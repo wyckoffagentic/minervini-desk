@@ -16,6 +16,41 @@
   function mapS(a){var m={};(a||[]).forEach(function(p){m[p[0]]=p[1];});return m;}
   var S50=mapS(D.sma50),S150=mapS(D.sma150),S200=mapS(D.sma200);
   var last=bars[bars.length-1], hasR=D.r3!=null, RP=D.risk_plan||{};
+
+  // ---------------------------------------------------------------- detector overlays (format: research-tools/chart_overlays.py docstring)
+  // D.overlays = [{id,label,color,asof,legend:[[colour,text]],items:[{t:'box'|'seg'|'hline'|'point'|'span', dates d0/d1/d, prices ...}]}]
+  // Items live in date/price space, so they re-project on every draw (zoom, pan, resize). One toggle per overlay (localStorage tc_ovl_<id>).
+  var OVL=(D.overlays||[]).filter(function(o){return o&&o.items&&o.items.length;});
+  var OLS={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+  OVL.forEach(function(o){o.on=OLS.get('tc_ovl_'+o.id)!=='0';});
+  var DIX={}; bars.forEach(function(b,i){DIX[b.d]=i;});
+  function dix(d){if(d==null)return bars.length-1;if(DIX[d]!=null)return DIX[d];if(d<bars[0].d)return -1;var lo=0,hi=bars.length-1;if(d>bars[hi].d)return hi;
+    while(lo<hi){var m=(lo+hi+1)>>1;if(bars[m].d<=d)lo=m;else hi=m-1;}return lo;}
+  function ovlSpan(it){var a=it.d0!==undefined?it.d0:it.d,b=it.d1!==undefined?it.d1:it.d;return [dix(a),it.t==='hline'||it.t==='box'?(b==null?bars.length-1:dix(b)):dix(b)];}
+  function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;var sp=ovlSpan(it);
+    if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
+  function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2;
+    x.fillStyle='rgba(7,6,26,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
+  function drawOverlays(x,g){
+    var fs=g.narrow?6:7;
+    OVL.forEach(function(o){if(!o.on)return;var col=o.color||'#ffd23f';
+      o.items.forEach(function(it){var c=it.c||col,sp=ovlSpan(it);if(sp[1]<g.off-1||sp[0]>g.off+g.n)return;
+        var x0=g.X(sp[0]-g.off),x1=g.X(sp[1]-g.off);x.save();x.beginPath();
+        if(it.pane==='vol')x.rect(g.pl,g.vb-g.vh-18,g.barsEnd-g.pl+4,g.vh+20);else x.rect(g.pl,g.pt-2,g.barsEnd-g.pl+4,g.ph+4);x.clip();
+        x.lineCap='round';x.setLineDash(it.dash||[]);x.lineWidth=it.w||1.5;x.strokeStyle=c;
+        if(it.t==='box'){var bx0=x0-g.bw/2,bx1=x1+g.bw/2,y0=g.Y(it.hi),y1=g.Y(it.lo);x.fillStyle=it.fill||'rgba(255,255,255,.06)';x.fillRect(bx0,y0,bx1-bx0,y1-y0);
+          x.globalAlpha=.55;x.lineWidth=1;x.setLineDash([2,3]);x.strokeRect(bx0,y0,bx1-bx0,y1-y0);x.globalAlpha=1;x.setLineDash([]);
+          if(it.label)ovlTag(x,it.label,Math.max(g.pl+2,bx0+2),y1-fs,c,'left',fs);}
+        else if(it.t==='seg'){x.beginPath();x.moveTo(x0,g.Y(it.p0));x.lineTo(x1,g.Y(it.p1));x.stroke();
+          if(it.label){x.setLineDash([]);ovlTag(x,it.label,(x0+x1)/2,(g.Y(it.p0)+g.Y(it.p1))/2,c,'center',fs);}}
+        else if(it.t==='hline'){var y=g.Y(it.p),xe=it.d1==null?g.barsEnd:x1;x.beginPath();x.moveTo(x0,y);x.lineTo(xe,y);x.stroke();x.setLineDash([]);
+          if(it.label){x.font=fs+'px '+FONT;var lw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(x0,xe-lw)),y-fs-1,c,'left',fs);}}
+        else if(it.t==='point'){var py=g.Y(it.p);x.setLineDash([]);x.fillStyle=c;x.beginPath();x.arc(x0,py,g.narrow?2.5:3.2,0,Math.PI*2);x.fill();
+          if(it.label)ovlTag(x,it.label,x0,it.pos==='below'?py+fs+4:py-fs-3,c,'center',fs);}
+        else if(it.t==='span'){var yb=it.pane==='vol'?g.vb-g.vh-5:g.pt+4;x.setLineDash([]);x.lineWidth=2;x.beginPath();x.moveTo(x0-g.bw/2,yb+5);x.lineTo(x0-g.bw/2,yb);x.lineTo(x1+g.bw/2,yb);x.lineTo(x1+g.bw/2,yb+5);x.stroke();
+          if(it.label){x.font=fs+'px '+FONT;var tw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(g.barsEnd-tw,x1+g.bw/2-tw)),yb-fs+1,c,'left',fs);}}
+        x.restore();});});
+  }
   var state=(D.alert_state||D.status||'SETUP').toUpperCase(), lvlCls='lvl-'+state.toLowerCase().replace(/[^a-z]+/g,'-');
 
   // ---------------------------------------------------------------- RISK box (fixed desk rules; computed in charts.py)
@@ -124,6 +159,7 @@
     var lo=Infinity,hi=-Infinity;
     V.forEach(function(b){lo=Math.min(lo,b.l);hi=Math.max(hi,b.h);});
     [D.stop,D.entry,D.r2,D.r3,RP.m05,RP.m10,D.buy_zone&&D.buy_zone[1]].concat((D.cuts||[]).map(function(c){return c.price;})).forEach(function(v){if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v);}});
+    ovlPrices(off,n).forEach(function(v){lo=Math.min(lo,v);hi=Math.max(hi,v);});   // keep visible detector drawings in range
     var pad=(hi-lo)*.04; lo-=pad; hi+=pad;
     function Y(v){return pt+(hi-v)/(hi-lo)*ph;}
     geo={X:X,Y:Y,bw:bw,pl:pl,barsEnd:barsEnd,off:off,n:n,W:W,H:H};
@@ -165,6 +201,7 @@
     V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';
       x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l)+(Y(b.l)-Y(b.h)<1?1:0));x.stroke();
       x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();});
+    if(OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow});
     // short, thick, glowing level segments in the strip
     var pulse=RM?1:(0.75+0.25*Math.sin((now-t0)/420));
     tags.forEach(function(t){var l=t.l,y=Y(l.v);t.y=y;if(l.inv)return;x.save();x.strokeStyle=l.c;x.shadowColor=l.c;x.shadowBlur=5;x.globalAlpha=.95;x.lineWidth=l.w;x.lineCap='butt';x.setLineDash(l.dash||[]);
@@ -221,6 +258,16 @@
   if(window.TCZoom) TCZoom.mount({host:host,canvas:cv,total:bars.length,redraw:function(){draw(performance.now());},
     tap:function(cx,cy){onMove({clientX:cx,clientY:cy});},clearTip:function(){hover=-1;showTip(-1);}});
   else {cv.addEventListener('touchstart',onMove,{passive:true});cv.addEventListener('touchmove',onMove,{passive:true});}
+  // overlay toggle + legend bar (between the zoom toolbar and the chart)
+  if(OVL.length){var ob=document.createElement('div');ob.className='tc-ovl';ob.setAttribute('role','group');ob.setAttribute('aria-label','Detector overlays');
+    function obtn(o){return (o.on?'◉ ':'○ ')+esc(o.label)+(o.on?' · ON':' · OFF');}
+    ob.innerHTML=OVL.map(function(o,k){return '<div class="ovr"><button type="button" data-o="'+k+'" aria-pressed="'+o.on+'" title="Show / hide the detector drawing">'+obtn(o)+'</button>'+
+      '<span class="ol">'+(o.legend||[]).map(function(l){return '<span><i style="background:'+esc(l[0])+'"></i>'+esc(l[1])+'</span>';}).join('')+
+      (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span></div>';}).join('');
+    host.parentNode.insertBefore(ob,host);
+    ob.addEventListener('click',function(e){var b=e.target.closest('button[data-o]');if(!b)return;var o=OVL[+b.getAttribute('data-o')];o.on=!o.on;
+      OLS.set('tc_ovl_'+o.id,o.on?'1':'0');b.setAttribute('aria-pressed',String(o.on));b.innerHTML=obtn(o);draw(performance.now());});
+  }
   cv.addEventListener('mouseleave',function(){hover=-1;showTip(-1);if(RM)draw(performance.now());});
 
   // ---------------------------------------------------------------- legend, levels table, footer

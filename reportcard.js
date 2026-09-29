@@ -96,6 +96,10 @@
     if(st.length) sb='<div class="rc-box"><h4>🎯 In the scanners</h4>'+st.map(function(s){return '<div class="rc-kv"><span>'+esc(s.type)+'</span><b>'+(s.a?'⚡ ':'👀 ')+esc(s.status)+
       (s.pv!=null?' · pivot '+num(s.pv):'')+(s.sp!=null?' · stop '+num(s.sp):'')+'</b></div>';}).join('')+'</div>';
     h.push('<div class="rc-grid">'+eb.join('')+rb.join('')+gb.join('')+sb+'</div>');
+    var v=x.v; if(v&&v.n) h.push('<div class="rc-box rc-vsa"><h4>🔊 VSA read <span class="rc-chip '+(v.b==='Strength'?'g':v.b==='Weakness'?'r':'tag')+'">'+esc(v.b)+' '+esc(v.s)+'/100</span>'+
+      (v.k?' <span class="rc-chip tag">'+esc(v.k)+(v.kd?' '+esc(v.kd.slice(8,10)+'/'+v.kd.slice(5,7)):'')+'</span>':'')+(v.wk?' <small>weekly '+esc(v.wk)+'</small>':'')+'</h4>'+
+      '<div style="font-size:13px;line-height:1.4">'+esc(v.n)+'</div><div style="font-size:11.5px;opacity:.75;margin-top:4px">'+esc(v.tf||'')+' window '+esc(v.w||'')+
+      ' · Volume Spread Analysis (Williams/Holmes), context only · <a href="'+BASE+'vsa.html">VSA page</a></div></div>');
     var q=e.q||[];
     if(q.length){
       h.push('<div class="rc-q"><table><tr><th>Qtr end</th><th>EPS</th><th>YoY</th><th>Sales</th><th>YoY</th><th>Net margin</th></tr>'+

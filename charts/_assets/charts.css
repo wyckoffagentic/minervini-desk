@@ -107,3 +107,12 @@ body.tc-embed .tc-top{margin-bottom:6px}
 body.tc-embed .tc-chart{height:clamp(300px,calc(100vh - 330px),600px)}
 @media (max-width:760px){body.tc-embed .tc-chart{height:clamp(320px,58vh,500px)}}
 .tc-risk details summary{cursor:pointer;color:#c77dff;margin-top:3px;list-style:none}.tc-risk details summary::-webkit-details-marker{display:none}.tc-risk details[open] summary{color:#ff2bd6}
+/* detector overlay toggle + legend (charts.js drawOverlays; data format in research-tools/chart_overlays.py) */
+.tc-ovl{display:flex;flex-direction:column;gap:4px;padding:6px 8px;border:2px solid #3a2f8a;border-bottom:0;background:#0e0b2e;font-size:7px;color:var(--tc-dim,#9b93d6)}
+.tc-ovl .ovr{display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px}
+.tc-ovl button{font:inherit;font-size:8px;color:#07061a;background:#ffd23f;border:2px solid #ffd23f;min-height:30px;padding:4px 8px;cursor:pointer;box-shadow:2px 2px 0 #000;touch-action:manipulation}
+.tc-ovl button[aria-pressed=false]{background:#07061a;color:#9b93d6;border-color:#6b5cff}
+.tc-ovl button:focus-visible{outline:2px solid #00e5ff;outline-offset:2px}
+.tc-ovl .ol{display:flex;flex-wrap:wrap;gap:4px 12px;line-height:1.5}.tc-ovl .ol span{white-space:nowrap}
+.tc-ovl .ol i{display:inline-block;width:14px;height:4px;vertical-align:middle;margin-right:5px}.tc-ovl .oa{opacity:.7}
+@media (max-width:760px){.tc-ovl .ol span{white-space:normal}}
