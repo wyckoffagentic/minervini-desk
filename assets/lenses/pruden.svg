@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-labelledby="pruden-t pruden-d">
+  <title id="pruden-t">Pruden lens avatar</title>
+  <desc id="pruden-d">Symbolic avatar: a point-and-figure column of X's rising out of columns of O's, in front of a generic academic shield (not any institution's crest) bearing a simple suspension-bridge line and an open book, with a small triangle for the 3-in-1 model of behaviour, pattern and mind. Not a likeness of any person.</desc>
+  <rect x="4" y="4" width="192" height="192" rx="28" fill="#eef1f8"/>
+  <!-- generic academic shield -->
+  <path d="M100 16 L168 34 V92 C168 138 136 166 100 182 C64 166 32 138 32 92 V34Z" fill="#1F3A68" stroke="#1d1b3a" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M100 26 L158 41 V92 C158 132 131 156 100 171 C69 156 42 132 42 92 V41Z" fill="none" stroke="#C9A227" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- simple suspension-bridge line -->
+  <g stroke="#C9A227" stroke-width="2.5" fill="none" stroke-linecap="round" opacity=".55">
+    <path d="M46 150 H154"/>
+    <path d="M70 150 V118 M130 150 V118"/>
+    <path d="M46 138 Q58 136 70 118 Q100 150 130 118 Q142 136 154 138"/>
+  </g>
+  <!-- open book at the foot of the shield -->
+  <g stroke="#1d1b3a" stroke-width="3" stroke-linejoin="round">
+    <path d="M100 158 C90 152 76 152 66 156 V170 C76 166 90 166 100 172Z" fill="#fffaf0"/>
+    <path d="M100 158 C110 152 124 152 134 156 V170 C124 166 110 166 100 172Z" fill="#fffaf0"/>
+  </g>
+  <path d="M72 160 C80 158 88 158 95 161 M105 161 C112 158 120 158 128 160" stroke="#C9A227" stroke-width="1.8" fill="none"/>
+  <!-- point-and-figure columns -->
+  <g transform="translate(0 12)">
+  <g fill="none" stroke="#dfe6f5" stroke-width="4.5" stroke-linecap="round">
+    <circle cx="58" cy="64" r="7"/><circle cx="58" cy="82" r="7"/><circle cx="58" cy="100" r="7"/><circle cx="58" cy="118" r="7"/><circle cx="58" cy="136" r="7"/><circle cx="102" cy="82" r="7"/><circle cx="102" cy="100" r="7"/><circle cx="102" cy="118" r="7"/>
+  </g>
+  <g fill="none" stroke="#1d1b3a" stroke-width="9" stroke-linecap="round">
+    <path d="M73 39 L87 53 M87 39 L73 53"/><path d="M73 57 L87 71 M87 57 L73 71"/><path d="M73 75 L87 89 M87 75 L73 89"/><path d="M73 93 L87 107 M87 93 L73 107"/><path d="M73 111 L87 125 M87 111 L73 125"/><path d="M117 21 L131 35 M131 21 L117 35"/><path d="M117 39 L131 53 M131 39 L117 53"/><path d="M117 57 L131 71 M131 57 L117 71"/><path d="M117 75 L131 89 M131 75 L117 89"/><path d="M117 93 L131 107 M131 93 L117 107"/>
+  </g>
+  <g fill="none" stroke="#C9A227" stroke-width="4.5" stroke-linecap="round">
+    <path d="M73 39 L87 53 M87 39 L73 53"/><path d="M73 57 L87 71 M87 57 L73 71"/><path d="M73 75 L87 89 M87 75 L73 89"/><path d="M73 93 L87 107 M87 93 L73 107"/><path d="M73 111 L87 125 M87 111 L73 125"/><path d="M117 21 L131 35 M131 21 L117 35"/><path d="M117 39 L131 53 M131 39 L117 53"/><path d="M117 57 L131 71 M131 57 L117 71"/><path d="M117 75 L131 89 M131 75 L117 89"/><path d="M117 93 L131 107 M131 93 L117 107"/>
+  </g>
+  </g>
+  <!-- 3-in-1 triangle: behaviour, pattern, mind -->
+  <g transform="translate(166 166)">
+    <path d="M0 -20 L18 12 H-18Z" fill="#C9A227" stroke="#1d1b3a" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="0" cy="-20" r="4" fill="#1F3A68" stroke="#1d1b3a" stroke-width="2"/>
+    <circle cx="18" cy="12" r="4" fill="#1F3A68" stroke="#1d1b3a" stroke-width="2"/>
+    <circle cx="-18" cy="12" r="4" fill="#1F3A68" stroke="#1d1b3a" stroke-width="2"/>
+  </g>
+  <rect x="4" y="4" width="192" height="192" rx="28" fill="none" stroke="#1d1b3a" stroke-width="5"/>
+</svg>
