@@ -1,17 +1,18 @@
 {
   "reports": [
     "2026-09-26",
-    "2026-09-29"
+    "2026-09-29",
+    "2026-10-03"
   ],
   "latest_scores": {
-    "HALO": 7,
-    "NTAP": 7,
-    "ASX": 7,
+    "FTNT": 7,
     "ANET": 7,
-    "HPE": 6,
-    "FTNT": 5,
-    "HNGE": 5,
-    "KEYS": 4,
-    "AVT": 6
+    "ASX": 6,
+    "HALO": 5,
+    "KEYS": 5,
+    "HNGE": 4,
+    "NTAP": 4,
+    "HPE": 4,
+    "AVT": 5
   }
 }
