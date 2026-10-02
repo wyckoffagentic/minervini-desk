@@ -16,6 +16,8 @@
   function mapS(a){var m={};(a||[]).forEach(function(p){m[p[0]]=p[1];});return m;}
   var S50=mapS(D.sma50),S150=mapS(D.sma150),S200=mapS(D.sma200);
   var last=bars[bars.length-1], hasR=D.r3!=null, RP=D.risk_plan||{};
+  // RS line (research-tools/charts.py rs_payload): close ÷ SPY close on the chart's own bars; marks: L = new 52w RS high before price (blue dot), P = with price
+  var RSD=D.rs||{}, RSL=mapS(RSD.line), RSM=RSD.marks||{}, hasRS=(RSD.line||[]).length>1, RSC={line:'#d6d0ff',lead:'#2f7bff',hi:'#9fc4ff'};
 
   // ---------------------------------------------------------------- detector overlays (format: research-tools/chart_overlays.py docstring)
   // D.overlays = [{id,label,color,asof,legend:[[colour,text]],items:[{t:'box'|'seg'|'hline'|'point'|'span', dates d0/d1/d, prices ...}]}]
@@ -138,7 +140,7 @@
     if(W<50||H<50) return;
     var x=setup(cv,W,H), narrow=W<700;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
-    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, pt=narrow?26:22, pb=narrow?26:34, vh=Math.round(H*(narrow?.13:.14)), ph=H-pt-pb-vh-10;
+    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, pt=narrow?26:22, pb=narrow?26:34, vh=Math.round(H*(narrow?.13:.14)), rh=hasRS?Math.round(H*(narrow?.15:.14)):0, ph=H-pt-pb-vh-10-(hasRS?rh+12:0);
     var axisW=narrow?46:56, L=levels().filter(function(l){return l.v!=null;});
     // phones: level tags double as the price axis (one merged right column) and the last price joins the tag stack, so the bars get the width
     if(narrow) L.push({k:'last',v:last.c,c:'#ffffff',nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
@@ -190,6 +192,24 @@
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb;
     V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);});
     x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;x.fillText('VOL',pl+6,vb-vh+4);
+    // RS line panel (between price and volume): own scale over the visible window
+    if(hasRS){var ry0=pt+ph+12, rs=[];V.forEach(function(b){var v=RSL[b.d];if(v!=null)rs.push(v);});
+      x.fillStyle='rgba(47,123,255,.05)';x.fillRect(pl,ry0,barsEnd-pl,rh);x.strokeStyle='rgba(107,92,255,.35)';x.lineWidth=1;x.beginPath();x.moveTo(pl,ry0+.5);x.lineTo(barsEnd,ry0+.5);x.stroke();
+      if(rs.length>1){var rlo=Math.min.apply(null,rs),rhi=Math.max.apply(null,rs),rp=(rhi-rlo)*.1||rhi*.01;rlo-=rp;rhi+=rp;
+        var RY=function(v){return ry0+6+(rhi-v)/(rhi-rlo)*(rh-10);};
+        x.save();x.beginPath();x.rect(pl,ry0,barsEnd-pl+6,rh);x.clip();
+        x.strokeStyle=RSC.line;x.lineWidth=narrow?1.3:1.6;x.shadowColor=RSC.line;x.shadowBlur=narrow?0:4;x.beginPath();var on=0;
+        V.forEach(function(b,i){var v=RSL[b.d];if(v==null){on=0;return;}on?x.lineTo(X(i),RY(v)):x.moveTo(X(i),RY(v));on=1;});x.stroke();x.shadowBlur=0;
+        V.forEach(function(b,i){var m=RSM[b.d];if(!m||RSL[b.d]==null)return;var cx=X(i),cy=RY(RSL[b.d]);
+          if(m==='L'){x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=8;x.beginPath();x.arc(cx,cy,narrow?3.6:4.4,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=1;x.stroke();}
+          else{x.fillStyle=RSC.hi;x.beginPath();x.arc(cx,cy,narrow?1.7:2.1,0,Math.PI*2);x.fill();}});
+        x.restore();
+        var lv=RSL[V[n-1].d],lm=RSM[V[n-1].d],lt=RSD.last||{};
+        if(atLatest&&lv!=null){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillStyle=lm==='L'?RSC.lead:lm?RSC.hi:C.axis;
+          x.fillText(lm?'NEW HI':((lt.off_hi_pct||0).toFixed(1)+'%'),Math.min(sx0+2,W-44),Math.max(ry0+10,Math.min(ry0+rh-3,RY(lv)+3)));}}
+      x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;x.fillText('RS ÷ '+(RSD.bench||'SPY'),pl+6,ry0+11);
+      var lgx=pl+6+x.measureText('RS ÷ '+(RSD.bench||'SPY')).width+10;x.font=(narrow?6:7)+'px '+FONT;
+      x.fillStyle=RSC.lead;x.beginPath();x.arc(lgx+3,ry0+8,3,0,Math.PI*2);x.fill();x.fillText(narrow?'LEADS PRICE':'RS NEW HIGH BEFORE PRICE',lgx+9,ry0+11);}
     // SMAs
     [[S50,'#ff9f1c','SMA50'],[S150,'#b86bff','SMA150'],[S200,'#4da3ff','SMA200']].forEach(function(a,j){
       x.strokeStyle=a[1];x.lineWidth=1.3;x.globalAlpha=.85;x.beginPath();var s=0;
@@ -250,7 +270,7 @@
     if(i<0){tip.hidden=true;return;}
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
     tip.innerHTML='<b>'+esc(b.d)+'</b><br>H '+b.h.toFixed(2)+'<br>L '+b.l.toFixed(2)+'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>')+
-      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+(S50[b.d]?'<br>SMA50 '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+ovlTips(b.d);
+      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+(S50[b.d]?'<br>SMA50 '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI</span>':''):'')+ovlTips(b.d);
     tip.hidden=false;var w=host.clientWidth;tip.style.left=(px>w/2?Math.max(4,px-tip.offsetWidth-14):px+14)+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,py-40))+'px';
   }
   function onMove(e){if(!geo)return;var r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e,px=p.clientX-r.left,py=p.clientY-r.top;
@@ -274,7 +294,8 @@
   // ---------------------------------------------------------------- legend, levels table, footer
   $('tc-legend').innerHTML='<span><i style="background:'+C.up+'"></i>HLC BAR UP (CLOSE ≥ PRIOR CLOSE)</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+
     '<span><i style="background:#ff9f1c"></i>SMA50</span><span><i style="background:#b86bff"></i>SMA150</span><span><i style="background:#4da3ff"></i>SMA200</span>'+
-    (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'');
+    (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
+    (hasRS?'<span><i style="background:'+RSC.line+'"></i>RS LINE = CLOSE ÷ '+esc(RSD.bench||'SPY')+'</span><span><i style="background:'+RSC.lead+';height:8px;width:8px;border-radius:50%"></i>RS 52W HIGH BEFORE PRICE</span><span><i style="background:'+RSC.hi+';height:5px;width:5px;border-radius:50%"></i>RS 52W HIGH WITH PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'');
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
   var tbl='<h2>LEVELS &amp; SOURCES</h2><div class="tc-scroll"><table class="tc-tbl"><thead><tr><th>LEVEL</th><th>PRICE</th><th>R</th><th>SOURCE</th></tr></thead><tbody>'+
     row('c-r3','★★ 3R BOSS',D.r3,D.r3!=null?D.r_src+' = '+D.entry.toFixed(2)+' + 3×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+3R')+
@@ -296,6 +317,9 @@
   if(D.note) notes.push(['NOTE','watchlist.md: '+D.note]);
   if(D.verdict) notes.push(['VERDICT','report: '+D.verdict]);
   (D.checks||[]).forEach(function(c){notes.push(['CHECK',c]);});
+  if(RSD.src) notes.push(['RS LINE',RSD.src]);
+  var RT=RSD.rating||{}; if(RT.src) notes.push(['RS RATING',(RT.status==='ranked'?'RS '+RT.rs+' · rank #'+RT.rank+' of '+RT.universe+' · 1w rank change '+(RT.chg_1w==null?'n/a':RT.chg_1w)+' (vs '+RT.week_ago+') · 4w '+(RT.chg_4w==null?'n/a':RT.chg_4w)+' (vs '+RT.four_week_ago+'); positive = moved up':
+    RT.status==='unranked'?'not ranked: '+(RT.reason||'')+(RT.provisional?' · provisional RS '+RT.provisional+' (unverified, short history)':''):'no ranking feed')+' · '+(RT.label||'')+' · session '+(RT.asof||'?')+', file generated '+(RT.generated||'?')+' · '+RT.src]);
   $('tc-levels').innerHTML=tbl+'<ul class="tc-notes">'+notes.map(function(n){return '<li><b>'+n[0]+'</b>'+esc(n[1])+'</li>';}).join('')+'</ul>';
   $('tc-foot').innerHTML='<p><b>RESEARCH, NOT ADVICE.</b> Entry/stop are the desk\'s planning levels (watchlist.md, daily report, alert state), not orders; 2R/3R are arithmetic targets. Verify before trading.</p>'+
     '<p>Prices: '+esc(D.price_src)+' · fetched '+esc(D.fetched_at||'?')+' · page generated '+esc(D.generated||'')+' (Sydney).</p><p>Font: Press Start 2P (SIL OFL 1.1). Chart drawn on canvas, no third-party code.</p>';
