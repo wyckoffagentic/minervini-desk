@@ -20,7 +20,7 @@
   var RSD=D.rs||{}, RSL=mapS(RSD.line), RSM=RSD.marks||{}, RSC={lead:'#2f7bff',hi:'#9fc4ff'};
   // RS rating panel (Deepvue-style, above price): D.rs.hist.rows = [[date, rating|null, ma21|null, band S/F/N/W|null, cross U/D|null]]
   var RTH=RSD.hist||null, hasRT=!!RTH, RTM={}; ((RTH&&RTH.rows)||[]).forEach(function(r){RTM[r[0]]=r;});
-  var RTC={r:'#39ff88',ma:'#ffa630',up:'rgba(57,255,136,.38)',dn:'rgba(255,96,64,.5)',area:'rgba(57,255,136,.13)',
+  var RTC={r:'#39ff88',ma:'#ffa630',up:'rgba(57,255,136,.20)',dn:'rgba(255,96,64,.24)',area:'rgba(57,255,136,.13)',
     band:{S:'rgba(24,170,80,.36)',F:'rgba(18,96,58,.48)',N:'rgba(130,118,28,.40)',W:'rgba(150,22,34,.48)'},
     bandName:{S:'STRONG',F:'FIRM',N:'NEUTRAL',W:'WEAK'}};
   function sday(d){return d?(d.slice(8,10)+' '+MON[+d.slice(5,7)-1]):'?';}
@@ -198,23 +198,29 @@
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb;
     V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);});
     x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;x.fillText('VOL',pl+6,vb-vh+4);
-    // RS RATING panel (top): regime bands, area fill, rating vs MA21 fill, crossover dots, 0-100 scale + value tags on the right
+    // RS RATING panel (top): area fill, smooth rating-vs-MA21 fill, crossover dots, 0-100 scale + value tags on the right
+    // (no per-bar regime band columns: on phones they rendered as dozens of thin vertical stripes; band names stay in the tooltip)
     if(hasRT){var RH=rh, rw=barsEnd-pl, vis=V.map(function(b){return RTM[b.d]||null;}), mn=100, any=false;
       x.save();x.fillStyle='#07100d';x.fillRect(pl,ry0,rw,RH);
       vis.forEach(function(r){if(r&&r[1]!=null){any=true;mn=Math.min(mn,r[1]);}if(r&&r[2]!=null)mn=Math.min(mn,r[2]);});
       var rlo=Math.max(0,Math.min(60,Math.floor((mn-8)/20)*20)), rhi=100;
       var RY=function(v){return ry0+3+(rhi-v)/(rhi-rlo)*(RH-6);};
       x.beginPath();x.rect(pl,ry0,rw,RH);x.clip();
-      vis.forEach(function(r,i){if(r&&r[3]){x.fillStyle=RTC.band[r[3]];x.fillRect(X(i)-bw/2,ry0,bw+.6,RH);}});
       // grid (20-step) inside the plot
       x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;for(var gv=Math.ceil(rlo/20)*20;gv<=rhi;gv+=20){var gy=Math.round(RY(gv))+.5;x.beginPath();x.moveTo(pl,gy);x.lineTo(barsEnd,gy);x.stroke();}
       // segments of consecutive rated bars
       var segs=[],cur=null;vis.forEach(function(r,i){if(r&&r[1]!=null){if(!cur){cur=[];segs.push(cur);}cur.push(i);}else cur=null;});
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});
         x.lineTo(X(sg[sg.length-1]),ry0+RH);x.lineTo(X(sg[0]),ry0+RH);x.closePath();x.fillStyle=RTC.area;x.fill();});
-      for(var i=1;i<vis.length;i++){var a0=vis[i-1],a1=vis[i];if(!a0||!a1||a0[2]==null||a1[2]==null||a0[1]==null||a1[1]==null)continue;
-        x.beginPath();x.moveTo(X(i-1),RY(a0[1]));x.lineTo(X(i),RY(a1[1]));x.lineTo(X(i),RY(a1[2]));x.lineTo(X(i-1),RY(a0[2]));x.closePath();
-        x.fillStyle=(a0[1]+a1[1])>=(a0[2]+a1[2])?RTC.up:RTC.dn;x.fill();}
+      // rating vs MA21: one continuous polygon per run of bars with both values (rating forward, MA back), filled twice with a clip at
+      // the MA line - green where the rating is above its MA, red where below - so there are no per-bar slices / seams
+      var bsegs=[],bc=null;vis.forEach(function(r,i){if(r&&r[1]!=null&&r[2]!=null){if(!bc){bc=[];bsegs.push(bc);}bc.push(i);}else bc=null;});
+      bsegs.forEach(function(sg){if(sg.length<2)return;
+        function band(){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});
+          for(var k=sg.length-1;k>=0;k--)x.lineTo(X(sg[k]),RY(vis[sg[k]][2]));x.closePath();}
+        function maPath(edge){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][2]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});
+          x.lineTo(X(sg[sg.length-1]),edge);x.lineTo(X(sg[0]),edge);x.closePath();}
+        [[ry0-2,RTC.up],[ry0+RH+2,RTC.dn]].forEach(function(p){x.save();maPath(p[0]);x.clip();band();x.fillStyle=p[1];x.fill();x.restore();});});
       x.strokeStyle=RTC.ma;x.lineWidth=narrow?1.1:1.4;x.beginPath();var on=0;
       vis.forEach(function(r,i){if(!r||r[2]==null){on=0;return;}var y=RY(r[2]);on?x.lineTo(X(i),y):x.moveTo(X(i),y);on=1;});x.stroke();
       x.strokeStyle=RTC.r;x.lineWidth=narrow?1.4:1.8;x.shadowColor=RTC.r;x.shadowBlur=narrow?0:5;
@@ -330,7 +336,7 @@
     '<span><i style="background:#ff9f1c"></i>SMA50</span><span><i style="background:#b86bff"></i>SMA150</span><span><i style="background:#4da3ff"></i>SMA200</span>'+
     (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
     (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>MA'+(RTH.ma||21)+' OF RATING</span>'+
-      '<span><i style="background:'+RTC.band.S+';height:8px"></i>STRONG</span><span><i style="background:'+RTC.band.F+';height:8px"></i>FIRM</span><span><i style="background:'+RTC.band.N+';height:8px"></i>NEUTRAL</span><span><i style="background:'+RTC.band.W+';height:8px"></i>WEAK</span>'+
+      '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
     ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'');
@@ -355,7 +361,7 @@
   if(D.note) notes.push(['NOTE','watchlist.md: '+D.note]);
   if(D.verdict) notes.push(['VERDICT','report: '+D.verdict]);
   (D.checks||[]).forEach(function(c){notes.push(['CHECK',c]);});
-  if(RTH&&RTH.src) notes.push(['RS PANEL',RTH.src+' Bands: '+(RTH.rule||'')]);
+  if(RTH&&RTH.src) notes.push(['RS PANEL',RTH.src+' Regime (tooltip only, not drawn): '+(RTH.rule||'')]);
   if(RSD.src) notes.push(['RS LINE',RSD.src]);
   var RT=RSD.rating||{}; if(RT.src) notes.push(['RS RATING',(RT.status==='ranked'?'RS '+RT.rs+' · rank #'+RT.rank+' of '+RT.universe+' · 1w rank change '+(RT.chg_1w==null?'n/a':RT.chg_1w)+' (vs '+RT.week_ago+') · 4w '+(RT.chg_4w==null?'n/a':RT.chg_4w)+' (vs '+RT.four_week_ago+'); positive = moved up':
     RT.status==='unranked'?'not ranked: '+(RT.reason||'')+(RT.provisional?' · provisional RS '+RT.provisional+' (unverified, short history)':''):'no ranking feed')+' · '+(RT.label||'')+' · session '+(RT.asof||'?')+', file generated '+(RT.generated||'?')+' · '+RT.src]);
