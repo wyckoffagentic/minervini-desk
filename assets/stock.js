@@ -111,7 +111,7 @@ function chartFrom(kind){
     window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
     if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
     $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=81ec7b07').then(function(){return loadScript('charts/_assets/charts.js?v=81ec7b07');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=1ded24bf').then(function(){return loadScript('charts/_assets/charts.js?v=1ded24bf');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
@@ -122,6 +122,8 @@ function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;v
   if(OVM==='vsa'){h.push('<span><i class="dk-up">●</i> strength sign (under the bar)</span><span><i class="dk-dn">●</i> weakness sign (over the bar)</span><span><i>!</i> high significance in context</span>');}
   else{if(!D.no_levels&&D.entry!=null)h.push('<span>levels: entry <b>'+(+D.entry).toFixed(2)+'</b>'+(D.stop!=null?' · stop <b>'+(+D.stop).toFixed(2)+'</b>':'')+(D._r2!=null?' · targets 2R '+(+D._r2).toFixed(2)+' / 3R '+(+D._r3).toFixed(2):'')+'</span>');
     else h.push('<span class="mut">no desk levels for this name</span>');
+    if(!D.no_levels&&D.entry!=null&&pgOk(D.pnl,+D.entry))h[h.length-1]=h[h.length-1].replace(/<\/span>$/,pgChip(D.pnl)+'</span>');
+    h=h.concat(plansKey(D,OVM));
     ovs.forEach(function(o){h.push('<span><i style="color:'+esc(o.color||'#fff')+'">■</i> '+esc(String(o.label||o.id).toLowerCase())+'</span>');});}
   h.push('<span class="mut">RS panel on top · SMA 50/150/200 · tap a bar for details</span>');k.innerHTML=h.join('');}
 function noChart(msg){var b=$('stk-chart');b.hidden=false;b.innerHTML='<div class="dk-note">'+msg+'</div>';postH();}
@@ -189,6 +191,11 @@ function pgChip(p){if(!p)return '';var f=function(v){return (v>=0?'+':'')+v.toFi
   var c=p.pct>=0?'tp-pos':'tp-neg',sub=[p.days!=null?p.days+'d':'',p.mfe_pct!=null?'MFE '+f(p.mfe_pct):''].filter(Boolean).join(' · ');
   return ' · <span class="tp '+c+'" title="entry '+p.entry+' → last close '+p.last+' ('+esc(p.last_date||'')+')'+(p.since?'; triggered '+esc(p.since):'')+'"><b>'+f(p.pct)+'</b> from entry</span>'+
     (p.r!=null?' <span class="tp-r '+c+'">'+(p.r>=0?'+':'')+p.r.toFixed(1)+'R</span>':'')+(sub?' <small class="tp-m">'+esc(sub)+'</small>':'');}
+function pgOk(p,e){return !!(p&&e>0&&p.entry>0&&Math.abs(p.entry-e)/e<0.005);}
+// the chart's other plans (charts.py plans_for -> D.plans), filtered to the dropdown's context; the plan already on the levels line is skipped
+function plansKey(D,mode){var src={mastack:/^mastack/,wyckoff:/^wyckoff/}[mode],e=D.no_levels?null:D.entry,ps=D.pnl&&pgOk(D.pnl,e)?D.pnl.state:null;
+  return (D.plans||[]).filter(function(x){if(!x||!x.pnl)return false;if(src&&!src.test(x.src||''))return false;
+    return !(e&&ps&&pgOk(x.pnl,e)&&x.pnl.state===ps);}).slice(0,3).map(function(x){return '<span>◇ '+esc(x.label)+': entry <b>'+(+x.pnl.entry).toFixed(2)+'</b>'+pgChip(x.pnl)+'</span>';});}
 function deskSec(d){
   var k=d.desk||{},h=[];
   if(k.watch){var w=k.watch;h.push('<div class="stk-dk"><h4>Desk watchlist</h4><p><b>'+esc(w.status||'')+'</b> · '+esc(w.setup||'')+' · pivot <b>'+esc(w.pivot_raw||'—')+'</b> · stop <b>'+(num(w.stop)?w.stop.toFixed(2):'—')+'</b>'+(w.first_flagged?' · on list since '+esc(w.first_flagged):'')+'</p>'+(w.note?'<p class="mut">Note: '+esc(w.note)+'</p>':'')+'</div>');}

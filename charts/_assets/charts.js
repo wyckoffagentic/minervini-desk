@@ -203,6 +203,14 @@
   var pgTxt=PGO?pgf(PG.pct)+' FROM ENTRY':(PG&&PG.to_entry_pct!=null)?'ENTRY '+Math.abs(PG.to_entry_pct).toFixed(1)+'% '+(PG.to_entry_pct>=0?'ABOVE':'BELOW'):'';
   var pgSub=PGO?[PG.days!=null?PG.days+'D':'',PG.mfe_pct!=null?'MFE '+pgf(PG.mfe_pct):''].filter(Boolean).join(' · '):'';
   var pgCls=PGO?(PG.pct>=0?'pos':'neg'):'pend';
+  if(PG&&PG.off_scan)pgSub=(pgSub?pgSub+' · ':'')+'OFF SCAN · OLD LEVELS';
+  // other open / pending plans for this ticker (charts.py plans_for: springs, VCP/SEPA..., Setup Master, MA Stack GUD / Spring->Bull / flips,
+  // Wyckoff tickets), % recomputed on this chart's bars; the chart's own plan is not repeated. None -> nothing shown.
+  var PLS=(D.plans||[]).filter(function(x){return x&&x.pnl&&(x.pnl.pct!=null||x.pnl.to_entry_pct!=null);});
+  function plTxt(x,short){var p=x.pnl,o=p.state==='open';return o?pgf(p.pct)+(short?'':' from '+(+p.entry).toFixed(2))+(p.r!=null?' · '+(p.r>=0?'+':'')+p.r.toFixed(1)+'R':'')+(p.days!=null?' · '+p.days+'D':'')+(!short&&p.mfe_pct!=null?' · MFE '+pgf(p.mfe_pct):'')
+    :'ENTRY '+(+p.entry).toFixed(2)+' '+Math.abs(p.to_entry_pct).toFixed(1)+'% '+(p.to_entry_pct>=0?'ABOVE':'BELOW');}
+  function plCls(x){return x.pnl.state==='open'?(x.pnl.pct>=0?'pos':'neg'):'pend';}
+  var PL0=!pgTxt&&PLS.length?PLS[0]:null;
   var pgTip=PG?'entry '+PG.entry+' → last close '+PG.last+' ('+(PG.last_date||'')+')'+(PG.since?'; triggered '+PG.since:'')+(PG.basis?'; '+PG.basis:''):'';
   var words=state.split(' '), lvlHtml=words.length>1?esc(words.slice(0,Math.ceil(words.length/2)).join(' '))+'<br>'+esc(words.slice(Math.ceil(words.length/2)).join(' ')):esc(state);
   $('tc-hud').innerHTML=
@@ -210,7 +218,8 @@
     '<div class="tc-blk"><div class="l">PRICE</div><div class="v">'+money(D.last)+'</div><div class="tc-sub">'+esc(D.last_date)+'</div></div>'+
     '<div class="tc-blk"><div class="l">LEVEL</div><div class="v tc-lvl '+lvlCls+'">'+lvlHtml+'</div></div>'+
     '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+
-      (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'</div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):'')+
+      (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'</div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):
+       PL0?'<div class="tc-pg '+plCls(PL0)+'" title="'+esc(PL0.label+(PL0.pnl.basis?' · '+PL0.pnl.basis:''))+'">'+esc(plTxt(PL0,true)+(PL0.pnl.state==='open'?' FROM ENTRY':''))+'</div><div class="tc-sub tc-pgs">'+esc(String(PL0.label).toUpperCase())+(PLS.length>1?' · +'+(PLS.length-1)+' MORE IN KEY':'')+'</div>':'')+
       (D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
     riskBox()+
     '<div class="tc-gwrap">'+(hasR?'<canvas id="tc-gauge" aria-label="HP bar: price position between stop and 3R"></canvas>':'<div class="tc-warn">☠ STOP NOT SET — no R targets (desk has no documented stop)</div>')+'</div>';
@@ -487,7 +496,8 @@
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
-    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
+    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
+    PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
   $('tc-legend').innerHTML=legendHTML();
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
   var tbl='<h2>LEVELS &amp; SOURCES</h2><div class="tc-scroll"><table class="tc-tbl"><thead><tr><th>LEVEL</th><th>PRICE</th><th>R</th><th>SOURCE</th></tr></thead><tbody>'+
