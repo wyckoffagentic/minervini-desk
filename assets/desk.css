@@ -283,7 +283,7 @@ body.dk .stk-fin td{white-space:nowrap}
 .wl-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
 .wl-list{margin:14px 0 18px;background:linear-gradient(180deg,rgba(18,13,52,.94),rgba(10,8,30,.96));border:1px solid var(--edge2);border-radius:var(--r-lg);box-shadow:var(--glow);overflow:hidden}
 .wl-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--edge);background:rgba(26,17,80,.55)}
-.wl-h h2{flex:1;min-width:0;margin:0!important;font-size:11px!important;overflow-wrap:break-word;line-height:1.6}
+.wl-h{flex-wrap:wrap}.wl-h h2{flex:1 1 180px;min-width:0;margin:0!important;font-size:11px!important;overflow-wrap:break-word;line-height:1.6}
 .wl-h h2 small{display:block;margin-top:4px}
 .wl-h .dk-btn{padding:4px 8px}
 .wl-add{display:flex;gap:6px;padding:8px 12px;position:relative;border-bottom:1px solid var(--edge)}
