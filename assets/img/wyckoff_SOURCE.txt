@@ -1,0 +1,17 @@
+Richard D. Wyckoff (1873-1934) header badge - image source and licence
+
+Original: frontispiece portrait captioned "Richard D. Wyckoff" in
+  R. D. Wyckoff, "How I Trade and Invest in Stocks and Bonds" (New York: The Magazine of Wall Street, copyright 1922).
+Scan: Cornell University Library, digitised via Internet Archive: https://archive.org/details/cu31924031269552 (leaf n9)
+  Direct page image: https://archive.org/download/cu31924031269552/page/n9_w1600.jpg
+Photographer: not credited in the book. Date: published 1922 (photo taken on or before then).
+Status: published in the United States before 1931, so public domain in the US. The Cornell scan notes
+  "There are no known copyright restrictions in the United States on the use of the text."
+Not used: Wikimedia Commons File:Richard-wyckoff.jpg. It is tagged CC BY-SA 4.0 "own work" (2021), a doubtful claim for
+  a historical photo. File:Richard B. Wyckoff.jpg shows a different person (an Iowa legislator).
+
+Files:
+  wyckoff_1922_original.webp : the printed photo, cropped from the page, otherwise unedited (resized to 300px)
+  wyckoff_plain.webp/.png    : round badge with no props (photo plus neon ring only)
+  wyckoff_badge.webp/.png    : the badge used on the site, with pixel-art "deal with it" sunglasses, a small party hat and a neon ring
+Edits were made with Pillow by research-tools/make_wyckoff_badge.py (crop, duotone tint, drawn props). No AI imagery: the face is the real photo.
