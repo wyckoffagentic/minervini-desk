@@ -377,3 +377,12 @@ body.tc-mini .tclp{position:static;width:auto;max-height:none;margin-top:6px}   
 body.tc-mini .tcz .tcg{flex-basis:100%;margin-left:0}body.tc-mini .tcz .tcg button{flex:1}
 body.tc-mini .tcz{border:0;background:transparent;padding:2px 0 6px}
 .tcz .tcg .tct[aria-pressed=true]{background:#07061a!important;color:var(--gold)!important;border-color:var(--gold)!important}
+/* ================================================================== chart: pure black plot area + notes fold row (charts.js) */
+body.dk .tc-stage{background:#000}
+.tcf{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;margin:0;padding:6px 12px;cursor:pointer;touch-action:manipulation;text-align:left;
+ font:700 12.5px var(--f-body,system-ui);color:var(--tx2,#cfc9ff);background:rgba(14,11,46,.92);border:1.5px solid var(--edge2,#3a2f8a);border-radius:10px}
+.tcf i{font-style:normal;color:var(--gold,#ffd23f);font-size:14px;width:14px}.tcf span{margin-left:auto;font-weight:500;font-size:11.5px;color:var(--dim,#8a84bf)}
+.tcf[hidden]{display:none}.tcf:focus-visible{outline:2px solid var(--cy,#00e5ff);outline-offset:1px}
+section.tc-stage>.tcf{border-radius:0;border-width:0 2px;border-color:#3a2f8a}
+body.tc-fold .tc-ovl,body.tc-fold .tc-legend,body.tc-fold .stk-vkey{display:none!important}
+body.tc-mini .tcf{margin:0 0 6px}

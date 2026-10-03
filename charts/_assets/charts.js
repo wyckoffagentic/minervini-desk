@@ -7,7 +7,7 @@
   var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(/[?&]embed=1/.test(location.search)) document.body.classList.add('tc-embed');
   var FONT="'Press Start 2P','DejaVu Sans',monospace", SYM="'Press Start 2P','DejaVu Sans','Noto Sans Symbols 2','Segoe UI Symbol',monospace";
-  var C={up:'#39ff88',dn:'#ff3d7f',entry:'#00e5ff',stop:'#ff2a2a',cut:'#ff9f1c',a05:'#c77dff',a10:'#ff2bd6',r2:'#39ff14',r3:'#ffd700',zone:'#00e5ff',grid:'rgba(107,92,255,.13)',axis:'#6f6a9c',frame:'#3a2f8a',bg:'#0a0822'};
+  var C={up:'#39ff88',dn:'#ff3d7f',entry:'#00e5ff',stop:'#ff2a2a',cut:'#ff9f1c',a05:'#c77dff',a10:'#ff2bd6',r2:'#39ff14',r3:'#ffd700',zone:'#00e5ff',grid:'rgba(107,92,255,.13)',axis:'#6f6a9c',frame:'#3a2f8a',bg:'#000000'};
   // ---------------------------------------------------------------- layers (LAYERS panel + TEXT switch + FULL / LEVELS / CLEAN presets)
   // One shared state for every chart (full chart pages, stock.html, inline dropdown charts): localStorage wa.desk.chartlayers.v1 =
   // {L:{layer:0|1}, text:0|1, axis:0|1}. Presets just set the toggles; any other mix shows CUSTOM. Changes redraw from memory (no refetch).
@@ -20,6 +20,8 @@
     var m=null;try{m=localStorage.getItem(MKEY);}catch(e){}return preState(LPRE[m]?m:'full');}   // first visit after the CLEAN-only version: keep its choice
   function presetOf(o){for(var p in LPRE){var q=preState(p);if(q.text===o.text&&q.axis===o.axis&&LAYK.every(function(k){return q.L[k]===o.L[k];}))return p;}return 'custom';}
   var LS=loadLay();
+  // notes fold (▾ / ▸ row above the chart): hides the overlay banners + key, the inline key line, the legend and the far-target list
+  var FKEY='wa.desk.chartfold.v1',FOLD=false,LAST_OFF=0;try{FOLD=localStorage.getItem(FKEY)==='1';}catch(e){}
   var MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   function $(id){return document.getElementById(id);}
   function money(v){return v==null?'—':'$'+Number(v).toFixed(2);}
@@ -50,7 +52,7 @@
   function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;var sp=ovlSpan(it);
     if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
   function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2;
-    x.fillStyle='rgba(7,6,26,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
+    x.fillStyle='rgba(0,0,0,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
   function drawOverlays(x,g){
     var fs=g.narrow?6:7;
     OVL.forEach(function(o){if(!o.on)return;var col=o.color||'#ffd23f';
@@ -218,7 +220,7 @@
     // RS RATING panel (top): area fill, smooth rating-vs-MA21 fill, crossover dots, 0-100 scale + value tags on the right
     // (no per-bar regime band columns: on phones they rendered as dozens of thin vertical stripes; band names stay in the tooltip)
     if(RSP){var RH=rh, rw=barsEnd-pl, vis=V.map(function(b){return RTM[b.d]||null;}), mn=100, any=false;
-      x.save();x.fillStyle='#07100d';x.fillRect(pl,ry0,rw,RH);
+      x.save();x.fillStyle='#000';x.fillRect(pl,ry0,rw,RH);
       var mx=0;vis.forEach(function(r){if(r&&r[1]!=null){any=true;mn=Math.min(mn,r[1]);mx=Math.max(mx,r[1]);}if(r&&r[2]!=null){mn=Math.min(mn,r[2]);mx=Math.max(mx,r[2]);}});
       // autoscale to the visible rating + MA21 (min-3 .. max+2, clamped 1-99, at least a 10-point span) so a 90-99 leader is not a flat strip
       var rlo=Math.max(1,Math.floor(mn-3)), rhi=Math.min(99,Math.ceil(mx+2));if(!any){rlo=1;rhi=99;}
@@ -245,7 +247,7 @@
       vis.forEach(function(r,i){if(!r||r[2]==null){on=0;return;}var y=RY(r[2]);on?x.lineTo(X(i),y):x.moveTo(X(i),y);on=1;});x.stroke();
       x.strokeStyle=RTC.r;x.lineWidth=narrow?1.4:1.8;x.shadowColor=RTC.r;x.shadowBlur=narrow?0:5;
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});x.stroke();});x.shadowBlur=0;
-      vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#07100d';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),narrow?2.2:2.7,0,Math.PI*2);x.fill();x.stroke();});
+      vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#000';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),narrow?2.2:2.7,0,Math.PI*2);x.fill();x.stroke();});
       // where the stored history starts / blank before it
       var f0=RTH.from, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&b.d>=f0)fi=i;});
       x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';
@@ -301,7 +303,7 @@
       var ay=t.cy;
       x.save();x.globalAlpha=l.thin?.92:1;
       x.beginPath();x.moveTo(nx,ay);x.lineTo(bx,Math.max(by,ay-notch));x.lineTo(bx,by);x.lineTo(bx+t.tw,by);x.lineTo(bx+t.tw,by+t.bh);x.lineTo(bx,by+t.bh);x.lineTo(bx,Math.min(by+t.bh,ay+notch));x.closePath();
-      x.fillStyle=l.inv?c:(l.bg||(l.thin?'#120a10':'#07061a'));x.fill();x.strokeStyle=c;x.lineWidth=l.thin?1.2:2;x.setLineDash(l.thin?[3,2]:[]);x.shadowColor=c;x.shadowBlur=l.thin?0:10;x.stroke();x.setLineDash([]);
+      x.fillStyle=l.inv?c:(l.bg||'#000');x.fill();x.strokeStyle=c;x.lineWidth=l.thin?1.2:2;x.setLineDash(l.thin?[3,2]:[]);x.shadowColor=c;x.shadowBlur=l.thin?0:10;x.stroke();x.setLineDash([]);
       if(!l.thin&&!l.inv){x.shadowBlur=0;x.fillStyle=c;x.globalAlpha=.9;x.fillRect(bx+t.tw-4,by+2,2,t.bh-4);x.globalAlpha=1;} // pixel "pole" edge
       if(Math.abs(t.cy-t.y)>0.5){x.save();x.setLineDash([]);x.strokeStyle=c;x.lineWidth=1.5;x.shadowColor=c;x.shadowBlur=3;x.beginPath();x.moveTo(sx1,t.y);x.lineTo(nx+2,t.cy);x.stroke();x.restore();}
       x.fillStyle=l.inv?'#07061a':c;x.shadowColor=c;x.shadowBlur=(l.thin||l.inv||narrow)?0:8;x.textAlign='left';x.font=tfs+'px '+SYM;
@@ -315,7 +317,7 @@
     // last price tag on the axis
     var lastV=V[n-1],ly=Y(last.c);if(!narrow&&TX&&LY.last&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle='#fff';x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
     // 1UP sprite above last bar
-    if(TX&&OFF.length){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='right';var ox=W-4;
+    LAST_OFF=OFF.length;if(TX&&OFF.length&&!FOLD){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='right';var ox=W-4;
       if(narrow)OFF.slice().sort(function(a,b){return a.v-b.v;}).forEach(function(l,i){x.fillStyle=l.c;x.fillText('▲'+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2),ox,pt-8-i*9);});   // phone: stacked in the tag column
       else{OFF.slice().reverse().forEach(function(l){var t='▲ '+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2);x.fillStyle=l.c;x.fillText(t,ox,pt-8);ox-=x.measureText(t).width+8;});x.fillStyle=C.axis;x.fillText('OFF-SCALE',ox,pt-8);}}   // off-scale targets key
     if(LY.oneup&&LY.bars&&atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];
@@ -442,7 +444,23 @@
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pn.hidden){open(false);bl.focus();}});
     window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();draw(performance.now());}});   // other open charts / tabs
-    zb.appendChild(pn);lab();}
+    zb.appendChild(pn);lab();
+    // ---- notes fold row
+    var fr=document.createElement('button');fr.type='button';fr.className='tcf';fr.setAttribute('aria-controls','tc-chart');
+    var vk=document.querySelector('.stk-vkey');
+    if(vk&&vk.parentNode)vk.parentNode.insertBefore(fr,vk);else zb.parentNode.insertBefore(fr,zb.nextSibling);
+    var NN=0;
+    function shown(el){return el&&el.offsetParent!==null&&el.textContent.trim().length>0;}
+    function count(){if(FOLD)return NN;var n=0,ob=document.querySelector('.tc-ovl'),lg=document.getElementById('tc-legend');
+      if(shown(ob))n+=ob.querySelectorAll('.ovr').length;if(shown(vk))n+=Math.max(1,vk.children.length);if(shown(lg))n+=1;if(LAST_OFF&&LS.text)n+=1;return n;}
+    function flab(){NN=Math.max(NN,count());fr.hidden=NN===0;
+      fr.innerHTML='<i>'+(FOLD?'▸':'▾')+'</i> '+NN+' note'+(NN===1?'':'s')+'<span>'+(FOLD?'tap to show headings + keys':'tap to fold away')+'</span>';
+      fr.setAttribute('aria-expanded',FOLD?'false':'true');document.body.classList.toggle('tc-fold',FOLD);}
+    fr.addEventListener('click',function(){if(!FOLD)NN=count()||NN;FOLD=!FOLD;try{localStorage.setItem(FKEY,FOLD?'1':'0');}catch(e){}flab();draw(performance.now());});
+    window.addEventListener('storage',function(e){if(e.key===FKEY){FOLD=e.newValue==='1';flab();draw(performance.now());}});
+    if(FOLD){FOLD=false;document.body.classList.remove('tc-fold');setTimeout(function(){NN=count();FOLD=true;flab();draw(performance.now());},0);}   // count what is foldable, then fold
+    else setTimeout(flab,0);
+    setTimeout(function(){if(!FOLD)flab();},600);}
   ready.then(function(){
     try{layersUI();}catch(e){if(window.console)console.error(e);}
     redraw(); document.body.classList.add('tc-ready');
