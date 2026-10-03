@@ -196,12 +196,22 @@
 
   // ---------------------------------------------------------------- HUD (DOM) + gauge
   var rm=D.rmult, rmTxt=rm==null?'N/A':(rm>=0?'+':'')+rm.toFixed(1)+'R';
+  // open-trade P/L from research-tools/trade_pct.py (charts.py payload "pnl"): % from entry on the last completed session close, sessions
+  // since the trigger, MFE %; pending -> distance to entry. Used only when it was computed for this chart's entry (stock.js may swap levels).
+  var PG=(D.pnl&&D.entry>0&&D.pnl.entry>0&&Math.abs(D.pnl.entry-D.entry)/D.entry<0.005)?D.pnl:null, PGO=!!(PG&&PG.state==='open'&&PG.pct!=null);
+  function pgf(v){return (v>=0?'+':'')+v.toFixed(1)+'%';}
+  var pgTxt=PGO?pgf(PG.pct)+' FROM ENTRY':(PG&&PG.to_entry_pct!=null)?'ENTRY '+Math.abs(PG.to_entry_pct).toFixed(1)+'% '+(PG.to_entry_pct>=0?'ABOVE':'BELOW'):'';
+  var pgSub=PGO?[PG.days!=null?PG.days+'D':'',PG.mfe_pct!=null?'MFE '+pgf(PG.mfe_pct):''].filter(Boolean).join(' · '):'';
+  var pgCls=PGO?(PG.pct>=0?'pos':'neg'):'pend';
+  var pgTip=PG?'entry '+PG.entry+' → last close '+PG.last+' ('+(PG.last_date||'')+')'+(PG.since?'; triggered '+PG.since:'')+(PG.basis?'; '+PG.basis:''):'';
   var words=state.split(' '), lvlHtml=words.length>1?esc(words.slice(0,Math.ceil(words.length/2)).join(' '))+'<br>'+esc(words.slice(Math.ceil(words.length/2)).join(' ')):esc(state);
   $('tc-hud').innerHTML=
     '<div class="tc-id"><div class="tc-tk">'+esc(D.ticker)+'</div><div class="tc-sub">'+esc(((D.company||'').replace(/[,.].*$/,'').split(/\s+/)[0]||'').toUpperCase().slice(0,14))+' · <span class="tc-tfl">'+TFN[TF]+'</span></div></div>'+
     '<div class="tc-blk"><div class="l">PRICE</div><div class="v">'+money(D.last)+'</div><div class="tc-sub">'+esc(D.last_date)+'</div></div>'+
     '<div class="tc-blk"><div class="l">LEVEL</div><div class="v tc-lvl '+lvlCls+'">'+lvlHtml+'</div></div>'+
-    '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+(D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
+    '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+
+      (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'</div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):'')+
+      (D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
     riskBox()+
     '<div class="tc-gwrap">'+(hasR?'<canvas id="tc-gauge" aria-label="HP bar: price position between stop and 3R"></canvas>':'<div class="tc-warn">☠ STOP NOT SET — no R targets (desk has no documented stop)</div>')+'</div>';
   wireRisk();
@@ -234,7 +244,8 @@
       if(TXg)for(var k2=1;k2<=20;k2++){var pv2=D.entry*(1+k2/10);if(pv2>top+1e-9)break;var px2=gxp(pv2),lt='+'+k2*10+'%',lw=g.measureText(lt).width;
         var lx=Math.max(gx0,Math.min(gx1+2-lw,px2-lw/2));if(lx<lastX+6||lx+lw>rEnd+2)continue;g.textAlign='left';g.fillStyle='#8f88c4';g.fillText(lt,lx,ry);lastX=lx+lw;}}
     var mx=Math.max(gx0,Math.min(gx1,gxp(D.last)));g.fillStyle='#fff';g.shadowColor='#fff';g.shadowBlur=10;g.beginPath();g.moveTo(mx,gy-2);g.lineTo(mx-7,gy-12);g.lineTo(mx+7,gy-12);g.fill();g.fillRect(mx-1,gy-2,3,sh+4);g.shadowBlur=0;
-    g.textAlign='center';g.font='7px '+FONT;g.fillText(D.last<D.stop?'KO':'YOU',mx,gy-15);
+    g.font='7px '+FONT;var ylab=(D.last<D.stop?'KO':'YOU')+(PGO?' '+pgf(PG.pct):''),ylw=g.measureText(ylab).width,ylx=Math.max(gx0+ylw/2,Math.min(gw-2-ylw/2,mx));
+    g.textAlign='center';if(PGO)g.fillStyle=PG.pct>=0?'#39ff88':'#ff3d7f';g.fillText(ylab,ylx,gy-15);g.fillStyle='#fff';
   }
 
   // ---------------------------------------------------------------- chart
@@ -476,14 +487,14 @@
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
-    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
+    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
   $('tc-legend').innerHTML=legendHTML();
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
   var tbl='<h2>LEVELS &amp; SOURCES</h2><div class="tc-scroll"><table class="tc-tbl"><thead><tr><th>LEVEL</th><th>PRICE</th><th>R</th><th>SOURCE</th></tr></thead><tbody>'+
     row('c-r3','★★ 3R BOSS',D.r3,D.r3!=null?D.r_src+' = '+D.entry.toFixed(2)+' + 3×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+3R')+
     row('c-r2','★ 2R',D.r2,D.r2!=null?D.r_src.split(' / ')[0]+' = '+D.entry.toFixed(2)+' + 2×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+2R')+
     (D.buy_zone?row('c-zone','BUY ZONE TOP',D.buy_zone[1],D.zone_src,''):'')+
-    row('c-last','◆ LAST',D.last,(D.last_src||D.price_src)+' · bar '+D.last_date,rmTxt)+
+    row('c-last','◆ LAST',D.last,(D.last_src||D.price_src)+' · bar '+D.last_date+(pgTxt?' · '+pgTxt.toLowerCase()+(pgSub?' · '+pgSub.toLowerCase():''):''),rmTxt+(PGO?' · <span class="tc-pg '+pgCls+'">'+pgf(PG.pct)+'</span>':''))+
     row('c-entry','▶ ENTRY',D.entry,D.entry_src,'0R')+
     (D.cuts||[]).map(function(ct){return row('c-cut','✂ '+esc(ct.label),ct.price,ct.src,D.risk?((ct.price-D.entry)/D.risk).toFixed(2)+'R':'');}).join('')+
     (RP.m05!=null?row('c-a05','-0.5% ACCT',RP.m05,'computed: entry - (0.5/0.75)·R = '+D.entry.toFixed(2)+' - 0.667×'+D.risk.toFixed(2)+' (loss -0.5% of account for a position sized at 0.75% risk)',(-0.5/0.75).toFixed(2)+'R'):'')+

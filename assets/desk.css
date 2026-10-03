@@ -454,3 +454,6 @@ body.tc-mini .tcf{margin:0 0 6px}
 body.tc-embed .dk-credit,body.tc-mini .dk-credit{display:none!important}
 @media (max-width:374px){.dk-wm b{font-size:10px}.dk-wy{width:36px;height:36px}.dk-find input{width:52px}}
 @media (max-width:340px){.dk-wm b{font-size:9px}.dk-wy{width:30px;height:30px}.dk-find input{width:46px}}
+
+/* open-trade P/L chips (research-tools/trade_pct.py; same classes as trade_pct.CSS) */
+.tp{white-space:nowrap;font-weight:700}.tp b{font-weight:800}.tp-pos{color:#1fd16a}.tp-neg{color:#ff4d6d}.tp-pend{color:#8f9bb3;font-weight:600}.tp-r{white-space:nowrap;font-weight:700;font-size:.92em}.tp-m{white-space:nowrap;opacity:.75;font-size:.85em}

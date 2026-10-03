@@ -48,7 +48,7 @@ function msApply(D,ms){var out=[];if(!ms)return out;
   if(uk.length)out.push({id:'ma_ur',label:'UR: undercut reclaim in the 10/20 zone (notation)',color:'#00e5ff',items:uk});
   var pl=ms.plan;
   if(pl&&pl.entry!=null&&pl.stop!=null&&pl.entry>pl.stop){var R=pl.entry-pl.stop,rp=R/pl.entry*100,tfw={D:'daily',W:'weekly',M:'monthly'}[pl.tf]||pl.tf;
-    D.entry=pl.entry;D.stop=pl.stop;D.risk=R;D.risk_pct=pl.risk_pct;D.r2=pl.r2;D.r3=pl.r3;D.no_levels=false;
+    D.entry=pl.entry;D.stop=pl.stop;D.pnl=pl.pnl||null;D.risk=R;D.risk_pct=pl.risk_pct;D.r2=pl.r2;D.r3=pl.r3;D.no_levels=false;
     if(ms.vlabel){D.entry_src=ms.vlabel+' plan: buy stop at the '+tfw+' EMA10 cross bar high ('+pl.rc_date+')';D.stop_src=ms.vlabel+' plan: spring low (structure stop)';}else{D.entry_src='GUD plan: buy stop at the '+tfw+' undercut-reclaim bar high ('+(pl.tf==='D'?pl.rc_date:pl.rc_start)+')';D.stop_src='GUD plan: '+tfw+' undercut-reclaim bar low';}D.r_src='entry + 2R / entry + 3R';
     D.risk_plan={default:0.75,min:0.5,max:1,tier:0.75,short:'MA STACK GUD PLAN',reasons:['0.75% desk default risk; the MA Stack page sizes a $100,000 placeholder account'],
       stop_pct:rp,size_pct:{'0.5':0.5/rp*100,'0.75':0.75/rp*100,'1':1/rp*100},m05:pl.m05,m10:pl.m10};}
@@ -111,12 +111,12 @@ function chartFrom(kind){
     window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
     if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
     $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=47c192d4').then(function(){return loadScript('charts/_assets/charts.js?v=47c192d4');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=81ec7b07').then(function(){return loadScript('charts/_assets/charts.js?v=81ec7b07');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
   if(OVM==='wyckoff'){var w=D._wy,t=D._wyt;if(w)h.push('<span>range <b>'+w.bottom.toFixed(2)+' – '+w.top.toFixed(2)+'</b> · '+esc(w.sub||'')+' · phase <b>'+esc(w.phase)+'</b>'+(w.ce&&w.ce.cons!=null?' · C&amp;E '+w.ce.cons.toFixed(2)+' / '+w.ce.agg.toFixed(2):'')+'</span>');else h.push('<span class="mut">no Wyckoff structure for this name</span>');
-    if(t)h.push('<span>ticket: '+esc(t.side)+' · entry <b>'+t.entry.toFixed(2)+'</b> · stop <b>'+t.stop.toFixed(2)+'</b> · 2R '+t.r2.toFixed(2)+' / 3R '+t.r3.toFixed(2)+' · '+esc(t.status)+'</span>');
+    if(t)h.push('<span>ticket: '+esc(t.side)+' · entry <b>'+t.entry.toFixed(2)+'</b> · stop <b>'+t.stop.toFixed(2)+'</b> · 2R '+t.r2.toFixed(2)+' / 3R '+t.r3.toFixed(2)+' · '+esc(t.status)+pgChip(t.pnl)+'</span>');
     if(D._wyfar&&D._wyfar.length)h.push('<span class="mut">off-scale: '+esc(D._wyfar.join(' · '))+'</span>');
     h.push('<span class="mut">no moving averages · price structure + volume only · tap a bar for details</span>');k.innerHTML=h.join('');return;}
   if(OVM==='vsa'){h.push('<span><i class="dk-up">●</i> strength sign (under the bar)</span><span><i class="dk-dn">●</i> weakness sign (over the bar)</span><span><i>!</i> high significance in context</span>');}
@@ -183,12 +183,18 @@ function ttSec(d){
   var li=d.tt.map(function(x){return '<li class="'+(x[1]===true?'ok':x[1]===false?'no':'na')+'"><span>'+(x[1]===true?'✓':x[1]===false?'✗':'–')+'</span><div><b>'+esc(x[0])+'</b><small>'+esc(x[2]||'')+'</small></div></li>';}).join('');
   return sec('tt','✅ Trend template',ok+' of '+d.tt.length+' · Minervini criteria on closes'+(d.tt_pass!=null?' · desk verdict: <b>'+(d.tt_pass?'PASS':'FAIL')+'</b>':''),'<ul class="stk-tt">'+li+'</ul>');
 }
+// open-trade P/L chip: formats research-tools/trade_pct.py output (pnl dict); no maths here
+function pgChip(p){if(!p)return '';var f=function(v){return (v>=0?'+':'')+v.toFixed(1)+'%';};
+  if(p.state!=='open'||p.pct==null)return p.to_entry_pct!=null?' · <span class="tp tp-pend">entry '+Math.abs(p.to_entry_pct).toFixed(1)+'% '+(p.to_entry_pct>=0?'above':'below')+'</span>':'';
+  var c=p.pct>=0?'tp-pos':'tp-neg',sub=[p.days!=null?p.days+'d':'',p.mfe_pct!=null?'MFE '+f(p.mfe_pct):''].filter(Boolean).join(' · ');
+  return ' · <span class="tp '+c+'" title="entry '+p.entry+' → last close '+p.last+' ('+esc(p.last_date||'')+')'+(p.since?'; triggered '+esc(p.since):'')+'"><b>'+f(p.pct)+'</b> from entry</span>'+
+    (p.r!=null?' <span class="tp-r '+c+'">'+(p.r>=0?'+':'')+p.r.toFixed(1)+'R</span>':'')+(sub?' <small class="tp-m">'+esc(sub)+'</small>':'');}
 function deskSec(d){
   var k=d.desk||{},h=[];
   if(k.watch){var w=k.watch;h.push('<div class="stk-dk"><h4>Desk watchlist</h4><p><b>'+esc(w.status||'')+'</b> · '+esc(w.setup||'')+' · pivot <b>'+esc(w.pivot_raw||'—')+'</b> · stop <b>'+(num(w.stop)?w.stop.toFixed(2):'—')+'</b>'+(w.first_flagged?' · on list since '+esc(w.first_flagged):'')+'</p>'+(w.note?'<p class="mut">Note: '+esc(w.note)+'</p>':'')+'</div>');}
   if(k.radar)h.push('<div class="stk-dk"><h4>On the desk radar</h4><p>'+esc(k.radar)+'</p></div>');
   if(k.alert&&k.alert.state)h.push('<div class="stk-dk"><h4>Price alert state</h4><p>'+state([k.alert.state,'s-'+k.alert.state.toLowerCase().replace(/[^a-z]+/g,'-')])+' '+esc(k.alert.detail||'')+(k.alert.since?' <small>since '+esc(k.alert.since)+'</small>':'')+'</p></div>');
-  if(k.setups&&k.setups.length)h.push('<div class="stk-dk"><h4>Setup scanners <small>'+esc(k.setups_asof||'')+'</small></h4><ul>'+k.setups.map(function(s){return '<li><b>'+esc(s.k)+'</b> '+esc(s.status||'')+(s.tf?' · '+esc(s.tf):'')+(num(s.pivot)?' · pivot '+s.pivot.toFixed(2):'')+(num(s.stop)?' · stop '+s.stop.toFixed(2):'')+(s.actionable?' · <span class="dk-up">actionable</span>':'')+(s.date?' <small>'+esc(s.date)+'</small>':'')+'</li>';}).join('')+'</ul></div>');
+  if(k.setups&&k.setups.length)h.push('<div class="stk-dk"><h4>Setup scanners <small>'+esc(k.setups_asof||'')+'</small></h4><ul>'+k.setups.map(function(s){return '<li><b>'+esc(s.k)+'</b> '+esc(s.status||'')+(s.tf?' · '+esc(s.tf):'')+(num(s.pivot)?' · pivot '+s.pivot.toFixed(2):'')+(num(s.stop)?' · stop '+s.stop.toFixed(2):'')+(s.actionable?' · <span class="dk-up">actionable</span>':'')+pgChip(s.pnl)+(s.date?' <small>'+esc(s.date)+'</small>':'')+'</li>';}).join('')+'</ul></div>');
   if(k.highs){var x=k.highs;h.push('<div class="stk-dk"><h4>New highs monitor</h4><p>'+(x.new_ath?'<b class="dk-up">New all-time high</b> · ':'')+(x.new_52w?'<b class="dk-up">New 52-week high</b>':'')+(num(x.pct_above_52w)?' · '+x.pct_above_52w.toFixed(2)+'% above the prior 52-wk high '+px(x.prior_52w_high)+' ('+esc(x.prior_52w_high_date||'')+')':'')+'</p></div>');}
   if(k.movers){var m=k.movers,L={'1d':'1D','1w':'1W','1m':'1M','qtr':'QTR','ytd':'YTD'};h.push('<div class="stk-dk"><h4>Top Movers ranks <small>'+esc(k.movers_asof||'')+'</small></h4><p>'+Object.keys(m).map(function(p){var r=m[p];return chip(L[p]+' #'+r.rank+' '+(r.side==='gainers'?'▲':'▼')+' '+pc(r.chg),r.side==='gainers'?'g':'r');}).join(' ')+'</p></div>');}
   if(k.vsa){var v=k.vsa,ls=v.last_sign;h.push('<div class="stk-dk"><h4>Wyckoff / VSA read <small>'+esc(v.label||'')+(v.asof?' · '+esc(v.asof):'')+'</small></h4>'+
