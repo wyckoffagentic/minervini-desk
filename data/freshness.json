@@ -1,0 +1,147 @@
+{
+  "generated": "2026-10-03T21:49:39+10:00",
+  "ref_session": "2026-10-02",
+  "ref_src": "feeds/rs/cache/grouped newest completed session",
+  "pages": [
+    {
+      "page": "index.html",
+      "label": "Floor (home)",
+      "asof": "2026-10-02",
+      "src": "feeds/setups/latest.json meta.date (Floor \ud83c\udfaf Setups summary)",
+      "status": "ok"
+    },
+    {
+      "page": "setups.html",
+      "label": "Setups + springs (VCP/PP/HTF/FB/SEPA, TR/uptrend springs)",
+      "asof": "2026-10-02",
+      "src": "feeds/setups/latest.json meta.date",
+      "status": "ok"
+    },
+    {
+      "page": "springs_track.html",
+      "label": "Springs track record",
+      "asof": "2026-10-02",
+      "src": "feeds/springs/events.jsonl max last_seen",
+      "status": "ok"
+    },
+    {
+      "page": "setup_master.html",
+      "label": "Setup Master",
+      "asof": "2026-10-02",
+      "src": "feeds/setup_master/latest.json meta.asof",
+      "status": "ok"
+    },
+    {
+      "page": "ma_stack.html",
+      "label": "MA Stack",
+      "asof": "2026-10-02",
+      "src": "feeds/ma_stack/latest.json meta.asof",
+      "status": "ok"
+    },
+    {
+      "page": "wyckoff_structure.html",
+      "label": "Wyckoff Structure",
+      "asof": "2026-10-02",
+      "src": "feeds/wyckoff_structure/latest.json meta.asof",
+      "status": "ok"
+    },
+    {
+      "page": "vsa.html",
+      "label": "VSA",
+      "asof": "2026-10-02",
+      "src": "feeds/vsa/latest.json meta.session",
+      "status": "ok"
+    },
+    {
+      "page": "rs.html",
+      "label": "RS Leaders",
+      "asof": "2026-10-02",
+      "src": "feeds/rs/latest.json meta.date",
+      "status": "ok"
+    },
+    {
+      "page": "highs.html",
+      "label": "New highs",
+      "asof": "2026-10-02",
+      "src": "feeds/highs/latest.json meta.date",
+      "status": "ok"
+    },
+    {
+      "page": "top_movers.html",
+      "label": "Top Movers",
+      "asof": "2026-10-02",
+      "src": "feeds/top_movers/latest.json meta.asof",
+      "status": "ok"
+    },
+    {
+      "page": "stock.html",
+      "label": "Stock pages",
+      "asof": "2026-10-02",
+      "src": "site/public/data/universe.json session",
+      "status": "ok"
+    },
+    {
+      "page": "watchlists.html",
+      "label": "Watchlists",
+      "asof": "2026-10-02",
+      "src": "site/public/data/universe.json session",
+      "status": "ok"
+    },
+    {
+      "page": "charts/index.html",
+      "label": "Chart index (oldest current chart)",
+      "asof": "2026-10-02",
+      "src": "feeds/performance/chart_levels.json min last_date",
+      "status": "ok"
+    },
+    {
+      "page": "alerts.html",
+      "label": "Alerts (Yahoo bars)",
+      "asof": "2026-10-02",
+      "src": "feeds/performance/prices.json newest bar",
+      "status": "ok"
+    },
+    {
+      "page": "scorecard.html",
+      "label": "Scorecard (Yahoo bars)",
+      "asof": "2026-10-02",
+      "src": "feeds/performance/prices.json newest bar",
+      "status": "ok"
+    }
+  ],
+  "feeds": [
+    {
+      "feed": "feeds/setups/market_pulse.json",
+      "asof": "2026-10-02",
+      "status": "ok"
+    },
+    {
+      "feed": "feeds/ema_pullback/latest.json",
+      "asof": "2026-10-02",
+      "status": "ok"
+    },
+    {
+      "feed": "feeds/fundamentals/latest.json",
+      "asof": "2026-10-02",
+      "status": "ok"
+    },
+    {
+      "feed": "feeds/highs/latest.json (setups_date)",
+      "asof": "2026-10-02",
+      "status": "ok"
+    },
+    {
+      "feed": "feeds/vsa/latest.json (setups_session)",
+      "asof": "2026-10-02",
+      "status": "ok"
+    }
+  ],
+  "charts": {
+    "total": 786,
+    "stale": [],
+    "by_date": {
+      "2026-10-02": 786
+    }
+  },
+  "stale_count": 0
+}
