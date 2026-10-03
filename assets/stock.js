@@ -292,7 +292,9 @@ function renderLite(u){
 if(MINI){
   // chart only (VSA dropdowns): the chart page's TC_DATA, else the chart JSON, else a note. No universe.json fetch (kept light).
   $('stk-top').innerHTML='';$('stk-body').innerHTML='';
-  chartFrom('page').then(function(c){return c||chartFrom('json');}).then(function(c){
+  // Wyckoff Structure embeds pass &ck=j|p (chart JSON or charts/<T>.html page, whichever exists) so no 404 probe is made
+  var CK=(P.get('ck')||'').replace(/[^a-z]/g,''),WJ=CK==='j'||(OVM==='wyckoff'&&CK!=='p');   // &ck=j|p: the page knows which chart source exists
+  chartFrom(WJ?'json':'page').then(function(c){return c||(CK?null:chartFrom(WJ?'page':'json'));}).then(function(c){
     if(!c)noChart('<b>No chart data published for '+esc(T)+'.</b> Charts are drawn for the desk\'s covered set (watchlist, setups, RS leaders, VSA names); this ticker has none yet. <a href="stock.html?t='+esc(T)+'" target="_top">Stock page →</a>');
   });
   window.addEventListener('resize',postH);

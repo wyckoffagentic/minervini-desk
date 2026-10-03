@@ -166,7 +166,7 @@ function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
   while(OPEN.length>=2)closeX(OPEN[0]);
   var mode=modeFor(r),tag=r.tagName,n,box;
   var lbl=r.getAttribute('data-xl')||{vsa:'VSA signs',spring:'spring markers + levels',ema:'10/20 EMA + levels',setup:'desk levels + pattern drawings',desk:'levels + pattern drawings',mastack:'EMA 10/20/50',wyckoff:'range box + Wyckoff events + C&E targets (no MAs)'}[mode];
-  box=el('div','dk-vchart','<div class="dk-vchart-h"><span><b>'+esc(t)+'</b> · '+lbl+' · volume · RS</span><a href="'+BASE+'stock.html?t='+encodeURIComponent(t)+'">Full stock page →</a></div><div class="ld">Loading chart…</div>');
+  box=el('div','dk-vchart','<div class="dk-vchart-h"><span><b>'+esc(t)+'</b> · '+lbl+' · volume'+(mode==='wyckoff'?'':' · RS')+'</span><a href="'+BASE+'stock.html?t='+encodeURIComponent(t)+'">Full stock page →</a></div><div class="ld">Loading chart…</div>');
   if(tag==='TR'){var cs=0;[].forEach.call(r.children,function(td){cs+=td.colSpan||1;});n=el('tr','dk-vrow');var td=el('td');td.colSpan=cs;n.appendChild(td);td.appendChild(box);}
   else{n=el(tag==='LI'?'li':'div','dk-vrow');n.appendChild(box);}
   var sc=r.closest('.tscroll,.table-scroll,.tbl-wrap,.tw,.tc-scroll'),w=sc?sc.clientWidth-14:(r.parentNode&&r.parentNode.clientWidth?Math.min(r.parentNode.clientWidth,innerWidth-24):0);
