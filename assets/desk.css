@@ -457,3 +457,4 @@ body.tc-embed .dk-credit,body.tc-mini .dk-credit{display:none!important}
 
 /* open-trade P/L chips (research-tools/trade_pct.py; same classes as trade_pct.CSS) */
 .tp{white-space:nowrap;font-weight:700}.tp b{font-weight:800}.tp-pos{color:#1fd16a}.tp-neg{color:#ff4d6d}.tp-pend{color:#8f9bb3;font-weight:600}.tp-r{white-space:nowrap;font-weight:700;font-size:.92em}.tp-m{white-space:nowrap;opacity:.75;font-size:.85em}
+.tp b,.tp-r b{color:inherit!important}
