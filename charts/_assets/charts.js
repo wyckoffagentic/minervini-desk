@@ -219,7 +219,8 @@
     '<div class="tc-blk"><div class="l">LEVEL</div><div class="v tc-lvl '+lvlCls+'">'+lvlHtml+'</div></div>'+
     '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+
       (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'</div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):
-       PL0?'<div class="tc-pg '+plCls(PL0)+'" title="'+esc(PL0.label+(PL0.pnl.basis?' · '+PL0.pnl.basis:''))+'">'+esc(plTxt(PL0,true)+(PL0.pnl.state==='open'?' FROM ENTRY':''))+'</div><div class="tc-sub tc-pgs">'+esc(String(PL0.label).toUpperCase())+(PLS.length>1?' · +'+(PLS.length-1)+' MORE IN KEY':'')+'</div>':'')+
+       PL0?'<div class="tc-pg '+plCls(PL0)+'" title="'+esc(PL0.label+(PL0.pnl.basis?' · '+PL0.pnl.basis:''))+'">'+esc(PL0.pnl.state==='open'?pgf(PL0.pnl.pct)+' FROM ENTRY':plTxt(PL0,true))+'</div>'+
+         '<div class="tc-sub tc-pgs">'+esc([PL0.pnl.state==='open'&&PL0.pnl.r!=null?(PL0.pnl.r>=0?'+':'')+PL0.pnl.r.toFixed(1)+'R':'',PL0.pnl.state==='open'&&PL0.pnl.days!=null?PL0.pnl.days+'D':'',String(PL0.label).toUpperCase()].filter(Boolean).join(' · '))+(PLS.length>1?' · +'+(PLS.length-1)+' MORE IN KEY':'')+'</div>':'')+
       (D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
     riskBox()+
     '<div class="tc-gwrap">'+(hasR?'<canvas id="tc-gauge" aria-label="HP bar: price position between stop and 3R"></canvas>':'<div class="tc-warn">☠ STOP NOT SET — no R targets (desk has no documented stop)</div>')+'</div>';

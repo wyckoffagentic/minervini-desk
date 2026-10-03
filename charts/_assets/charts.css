@@ -133,3 +133,4 @@ body.tc-embed .tc-chart{height:clamp(300px,calc(100vh - 330px),600px)}
 /* open-trade P/L (research-tools/trade_pct.py via charts.py "pnl") */
 .tc-pg{font-size:10px;font-weight:700;margin-top:6px;white-space:nowrap}.tc-pg.pos,.tc-pgk.pos{color:#39ff88}.tc-pg.neg,.tc-pgk.neg{color:#ff3d7f}.tc-pg.pend,.tc-pgk.pend{color:#9a93d8}
 .tc-pgs{margin-top:2px}.tc-pgk{font-weight:700}
+.tc-legend span.tc-pgk{white-space:normal!important;overflow-wrap:anywhere}.tc-pgs{white-space:normal}
