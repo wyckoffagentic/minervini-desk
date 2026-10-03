@@ -5,7 +5,7 @@
 (function(){
 'use strict';
 var P=new URLSearchParams(location.search),T=(P.get('t')||P.get('ticker')||'').toUpperCase().replace(/[^A-Z0-9.\-]/g,'').slice(0,10);
-var MINI=P.get('mini')==='1',EMB=P.get('embed')==='1';
+var MINI=P.get('mini')==='1',EMB=P.get('embed')==='1',OVM=(P.get('ov')||'desk').replace(/[^a-z]/g,''),OVK=(P.get('k')||'').replace(/[^a-z]/g,'');
 if(MINI)document.body.classList.add('tc-mini');
 if(EMB)document.body.classList.add('tc-embed');
 var $=function(id){return document.getElementById(id);};
@@ -42,10 +42,18 @@ function chartFrom(kind){
   else return Promise.resolve(null);
   return p.then(function(c){
     if(!c||!c.tc||!c.tc.bars)return null;
-    if(MINI){   // VSA dropdown: VSA signs only, no desk levels / other detector drawings (kept readable at phone width)
-      c.tc.overlays=(c.tc.overlays||[]).filter(function(o){return o&&o.id==='vsa';});
-      ['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};
-      var vo=c.tc.overlays[0];window.DK_VSA={label:vo?vo.label:'',asof:vo?vo.asof:''};
+    if(MINI){   // expandable-row chart: overlays for the page's context (ov=vsa|spring|ema|setup|desk), levels unless ov=vsa
+      var all=(c.tc.overlays||[]).filter(Boolean),keep;
+      if(OVM==='vsa')keep=all.filter(function(o){return o.id==='vsa';});
+      else if(OVM==='spring')keep=all.filter(function(o){return /^spring/.test(o.id);});
+      else if(OVM==='ema')keep=all.filter(function(o){return /^ema/.test(o.id);});
+      else{keep=all.filter(function(o){return o.id!=='vsa';});
+        var KR={vcp:/^vcp/,spring:/^spring/,ema:/^ema/}[OVK];if(KR){var kk=keep.filter(function(o){return KR.test(o.id);});if(kk.length)keep=kk;}}   // the row's own pattern when it has one
+      if(!keep.length&&OVM!=='vsa'&&OVM!=='setup'&&OVM!=='desk')keep=all.filter(function(o){return o.id!=='vsa';});   // nothing of that kind: show the detector drawings there are
+      c.tc.overlays=keep;
+      if(OVM==='vsa'||c.tc.no_levels){['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};}
+      c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;c.tc.r2=null;c.tc.r3=null;   // 2R / 3R targets go in the key, not the price scale (keeps bars readable at 330px)
+      miniKey(c.tc,keep);
     }
     var NEON={'#1f9d3a':'#39ff88','#d62828':'#ff3d7f'};   // VSA sign colours -> desk neon (dark background)
     (c.tc.overlays||[]).forEach(function(o){if(o.id!=='vsa')return;o.color=NEON[o.color]||o.color;(o.items||[]).forEach(function(it){if(NEON[it.c])it.c=NEON[it.c];});(o.legend||[]).forEach(function(l){if(NEON[l[0]])l[0]=NEON[l[0]];});});
@@ -55,6 +63,12 @@ function chartFrom(kind){
     return loadScript('charts/_assets/chart_zoom.js').then(function(){return loadScript('charts/_assets/charts.js');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
+function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
+  if(OVM==='vsa'){h.push('<span><i class="dk-up">●</i> strength sign (under the bar)</span><span><i class="dk-dn">●</i> weakness sign (over the bar)</span><span><i>!</i> high significance in context</span>');}
+  else{if(!D.no_levels&&D.entry!=null)h.push('<span>levels: entry <b>'+(+D.entry).toFixed(2)+'</b>'+(D.stop!=null?' · stop <b>'+(+D.stop).toFixed(2)+'</b>':'')+(D._r2!=null?' · targets 2R '+(+D._r2).toFixed(2)+' / 3R '+(+D._r3).toFixed(2):'')+'</span>');
+    else h.push('<span class="mut">no desk levels for this name</span>');
+    ovs.forEach(function(o){h.push('<span><i style="color:'+esc(o.color||'#fff')+'">■</i> '+esc(String(o.label||o.id).toLowerCase())+'</span>');});}
+  h.push('<span class="mut">RS panel on top · SMA 50/150/200 · tap a bar for details</span>');k.innerHTML=h.join('');}
 function noChart(msg){var b=$('stk-chart');b.hidden=false;b.innerHTML='<div class="dk-note">'+msg+'</div>';postH();}
 var roH=false;
 function postH(){if(EMB&&parent!==window){var f=function(){try{parent.postMessage({dkh:document.getElementById('stk').scrollHeight+4,t:T},'*');}catch(e){}};f();setTimeout(f,400);setTimeout(f,1500);

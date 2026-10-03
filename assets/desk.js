@@ -110,30 +110,95 @@ if(ml&&B.classList.contains('tmv')){
   new MutationObserver(function(){deco();}).observe(ml,{childList:true});deco();}
 markBtns();
 
-// ------------------------------------------------------------------ VSA: inline chart when a story dropdown opens (lazy; removed on close)
-function vsaClose(row){var r=row&&row.nextElementSibling;if(r&&r.classList.contains('dk-vrow'))r.remove();if(row)row.classList.remove('dk-vopen');}
-function vsaOpen(det){
-  var row=det.closest('tr[data-tk]');if(!row)return;var t=WL.clean(row.getAttribute('data-tk'));if(!t)return;
-  vsaClose(row);row.classList.add('dk-vopen');
-  var n=0;[].forEach.call(row.children,function(td){n+=td.colSpan||1;});
-  var tr=el('tr','dk-vrow'),td=el('td');td.colSpan=n;tr.appendChild(td);
-  var sc=row.closest('.tscroll'),w=sc?sc.clientWidth-14:0;
-  var box=el('div','dk-vchart','<div class="dk-vchart-h"><span><b>'+esc(t)+'</b> · daily bars · VSA signs · volume · RS</span><a href="'+BASE+'stock.html?t='+encodeURIComponent(t)+'">Full stock page →</a></div><div class="ld">Loading chart…</div>');
-  if(w>0){box.style.width=w+'px';box.style.position='sticky';box.style.left='0';}
-  var f=D.createElement('iframe');f.title=t+' chart';f.loading='lazy';f.setAttribute('scrolling','no');f.style.height='0px';
-  f.src=BASE+'stock.html?t='+encodeURIComponent(t)+'&embed=1&mini=1';
-  f.addEventListener('load',function(){var l=box.querySelector('.ld');if(l)l.remove();if(f.style.height==='0px')f.style.height='420px';});
+// ------------------------------------------------------------------ expandable ticker rows: tap a row (or its ▸) -> our chart inline
+// Every per-ticker row on the dashboard (tables with data-tk / td.tkc / ticker links, Top Movers, My Lists, report / weekend rows,
+// insider signal cards) gets a toggle. Opening lazy-loads stock.html?t=T&embed=1&mini=1&ov=<context> in an iframe under the row
+// (chart page TC_DATA or data/chart/T.json; the page's overlays: VSA signs / spring markers / EMA / setup levels + pattern drawings);
+// closing removes it. At most 2 charts open at once (phone memory); sorting / filtering / re-rendering a list closes them.
+var PAGE=(location.pathname.split('/').pop()||'index.html').toLowerCase();
+var XP_ON=!B.classList.contains('tc-embed')&&!B.classList.contains('tc-arcade')&&!/^(stock|lenses)\.html$/.test(PAGE);
+var TKRE=/^[A-Z][A-Z0-9]{0,5}(?:[.\-][A-Z0-9]{1,3})?$/,OPEN=[];
+var PMODE={'vsa.html':'vsa','springs_track.html':'spring'}[PAGE]||'';
+function headingText(el){var n=el;for(var d=0;n&&n!==B&&d<14;d++){var p=n.previousElementSibling,h=0;
+  while(p&&h<60){if(/^H[1-4]$/.test(p.tagName)||(p.classList&&(p.classList.contains('sec-title')||p.classList.contains('bigsec'))))return p.textContent;
+    if(p.querySelectorAll){var qs=p.querySelectorAll('h2,h3,h4,.sec-title,.bigsec');if(qs.length)return qs[qs.length-1].textContent;}p=p.previousElementSibling;h++;}
+  n=n.parentElement;}return '';}
+function modeFor(row){if(PMODE)return PMODE;
+  var ty=((row.getAttribute('data-ty')||'')+' '+(row.closest('table')&&row.closest('table').id||'')).toLowerCase();
+  if(/spring/.test(ty))return 'spring';if(/ema|epb/.test(ty))return 'ema';
+  if(row.querySelector('details.vsan')&&PAGE!=='setups.html')return 'vsa';
+  var h=headingText(row).toLowerCase();
+  if(/\bvsa\b|volume spread/.test(h))return 'vsa';if(/spring/.test(h))return 'spring';if(/\bema\b|pullback/.test(h))return 'ema';
+  if(PAGE==='setups.html'||/setup|vcp|sepa|power play|flat base|tight flag|trigger|pivot|breakout/.test(h))return 'setup';
+  return 'desk';}
+function fromHref(a){var h=a&&a.getAttribute('href')||'',m=h.match(/(?:charts|tickers)\/([A-Za-z0-9.\-]{1,10})\.html|stock\.html\?t=([A-Za-z0-9.\-]{1,10})|^#([A-Z0-9.\-]{1,10})$/);return m?(m[1]||m[2]||m[3]).toUpperCase():'';}
+function firstTok(el){return ((el&&el.textContent)||'').trim().split(/[\s(·,:]+/)[0].toUpperCase();}
+var UNI=null;   // ticker set for rows that need validation (plain <b>TICKER</b> cells on weekend / email-style pages)
+function rowInfo(r,strict){   // -> [ticker, cell to hold the ▸] or null
+  if(r.closest('thead,.dk-vrow,.dk-head,.dk-nav,.dk-ac,.dk-pop,.dk-vchart,.tc-stage'))return null;
+  var t=r.getAttribute('data-tk')||r.getAttribute('data-t')||'',c=null;
+  var tkc=r.querySelector(':scope>td.tkc,:scope>.tk,:scope>td.tk');
+  if(tkc){c=tkc;if(!t){var a=tkc.querySelector('a');t=fromHref(a)||firstTok(tkc.querySelector('b,a')||tkc);}}
+  if(r.tagName==='TR'&&r.querySelector('table'))return null;   // layout rows wrapping whole tables (email-style pages)
+  if(!t&&r.tagName==='TR'){var f=r.querySelector(':scope>td');var a2=f&&f.querySelector('a[href*="charts/"],a[href*="tickers/"],a[href*="stock.html?t="]');if(a2){t=fromHref(a2);c=f;}}
+  if(!t&&r.classList.contains('sig')){var k=r.querySelector('.tkb');if(k){t=firstTok(k);c=k;}}
+  if(!t&&strict&&UNI){var fc=r.tagName==='TR'?r.querySelector(':scope>td'):r,b=fc&&fc.firstElementChild;
+    if(b&&b.tagName==='B'&&(r.tagName==='LI'||fc.textContent.trim().length<=12)){var x=b.textContent.trim();if(UNI[x]){t=x;c=r.tagName==='TR'?fc:b;}}}
+  t=String(t||'').toUpperCase();if(!TKRE.test(t))return null;
+  if(!c){var cells=r.querySelectorAll(':scope>td');for(var i=0;i<cells.length&&!c;i++){if(firstTok(cells[i])===t)c=cells[i];}c=c||cells[0]||r;}
+  return [t,c];}
+function decorate(r,info){if(r.hasAttribute('data-dkx'))return;r.setAttribute('data-dkx',info[0]);r.classList.add('dk-xrow');
+  var b=el('button','dk-xb');b.type='button';b.setAttribute('aria-expanded','false');b.setAttribute('aria-label','Show '+info[0]+' chart');b.innerHTML='<i>▸</i>';
+  var c=info[1];if(c===r){r.insertBefore(b,r.firstChild);return;}
+  var anchor=c.querySelector(':scope>b,:scope>a,:scope>.t');if(anchor&&anchor.parentNode===c)c.insertBefore(b,anchor.nextSibling);else c.appendChild(b);}
+function scan(root){root=root||D;if(!XP_ON)return;
+  root.querySelectorAll('tr[data-tk],tr[data-t],li.row[data-tk],tr').forEach(function(r){if(r.hasAttribute('data-dkx'))return;var i=rowInfo(r,false);if(i)decorate(r,i);});
+  root.querySelectorAll('.sig').forEach(function(r){if(r.hasAttribute('data-dkx'))return;var i=rowInfo(r,false);if(i)decorate(r,i);});}
+function scanStrict(){   // weekend.html / email-style rows: first cell is <b>TICKER</b>; validated against data/tickers.json
+  if(!XP_ON||PAGE!=='weekend.html')return;var cand=[];D.querySelectorAll('tr:not([data-dkx]),li').forEach(function(r){if(r.hasAttribute('data-dkx'))return;
+    var fc=r.tagName==='TR'?r.querySelector(':scope>td'):r,b=fc&&fc.firstElementChild;if(b&&b.tagName==='B'&&TKRE.test(firstTok(b)))cand.push(r);});
+  if(!cand.length)return;tickers().then(function(rows){UNI={};rows.forEach(function(x){UNI[x[0]]=1;});cand.forEach(function(r){var i=rowInfo(r,true);if(i)decorate(r,i);});});}
+function owner(x){return x&&x.closest&&x.closest('[data-dkx]');}
+function closeX(r){var k=OPEN.indexOf(r);if(k>=0)OPEN.splice(k,1);if(!r)return;var n=r._dkv;if(n&&n.parentNode)n.remove();r._dkv=null;
+  if(r._dko){r._dko.disconnect();r._dko=null;}r.classList.remove('dk-vopen');var b=r.querySelector('.dk-xb');if(b)b.setAttribute('aria-expanded','false');
+  var dv=r.querySelector('details.vsan[open]');if(dv&&!r._dkc){r._dkc=1;dv.open=false;setTimeout(function(){r._dkc=0;},0);}}
+function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
+  while(OPEN.length>=2)closeX(OPEN[0]);
+  var mode=modeFor(r),tag=r.tagName,n,box;
+  var lbl={vsa:'VSA signs',spring:'spring markers + levels',ema:'10/20 EMA + levels',setup:'desk levels + pattern drawings',desk:'levels + pattern drawings'}[mode];
+  box=el('div','dk-vchart','<div class="dk-vchart-h"><span><b>'+esc(t)+'</b> · '+lbl+' · volume · RS</span><a href="'+BASE+'stock.html?t='+encodeURIComponent(t)+'">Full stock page →</a></div><div class="ld">Loading chart…</div>');
+  if(tag==='TR'){var cs=0;[].forEach.call(r.children,function(td){cs+=td.colSpan||1;});n=el('tr','dk-vrow');var td=el('td');td.colSpan=cs;n.appendChild(td);td.appendChild(box);}
+  else{n=el(tag==='LI'?'li':'div','dk-vrow');n.appendChild(box);}
+  var sc=r.closest('.tscroll,.table-scroll,.tbl-wrap,.tw,.tc-scroll'),w=sc?sc.clientWidth-14:(r.parentNode&&r.parentNode.clientWidth?Math.min(r.parentNode.clientWidth,innerWidth-24):0);
+  if(tag==='TR'&&sc){w=Math.min(w||innerWidth-24,innerWidth-24);box.style.width=Math.max(260,w)+'px';box.style.position='sticky';box.style.left='0';}   // scrolling table: pin to the visible part
+  else if(tag==='TR'){box.style.width='100%';box.style.maxWidth=(innerWidth-16)+'px';}   // fixed-layout table: never widen it
+  var f=D.createElement('iframe');f.title=t+' chart';f.setAttribute('scrolling','no');f.style.height='0px';
+  var hint=((r.getAttribute('data-ty')||'')+' '+(r.textContent||'').slice(0,160)+' '+(mode==='setup'?headingText(r):'')).toLowerCase();
+  var k=/spring/.test(hint)?'spring':/\bema\b|pullback/.test(hint)?'ema':/\bvcp\b/.test(hint)?'vcp':'';
+  f.src=BASE+'stock.html?t='+encodeURIComponent(t)+'&embed=1&mini=1&ov='+mode+(k?'&k='+k:'');
+  f.addEventListener('load',function(){setTimeout(function(){var l=box.querySelector('.ld');if(l)l.remove();if(f.style.height==='0px')f.style.height='420px';},1200);});
   box.appendChild(f);
-  var st=det.querySelector('p');if(st){var sp=el('div','dk-vstory');sp.innerHTML='<b>Story</b> '+st.innerHTML;box.appendChild(sp);}   // full-width copy of the story (the cell copy is hidden while open)
-  td.appendChild(box);row.parentNode.insertBefore(tr,row.nextSibling);
-}
-var vsaRoot=D.querySelector('details.vsan');
-if(vsaRoot){
-  D.addEventListener('toggle',function(e){var d=e.target;if(!d.matches||!d.matches('details.vsan'))return;if(d.open)vsaOpen(d);else vsaClose(d.closest('tr[data-tk]'));},true);
+  var st=r.querySelector('details.vsan p');if(st){var sp=el('div','dk-vstory');sp.innerHTML='<b>Story</b> '+st.innerHTML;box.appendChild(sp);}
+  r.parentNode.insertBefore(n,r.nextSibling);r._dkv=n;r.classList.add('dk-vopen');OPEN.push(r);
+
+  var b=r.querySelector('.dk-xb');if(b)b.setAttribute('aria-expanded','true');
+  var dv=r.querySelector('details.vsan');if(dv&&!dv.open){r._dkc=1;dv.open=true;setTimeout(function(){r._dkc=0;},0);}
+  // re-render / sort / filter of this list -> close (the chart row must never sit under the wrong ticker)
+  if(window.MutationObserver){var mo=new MutationObserver(function(){if(!r.isConnected||r.nextElementSibling!==n||r.offsetParent===null)closeX(r);});
+    mo.observe(r.parentNode,{childList:true});mo.observe(r,{attributes:true,attributeFilter:['class','style','hidden']});r._dko=mo;}}
+function toggleX(r){if(r._dkv)closeX(r);else openX(r);}
+if(XP_ON){
+  scan();scanStrict();
+  D.addEventListener('click',function(e){
+    var th=e.target.closest('th');if(th){var tb=th.closest('table');if(tb)OPEN.slice().forEach(function(r){if(tb.contains(r))closeX(r);});return;}   // sort -> close first
+    var xb=e.target.closest('.dk-xb');if(xb){e.preventDefault();e.stopPropagation();var r=owner(xb);if(r)toggleX(r);return;}
+    if(e.target.closest('a,button,input,select,textarea,label,summary,details,.dk-vrow,[data-wl]'))return;
+    var r2=owner(e.target);if(r2&&!(window.getSelection&&String(window.getSelection()).length))toggleX(r2);});
+  D.addEventListener('toggle',function(e){var d=e.target;if(!d.matches||!d.matches('details.vsan'))return;var r=owner(d);if(!r||r._dkc)return;if(d.open&&!r._dkv)openX(r);else if(!d.open&&r._dkv)closeX(r);},true);
+  D.addEventListener('input',function(e){if(!e.target.closest('.dk-find,.dk-vrow,.wl-add,.dk-pop'))OPEN.slice().forEach(closeX);},true);   // list filters
   window.addEventListener('message',function(e){var m=e.data;if(!m||typeof m.dkh!=='number')return;
     D.querySelectorAll('.dk-vchart iframe').forEach(function(f){if(f.contentWindow===e.source){f.style.height=Math.max(80,Math.min(900,Math.ceil(m.dkh)))+'px';var l=f.parentNode.querySelector('.ld');if(l)l.remove();}});});
-  // sorting a table re-appends rows: close open charts first so a chart row never lands under the wrong ticker
-  D.addEventListener('click',function(e){var th=e.target.closest('th.sort');if(!th)return;var tb=th.closest('table');if(!tb)return;
-    tb.querySelectorAll('tr.dk-vrow').forEach(function(r){r.remove();});tb.querySelectorAll('tr.dk-vopen').forEach(function(r){r.classList.remove('dk-vopen');var d=r.querySelector('details.vsan[open]');if(d)d.open=false;});},true);
+  ['list','wl-lists'].forEach(function(id){var c=D.getElementById(id);if(c&&window.MutationObserver)new MutationObserver(function(){scan(c);}).observe(c,{childList:true,subtree:id==='wl-lists'});});
 }
+window.DKXP={scan:scan,open:openX,close:closeX};
 })();

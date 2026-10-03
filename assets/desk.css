@@ -315,3 +315,16 @@ body.dk tr.dk-vopen details.vsan[open]>p{display:none}
 body.dk .wl-tbl td.tk .ph{display:none;margin-top:4px;gap:4px;flex-wrap:wrap}body.dk .wl-tbl td.tk .ph .dk-chip,body.dk .wl-tbl td.tk .ph .dk-state{font-size:10.5px;padding:1px 6px}
 @media (max-width:420px){body.dk .wl-tbl td.tk .ph{display:flex}}
 body.dk-stock .tc-hud{display:none!important}
+/* ================================================================== expandable ticker rows (desk.js: every per-ticker row -> inline chart) */
+.dk-xrow{cursor:pointer}
+.dk-xb{display:inline-grid;place-items:center;width:22px;height:22px;margin:0 0 0 6px;padding:0;vertical-align:middle;cursor:pointer;flex:0 0 auto;
+ font:700 11px/1 var(--f-body);color:var(--cy);background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.45);border-radius:6px;box-shadow:0 0 6px rgba(0,229,255,.25)}
+.dk-xb i{font-style:normal;display:block;transition:transform .15s}
+.dk-xb[aria-expanded=true]{background:var(--cy);color:var(--bg)}.dk-xb[aria-expanded=true] i{transform:rotate(90deg)}
+body.dk tr.dk-vopen>td,body.dk .dk-vopen{background:rgba(0,229,255,.07)!important}
+li.dk-vrow,div.dk-vrow{list-style:none;padding:0 0 10px;margin:0;display:block!important;grid-template-columns:none!important;min-height:0!important;border-bottom:1px solid var(--edge2)}
+li.dk-vrow .dk-vchart,div.dk-vrow .dk-vchart{width:100%;box-sizing:border-box}
+body.dk tr.dk-vrow:hover>td{background:transparent!important}
+.dk-vchart{box-sizing:border-box}
+/* Top Movers: the ticker cell holds ticker + ▸ + ＋ on one line */
+body.dk.tmv #list li.row .tk .dk-xb{width:20px;height:20px;margin-left:4px}

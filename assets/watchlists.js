@@ -10,10 +10,10 @@ function pc(v){if(!num(v))return '<span class="mut">—</span>';return '<span cl
 function px(v){return num(v)?(v>=1000?v.toLocaleString('en-US',{maximumFractionDigits:0}):v.toFixed(2)):'—';}
 function rsCls(r){return !num(r)?'':r>=90?'g':r>=70?'c':r<40?'r':'';}
 function row(t){var o=IDX[t];
-  if(!o)return '<tr><td class="tk"><a href="stock.html?t='+esc(t)+'">'+esc(t)+'</a><small>not in the desk universe</small></td><td class="r" colspan="3"><span class="mut">no data</span></td><td class="r hm"></td><td class="hm"></td><td><button class="x" data-rm="'+esc(t)+'" aria-label="Remove '+esc(t)+'">✕</button></td></tr>';
+  if(!o)return '<tr data-tk="'+esc(t)+'"><td class="tk"><a href="stock.html?t='+esc(t)+'">'+esc(t)+'</a><small>not in the desk universe</small></td><td class="r" colspan="3"><span class="mut">no data</span></td><td class="r hm"></td><td class="hm"></td><td><button class="x" data-rm="'+esc(t)+'" aria-label="Remove '+esc(t)+'">✕</button></td></tr>';
   var rsH=(num(o.rs)?'<span class="dk-chip '+rsCls(o.rs)+'" title="RS rating (desk calc)">RS '+o.rs+'</span>':'<span class="mut">RS —</span>')+' '+(o.tt===true||o.tt===1?'<span class="dk-chip g" title="passes the trend template">TT ✓</span>':'<span class="dk-chip" title="fails the trend template">TT ✗</span>');
   var stH=o.state?'<span class="dk-state '+esc(o.cls||'')+'">'+esc(o.state)+'</span>':'';
-  return '<tr><td class="tk"><a href="stock.html?t='+esc(t)+'">'+esc(t)+'</a><small>'+esc(o.name||'')+'</small><span class="ph">'+rsH+' '+stH+'</span></td>'+
+  return '<tr data-tk="'+esc(t)+'"><td class="tk"><a href="stock.html?t='+esc(t)+'">'+esc(t)+'</a><small>'+esc(o.name||'')+'</small><span class="ph">'+rsH+' '+stH+'</span></td>'+
     '<td class="r">'+px(o.px)+'</td><td class="r">'+pc(o.d1)+'</td><td class="r">'+pc(o.w1)+'</td>'+
     '<td class="r hm">'+rsH+'</td><td class="hm">'+stH+'</td>'+
     '<td><button class="x" data-rm="'+esc(t)+'" aria-label="Remove '+esc(t)+'">✕</button></td></tr>';}
