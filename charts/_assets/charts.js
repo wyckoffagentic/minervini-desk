@@ -8,6 +8,11 @@
   if(/[?&]embed=1/.test(location.search)) document.body.classList.add('tc-embed');
   var FONT="'Press Start 2P','DejaVu Sans',monospace", SYM="'Press Start 2P','DejaVu Sans','Noto Sans Symbols 2','Segoe UI Symbol',monospace";
   var C={up:'#39ff88',dn:'#ff3d7f',entry:'#00e5ff',stop:'#ff2a2a',cut:'#ff9f1c',a05:'#c77dff',a10:'#ff2bd6',r2:'#39ff14',r3:'#ffd700',zone:'#00e5ff',grid:'rgba(107,92,255,.13)',axis:'#6f6a9c',frame:'#3a2f8a',bg:'#0a0822'};
+  // label density (desk.js / unify): FULL = everything · LEVELS = bars + entry / stop lines + price tag · CLEAN = bars, volume, SMA + RS lines only.
+  // Shared by every chart (localStorage wa.desk.chartmode.v1); the button sits in the zoom / range bar.
+  var MODES=['full','levels','clean'],MKEY='wa.desk.chartmode.v1',MODE='full';
+  try{var _m=localStorage.getItem(MKEY);if(MODES.indexOf(_m)>=0)MODE=_m;}catch(e){}
+  var FULL=function(){return MODE==='full';},CLEAN=function(){return MODE==='clean';};
   var MON=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   function $(id){return document.getElementById(id);}
   function money(v){return v==null?'—':'$'+Number(v).toFixed(2);}
@@ -126,7 +131,7 @@
   // ---------------------------------------------------------------- chart
   var host=$('tc-chart'), cv=document.createElement('canvas'), tip=document.createElement('div');
   cv.className='tc-canvas'; tip.className='tc-tip'; tip.hidden=true; host.appendChild(cv); host.appendChild(tip);
-  var geo=null, hover=-1, t0=performance.now();
+  var geo=null, hover=-1, t0=performance.now(), PVR=null;
 
   function levels(){
     var L=[];
@@ -146,10 +151,13 @@
     if(W<50||H<50) return;
     var x=setup(cv,W,H), narrow=W<700;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
-    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=hasRT?Math.round(H*(narrow?.17:.16)):0, ry0=6, pt=(narrow?26:22)+(hasRT?rh+ry0+4:0), pb=narrow?26:34, vh=Math.round(H*(narrow?.13:.14)), ph=H-pt-pb-vh-10;
-    var axisW=narrow?46:56, L=levels().filter(function(l){return l.v!=null;});
+    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=hasRT?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=(narrow?26:22)+(hasRT?rh+ry0+4:0), pb=narrow?26:34, vh=Math.round(H*(narrow?.13:.14)), ph=H-pt-pb-vh-10;
+    var axisW=narrow?46:56, L=levels().filter(function(l){return l.v!=null&&(FULL()||(MODE==='levels'&&(l.k==='entry'||l.k==='stop')));});
+    // far-off targets (2R / 3R well above the visible bars) go in the key at the top instead of stretching the price scale
+    var _blo=Infinity,_bhi=-Infinity;if(PVR){_blo=PVR[0];_bhi=PVR[1];}else bars.slice(-(narrow?60:130)).forEach(function(b){_blo=Math.min(_blo,b.l);_bhi=Math.max(_bhi,b.h);});   // previous frame's visible bars
+    var OFF=[];L=L.filter(function(l){if((l.k==='r2'||l.k==='r3')&&l.v>_bhi+(_bhi-_blo)*.45){OFF.push(l);return false;}return true;});
     // phones: level tags double as the price axis (one merged right column) and the last price joins the tag stack, so the bars get the width
-    if(narrow) L.push({k:'last',v:last.c,c:'#ffffff',nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
+    if(narrow&&!CLEAN()) L.push({k:'last',v:last.c,c:'#ffffff',nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
     // measure tag widths first so the right margin always fits them (nothing covers the bars)
     x.font=tfs+'px '+SYM;
     var tags=L.map(function(l){var t=narrow?[l.nt||(l.short||l.t)[0]]:l.t;return {l:l,t:t,tw:Math.max.apply(null,t.map(function(s){return x.measureText(s).width;}))+(narrow?12:22)+(l.skull&&!narrow?22:0),bh:(l.thin?(narrow?12:16):(narrow?13:20))+(t.length-1)*(narrow?11:12)};});
@@ -165,9 +173,10 @@
     function X(i){return pl+i*bw+bw/2;}
     var lastEdge=X(n-1)+Math.max(1.5,Math.min(bw*.5,9)), barsEnd=lastEdge, sx0=Math.round(lastEdge+GAP), sx1=sx0+STUB, tagX=sx1, axX=narrow?W-3:W-axisW+6;
     var lo=Infinity,hi=-Infinity;
-    V.forEach(function(b){lo=Math.min(lo,b.l);hi=Math.max(hi,b.h);});
-    [D.stop,D.entry,D.r2,D.r3,RP.m05,RP.m10,D.buy_zone&&D.buy_zone[1]].concat((D.cuts||[]).map(function(c){return c.price;})).forEach(function(v){if(v!=null){lo=Math.min(lo,v);hi=Math.max(hi,v);}});
-    ovlPrices(off,n).forEach(function(v){lo=Math.min(lo,v);hi=Math.max(hi,v);});   // keep visible detector drawings in range
+    V.forEach(function(b){lo=Math.min(lo,b.l);hi=Math.max(hi,b.h);});var _pv=PVR;PVR=[lo,hi];if(!_pv||_pv[0]!==lo||_pv[1]!==hi){if(true)setTimeout(function(){draw(performance.now());},0);}
+    L.forEach(function(l){if(l.k!=='last'){lo=Math.min(lo,l.v);hi=Math.max(hi,l.v);}});   // shown levels only (off-scale targets excluded)
+    if(FULL()&&D.buy_zone&&D.buy_zone[1]!=null){lo=Math.min(lo,D.buy_zone[1]);hi=Math.max(hi,D.buy_zone[1]);}
+    if(FULL())ovlPrices(off,n).forEach(function(v){lo=Math.min(lo,v);hi=Math.max(hi,v);});   // keep visible detector drawings in range
     var pad=(hi-lo)*.04; lo-=pad; hi+=pad;
     function Y(v){return pt+(hi-v)/(hi-lo)*ph;}
     geo={X:X,Y:Y,bw:bw,pl:pl,barsEnd:barsEnd,off:off,n:n,W:W,H:H};
@@ -175,16 +184,16 @@
     // grid + price axis (far right)
     var span=hi-lo, raw=span/(narrow?5:8), mag=Math.pow(10,Math.floor(Math.log10(raw))), step=[1,2,2.5,5,10].map(function(m){return m*mag;}).find(function(s){return s>=raw;});
     x.strokeStyle=C.grid;x.lineWidth=1;x.font=(narrow?6:fs)+'px '+FONT;x.fillStyle=C.axis;x.textAlign=narrow?'right':'left';
-    for(var v=Math.ceil(lo/step)*step;v<hi;v+=step){x.beginPath();x.moveTo(pl,Y(v));x.lineTo(sx1,Y(v));x.stroke();x.fillText(step<1?v.toFixed(2):String(Math.round(v*100)/100),axX,Y(v)+3);}
+    for(var v=Math.ceil(lo/step)*step;v<hi;v+=step){x.fillText(step<1?v.toFixed(2):String(Math.round(v*100)/100),axX,Y(v)+3);}
     x.textAlign='left';x.font=fs+'px '+FONT;if(!narrow){x.strokeStyle='rgba(107,92,255,.35)';x.beginPath();x.moveTo(W-axisW,pt-6);x.lineTo(W-axisW,H-pb);x.stroke();}x.strokeStyle=C.grid;
     var pm=V[0].d.slice(0,7);
     var lastLab=-1e9, labGap=narrow?30:36;
-    V.forEach(function(b,i){var m=b.d.slice(0,7);if(m!=pm&&i>0){pm=m;if(X(i)-lastLab<labGap||X(i)>barsEnd-10)return;lastLab=X(i);var mo=+b.d.slice(5,7);x.beginPath();x.moveTo(X(i),pt);x.lineTo(X(i),H-pb);x.stroke();
+    V.forEach(function(b,i){var m=b.d.slice(0,7);if(m!=pm&&i>0){pm=m;if(X(i)-lastLab<labGap||X(i)>barsEnd-10)return;lastLab=X(i);var mo=+b.d.slice(5,7);
       x.fillStyle=mo===1?'#cfc9ff':C.axis;x.fillText(mo===1?b.d.slice(0,4):MON[mo-1],X(i)+3,H-pb+18);x.fillStyle=C.axis;}});
     // right-side strip: risk / reward / buy-zone bands only between the last bar and the tags
-    if(D.entry!=null&&D.stop!=null&&D.entry>D.stop){x.fillStyle='rgba(255,42,42,.08)';x.fillRect(sx0,Y(D.entry),sx1-sx0,Y(D.stop)-Y(D.entry));}
-    if(hasR){x.fillStyle='rgba(57,255,20,.045)';x.fillRect(sx0,Y(D.r3),sx1-sx0,Y(D.entry)-Y(D.r3));}
-    if(D.buy_zone){var z0=Y(D.buy_zone[1]),z1=Y(D.buy_zone[0]);x.fillStyle='rgba(0,229,255,.08)';x.fillRect(sx0,z0,sx1-sx0,z1-z0);
+    if(FULL()&&D.entry!=null&&D.stop!=null&&D.entry>D.stop){x.fillStyle='rgba(255,42,42,.08)';x.fillRect(sx0,Y(D.entry),sx1-sx0,Y(D.stop)-Y(D.entry));}
+    if(FULL()&&hasR&&!OFF.length){x.fillStyle='rgba(57,255,20,.045)';x.fillRect(sx0,Y(D.r3),sx1-sx0,Y(D.entry)-Y(D.r3));}
+    if(FULL()&&D.buy_zone){var z0=Y(D.buy_zone[1]),z1=Y(D.buy_zone[0]);x.fillStyle='rgba(0,229,255,.08)';x.fillRect(sx0,z0,sx1-sx0,z1-z0);
       x.save();x.strokeStyle='rgba(0,229,255,.4)';x.setLineDash([2,2]);x.lineWidth=1;x.beginPath();x.moveTo(sx0,z0);x.lineTo(sx1,z0);x.stroke();x.restore();
       if(false){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='rgba(0,229,255,.9)';x.textAlign='center';x.fillText('BUY ZONE',(sx0+sx1)/2,(z0+z1)/2-2);x.fillText('TO '+D.buy_zone[1].toFixed(2),(sx0+sx1)/2,(z0+z1)/2+8);}}
     // vertical pixel labels inside the strip
@@ -197,17 +206,20 @@
     // volume
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb;
     V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);});
-    x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;x.fillText('VOL',pl+6,vb-vh+4);
+    x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;if(!CLEAN())x.fillText('VOL',pl+6,vb-vh+4);
     // RS RATING panel (top): area fill, smooth rating-vs-MA21 fill, crossover dots, 0-100 scale + value tags on the right
     // (no per-bar regime band columns: on phones they rendered as dozens of thin vertical stripes; band names stay in the tooltip)
     if(hasRT){var RH=rh, rw=barsEnd-pl, vis=V.map(function(b){return RTM[b.d]||null;}), mn=100, any=false;
       x.save();x.fillStyle='#07100d';x.fillRect(pl,ry0,rw,RH);
-      vis.forEach(function(r){if(r&&r[1]!=null){any=true;mn=Math.min(mn,r[1]);}if(r&&r[2]!=null)mn=Math.min(mn,r[2]);});
-      var rlo=Math.max(0,Math.min(60,Math.floor((mn-8)/20)*20)), rhi=100;
+      var mx=0;vis.forEach(function(r){if(r&&r[1]!=null){any=true;mn=Math.min(mn,r[1]);mx=Math.max(mx,r[1]);}if(r&&r[2]!=null){mn=Math.min(mn,r[2]);mx=Math.max(mx,r[2]);}});
+      // autoscale to the visible rating + MA21 (min-3 .. max+2, clamped 1-99, at least a 10-point span) so a 90-99 leader is not a flat strip
+      var rlo=Math.max(1,Math.floor(mn-3)), rhi=Math.min(99,Math.ceil(mx+2));if(!any){rlo=1;rhi=99;}
+      if(rhi-rlo<10){var _c=(rhi+rlo)/2;rlo=Math.round(_c-5);rhi=rlo+10;if(rhi>99){rhi=99;rlo=89;}if(rlo<1){rlo=1;rhi=11;}}
+      var rstep=20;[1,2,5,10,20].some(function(st){if(rh*st/(rhi-rlo)>=(narrow?14:18)){rstep=st;return true;}});   // scale labels >= ~14px apart
       var RY=function(v){return ry0+3+(rhi-v)/(rhi-rlo)*(RH-6);};
       x.beginPath();x.rect(pl,ry0,rw,RH);x.clip();
       // grid (20-step) inside the plot
-      x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;for(var gv=Math.ceil(rlo/20)*20;gv<=rhi;gv+=20){var gy=Math.round(RY(gv))+.5;x.beginPath();x.moveTo(pl,gy);x.lineTo(barsEnd,gy);x.stroke();}
+      x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;if(!CLEAN())for(var gv=Math.ceil(rlo/rstep)*rstep;gv<=rhi;gv+=rstep){var gy=Math.round(RY(gv))+.5;x.beginPath();x.moveTo(pl,gy);x.lineTo(barsEnd,gy);x.stroke();}
       // segments of consecutive rated bars
       var segs=[],cur=null;vis.forEach(function(r,i){if(r&&r[1]!=null){if(!cur){cur=[];segs.push(cur);}cur.push(i);}else cur=null;});
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});
@@ -229,38 +241,38 @@
       // where the stored history starts / blank before it
       var f0=RTH.from, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&b.d>=f0)fi=i;});
       x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';
-      if(!f0||!any){x.fillStyle=C.axis;x.textAlign='center';x.fillText(f0?'NO RS RATING IN VIEW':'NO RS RATING HISTORY',pl+rw/2,ry0+RH/2+3);}
+      if(CLEAN()){}else if(!f0||!any){x.fillStyle=C.axis;x.textAlign='center';x.fillText(f0?'NO RS RATING IN VIEW':'NO RS RATING HISTORY',pl+rw/2,ry0+RH/2+3);}
       else if(fi>0){x.strokeStyle='rgba(57,255,136,.45)';x.setLineDash([3,3]);x.beginPath();x.moveTo(X(fi)-bw/2,ry0);x.lineTo(X(fi)-bw/2,ry0+RH);x.stroke();x.setLineDash([]);
         var ht='RS HISTORY FROM '+sday(f0);x.fillStyle=C.axis;var htw=x.measureText(ht).width;
         if(X(fi)-bw/2-pl>htw+8){x.textAlign='right';x.fillText(ht,X(fi)-bw/2-4,ry0+RH/2+3);}else{x.fillText(ht,X(fi)+4,ry0+RH-5);}}
       x.restore();
-      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText('RS RATING · MA'+(RTH.ma||21),pl+5,ry0+10);
+      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(!CLEAN())x.fillText('RS RATING · MA'+(RTH.ma||21),pl+5,ry0+10);
       x.strokeStyle='rgba(57,255,136,.35)';x.lineWidth=1;x.strokeRect(pl+.5,ry0+.5,rw-1,RH-1);
       // right column: value tags (rating green, MA orange) + scale labels that don't collide with them
       var lr=null;for(var k=vis.length-1;k>=0;k--){if(vis[k]&&vis[k][1]!=null){lr=vis[k];break;}}
       var tx=sx0+2, tg=[];x.font=(narrow?6:7)+'px '+FONT;
-      if(lr){tg.push({y:RY(lr[1]),t:String(lr[1]),bg:RTC.r});if(lr[2]!=null)tg.push({y:RY(lr[2]),t:lr[2].toFixed(2),bg:RTC.ma});
+      if(lr&&!CLEAN()){tg.push({y:RY(lr[1]),t:String(lr[1]),bg:RTC.r});if(lr[2]!=null)tg.push({y:RY(lr[2]),t:lr[2].toFixed(2),bg:RTC.ma});
         if(tg.length===2&&Math.abs(tg[0].y-tg[1].y)<11){var mid=(tg[0].y+tg[1].y)/2,up=tg[0].y<=tg[1].y?0:1;tg[up].y=mid-5.5;tg[1-up].y=mid+5.5;}
         var tmin=Math.min.apply(null,tg.map(function(t){return t.y;})),tmax=Math.max.apply(null,tg.map(function(t){return t.y;})),sh0=tmin<ry0+5?ry0+5-tmin:tmax>ry0+RH-5?ry0+RH-5-tmax:0;
         tg.forEach(function(t){t.y+=sh0;var w=x.measureText(t.t).width+6;x.fillStyle=t.bg;x.fillRect(tx,t.y-5,w,10);x.fillStyle='#07061a';x.textAlign='left';x.fillText(t.t,tx+3,t.y+3);});}
       x.fillStyle=C.axis;x.textAlign='right';x.font=(narrow?5:6)+'px '+FONT;
-      for(var tv=Math.ceil(rlo/20)*20;tv<=rhi;tv+=20){var ty=RY(tv);if(tg.some(function(t){return Math.abs(t.y-ty)<8;}))continue;x.fillText(String(tv),W-3,Math.max(ry0+6,Math.min(ry0+RH-1,ty+3)));}
+      if(!CLEAN())for(var tv=Math.ceil(rlo/rstep)*rstep;tv<=rhi;tv+=rstep){var ty=RY(tv);if(tg.some(function(t){return Math.abs(t.y-ty)<8;}))continue;x.fillText(String(tv),W-3,Math.max(ry0+6,Math.min(ry0+RH-1,ty+3)));}
     }
     // SMAs
     [[S50,'#ff9f1c','SMA50'],[S150,'#b86bff','SMA150'],[S200,'#4da3ff','SMA200']].forEach(function(a,j){
       x.strokeStyle=a[1];x.lineWidth=1.3;x.globalAlpha=.85;x.beginPath();var s=0;
       V.forEach(function(b,i){var val=a[0][b.d];if(val==null)return;var y=Y(val);if(y<pt-2||y>pt+ph+2){s=0;return;}s?x.lineTo(X(i),y):x.moveTo(X(i),y);s=1;});
       x.stroke();x.globalAlpha=1;var has=Object.keys(a[0]).length>0;x.fillStyle=has?a[1]:'#4a456f';x.font=fs+'px '+FONT;x.textAlign='left';
-      x.fillText(a[2]+(has?'':' n/a'),pl+10+j*(narrow?70:90),pt-8);});
+      if(FULL())x.fillText(a[2]+(has?'':' n/a'),pl+10+j*(narrow?70:90),pt-8);});
     // HLC bars: low→high bar + right close tick, no open tick
     var bLW=Math.max(1,Math.min(bw*.38,narrow?5:6)), tLW=Math.max(1,Math.min(bw*.3,2.4)), tLen=Math.max(1.5,Math.min(bw*.5,9));
     V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';
       x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l)+(Y(b.l)-Y(b.h)<1?1:0));x.stroke();
       x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();});
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
-    V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
+    if(FULL())V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
       x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
-    if(OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow});
+    if(FULL()&&OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow});
     // short, thick, glowing level segments in the strip
     var pulse=RM?1:(0.75+0.25*Math.sin((now-t0)/420));
     tags.forEach(function(t){var l=t.l,y=Y(l.v);t.y=y;if(l.inv)return;x.save();x.strokeStyle=l.c;x.shadowColor=l.c;x.shadowBlur=5;x.globalAlpha=.95;x.lineWidth=l.w;x.lineCap='butt';x.setLineDash(l.dash||[]);
@@ -291,11 +303,14 @@
       var lh=narrow?11:12;t.t.forEach(function(s,k){x.fillText(s,k?bx+6:tx,t.cy+(narrow?3:4)-(t.t.length-1)*lh/2+k*lh);});
       if(l.warn){x.shadowBlur=0;for(var q=0;q<t.tw-6;q+=6){x.fillRect(bx+3+q,by-4,3,2);x.fillRect(bx+3+q,by+t.bh+2,3,2);}}
       x.restore();});
-    if(D.stop==null&&!D.no_levels){x.font=(narrow?8:10)+'px '+SYM;x.fillStyle=C.stop;x.shadowColor=C.stop;x.shadowBlur=10;x.textAlign='center';x.fillText('☠ STOP NOT SET — NO R TARGETS',(pl+barsEnd)/2,pt+ph*.5);x.shadowBlur=0;}
+    if(FULL()&&D.stop==null&&!D.no_levels){x.font=(narrow?8:10)+'px '+SYM;x.fillStyle=C.stop;x.shadowColor=C.stop;x.shadowBlur=10;x.textAlign='center';x.fillText('☠ STOP NOT SET — NO R TARGETS',(pl+barsEnd)/2,pt+ph*.5);x.shadowBlur=0;}
     // last price tag on the axis
-    var lastV=V[n-1],ly=Y(last.c);if(!narrow&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle='#fff';x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
+    var lastV=V[n-1],ly=Y(last.c);if(!narrow&&!CLEAN()&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle='#fff';x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
     // 1UP sprite above last bar
-    if(atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];
+    if(FULL()&&OFF.length){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='right';var ox=W-4;
+      if(narrow)OFF.slice().sort(function(a,b){return a.v-b.v;}).forEach(function(l,i){x.fillStyle=l.c;x.fillText('▲'+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2),ox,pt-8-i*9);});   // phone: stacked in the tag column
+      else{OFF.slice().reverse().forEach(function(l){var t='▲ '+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2);x.fillStyle=l.c;x.fillText(t,ox,pt-8);ox-=x.measureText(t).width+8;});x.fillStyle=C.axis;x.fillText('OFF-SCALE',ox,pt-8);}}   // off-scale targets key
+    if(FULL()&&atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];
     x.fillStyle=C.r3;x.shadowColor=C.r3;x.shadowBlur=10;
     spr.forEach(function(r,ry){r.split('').forEach(function(ch,cx){if(ch=='#')x.fillRect(spx+(cx-2.5)*P,spy-(spr.length-ry)*P,P,P);});});
     x.shadowBlur=0;x.fillStyle='#fff';x.font=fs+'px '+FONT;x.textAlign='center';x.fillText('1UP',spx,spy-spr.length*P-6);}
@@ -372,7 +387,18 @@
   // ---------------------------------------------------------------- run
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
+  function modeBtn(){
+    var b=document.createElement('button');b.type='button';b.className='tcm';
+    function lab(){var nx=MODES[(MODES.indexOf(MODE)+1)%3];b.textContent=MODE==='full'?'◉ FULL':MODE==='levels'?'◎ LEVELS':'○ CLEAN';
+      b.setAttribute('aria-label','Chart labels: '+MODE+'. Tap for '+nx);b.title='Labels: FULL → LEVELS (entry / stop only) → CLEAN (bars, volume, SMA + RS lines)';b.setAttribute('data-mode',MODE);
+      document.body.classList.toggle('tc-clean',MODE==='clean');document.body.classList.toggle('tc-lvonly',MODE==='levels');}
+    b.addEventListener('click',function(){MODE=MODES[(MODES.indexOf(MODE)+1)%3];try{localStorage.setItem(MKEY,MODE);}catch(e){}lab();redraw();});
+    window.addEventListener('storage',function(e){if(e.key===MKEY&&MODES.indexOf(e.newValue)>=0){MODE=e.newValue;lab();redraw();}});
+    var pr=host.parentNode.querySelector('.tcz .pr');
+    if(pr)pr.appendChild(b);else{var bar=document.createElement('div');bar.className='tcz tcz-m';bar.appendChild(b);host.parentNode.insertBefore(bar,host);}
+    lab();}
   ready.then(function(){
+    try{modeBtn();}catch(e){}
     redraw(); document.body.classList.add('tc-ready');
     var to=null;window.addEventListener('resize',function(){clearTimeout(to);to=setTimeout(redraw,60);});
     if(!RM){var lastT=0;(function loop(t){if(t-lastT>50&&!document.hidden){lastT=t;draw(t);}requestAnimationFrame(loop);})(0);}
