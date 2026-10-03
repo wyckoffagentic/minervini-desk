@@ -386,3 +386,31 @@ body.dk .tc-stage{background:#000}
 section.tc-stage>.tcf{border-radius:0;border-width:0 2px;border-color:#3a2f8a}
 body.tc-fold .tc-ovl,body.tc-fold .tc-legend,body.tc-fold .stk-vkey{display:none!important}
 body.tc-mini .tcf{margin:0 0 6px}
+/* ================================================================== desk team (unify.py team_html: index.html bottom + team.html) */
+.dk-team{margin:26px 0 14px;padding:14px 14px 16px;background:var(--panel);border:1px solid var(--edge2);border-radius:var(--r-lg,14px)}
+.dk-team-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:12px}.dk-team-hd h2{margin:0;font-size:17px}
+.dk-team-hd .mut{font-size:12.5px;color:var(--mut)}.dk-team-more{color:var(--cy);font-weight:700;white-space:nowrap;margin-left:6px}
+.dk-team-top{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;max-width:360px;margin:0 auto;padding:10px 14px;text-align:center;
+ border:1.5px solid var(--gold);border-radius:12px;background:var(--t-gold);box-shadow:0 0 14px rgba(255,210,63,.28)}
+.dk-team-top b{font:400 11px var(--f-px);letter-spacing:1px;color:var(--gold);text-shadow:0 0 8px rgba(255,210,63,.5)}
+.dk-team-top i{font-style:normal;font-size:12px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.8px}
+.dk-team-top span{font-size:12.5px;color:var(--tx2)}
+.dk-team-list{list-style:none;margin:0;padding:0;position:relative}
+.dk-team-list li{position:relative;padding:8px 10px;border:1px solid var(--edge2);border-radius:10px;background:var(--panel2);line-height:1.35}
+.dk-team-list li b{display:block;font-size:13.5px;color:var(--cy)}.dk-team-list li span{display:block;font-size:12.5px;color:var(--tx2)}
+.dk-team-list li:first-child{border-color:var(--cy);box-shadow:0 0 8px rgba(0,229,255,.25)}
+/* desktop / tablet: tree (vertical stem from the Chief of Staff, horizontal bus, a drop to every desk) */
+@media (min-width:700px){
+ .dk-team-top:after{content:'';position:absolute;left:50%;bottom:-19px;width:2px;height:18px;background:var(--gold);opacity:.7}
+ .dk-team-list{display:grid;grid-template-columns:repeat(3,1fr);gap:22px 12px;margin-top:20px;padding-top:18px}
+ .dk-team-list:after{content:'';position:absolute;top:0;left:calc((100% - 24px)/6);right:calc((100% - 24px)/6);height:2px;background:rgba(255,210,63,.55)}
+ .dk-team-list li:before{content:'';position:absolute;left:50%;top:-20px;width:2px;height:19px;background:rgba(255,210,63,.55)}
+ .dk-team-list li:nth-child(n+4):before{top:-23px;height:22px;background:rgba(255,210,63,.3)}}
+/* phones: stacked tree - one left rail from the Chief of Staff with a tick to each desk */
+@media (max-width:699px){
+ .dk-team-top{max-width:none;align-items:flex-start;text-align:left}
+ .dk-team-list{margin:8px 0 0 14px;padding:0 0 0 18px}
+ .dk-team-list li{margin-top:7px}
+ .dk-team-list li:before{content:'';position:absolute;left:-17px;top:16px;width:15px;height:2px;background:rgba(255,210,63,.55)}
+ .dk-team-list li:after{content:'';position:absolute;left:-18px;top:-8px;bottom:0;width:2px;background:rgba(255,210,63,.55)}
+ .dk-team-list li:first-child:after{top:-16px}.dk-team-list li:last-child:after{bottom:auto;height:26px}.dk-team-list li:first-child:last-child:after{height:34px}}
