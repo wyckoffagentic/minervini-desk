@@ -33,22 +33,23 @@ document.title=T+' · Stock · Wyckoff Agentic';
 function loadScript(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.body.appendChild(s);});}
 // ma_stack.html rows (ov=mastack, research-tools/ma_stack.py -> data/ma_stack/<T>.json): EMA 10/20/50 lines + markers (fresh EMA10 cross,
 // GUD no-supply / undercut-reclaim bars) + for GUD rows the plan as the chart's own Entry / Stop / 2R / 3R lines (LAYERS + TEXT apply).
-var MSX=null;
+var MSX=null,MSV=(P.get('msv')||'').replace(/[^a-z0-9]/g,'');   // &msv=sbd|sbw: SPRING -> BULL row variant (its own markers + plan)
 function msx(){if(OVM!=='mastack')return Promise.resolve(null);if(!MSX)MSX=get('data/ma_stack/'+encodeURIComponent(T)+'.json').then(function(r){return r.json();}).catch(function(){return null;});return MSX;}
-function msApply(D,ms){var out=[];if(!ms)return out;var first=(D.bars&&D.bars.length)?D.bars[0][0]:null;
+function msApply(D,ms){var out=[];if(!ms)return out;
+  if(MSV&&ms.variants&&ms.variants[MSV]){var vv=ms.variants[MSV];ms={ema:ms.ema,plan:vv.plan,vlabel:vv.label,marks:(ms.marks||[]).filter(function(m){return m.g==='ns'||m.g==='ur';}).concat(vv.marks||[])};}var first=(D.bars&&D.bars.length)?D.bars[0][0]:null;
   var E=ms.ema||{},d=E.d||[],cols={e10:'#ff7ad9',e20:'#7aa2ff',e50:'#ffd23f'},it=[];
   ['e10','e20','e50'].forEach(function(k){var v=E[k]||[];for(var i=1;i<d.length;i++){if(v[i]==null||v[i-1]==null||(first&&d[i-1]<first))continue;
     it.push({t:'seg',d0:d[i-1],p0:v[i-1],d1:d[i],p1:v[i],c:cols[k],w:k==='e50'?1.8:1.4});}});
   if(it.length)out.push({id:'ema_stack',label:'EMA 10 / 20 / 50 (daily closes)',color:cols.e10,legend:[[cols.e10,'EMA10'],[cols.e20,'EMA20'],[cols.e50,'EMA50']],items:it});
   var vis=(ms.marks||[]).filter(function(m){return !first||m.d>=first;}),pt=function(m){return {t:'point',d:m.d,p:m.p,label:m.label,pos:m.pos,c:m.c};};
   var mk=vis.filter(function(m){return m.g!=='ns'&&m.g!=='ur';}).map(pt),nk=vis.filter(function(m){return m.g==='ns';}).map(pt),uk=vis.filter(function(m){return m.g==='ur';}).map(pt);
-  if(mk.length)out.push({id:'ma_marks',label:ms.plan?'GUD: no supply / undercut reclaim bars':'MA Stack signal bars',color:ms.plan?'#ffd23f':'#39ff88',items:mk});
+  if(mk.length)out.push({id:'ma_marks',label:ms.vlabel?ms.vlabel+': spring bar + EMA10 cross':ms.plan?'GUD: no supply / undercut reclaim bars':'MA Stack signal bars',color:ms.plan?'#ffd23f':'#39ff88',items:mk});
   if(nk.length)out.push({id:'ma_ns',label:'NS: no supply in the 10/20 zone (notation)',color:'#ffd23f',items:nk});
   if(uk.length)out.push({id:'ma_ur',label:'UR: undercut reclaim in the 10/20 zone (notation)',color:'#00e5ff',items:uk});
   var pl=ms.plan;
   if(pl&&pl.entry!=null&&pl.stop!=null&&pl.entry>pl.stop){var R=pl.entry-pl.stop,rp=R/pl.entry*100,tfw={D:'daily',W:'weekly',M:'monthly'}[pl.tf]||pl.tf;
     D.entry=pl.entry;D.stop=pl.stop;D.risk=R;D.risk_pct=pl.risk_pct;D.r2=pl.r2;D.r3=pl.r3;D.no_levels=false;
-    D.entry_src='GUD plan: buy stop at the '+tfw+' undercut-reclaim bar high ('+(pl.tf==='D'?pl.rc_date:pl.rc_start)+')';D.stop_src='GUD plan: '+tfw+' undercut-reclaim bar low';D.r_src='entry + 2R / entry + 3R';
+    if(ms.vlabel){D.entry_src=ms.vlabel+' plan: buy stop at the '+tfw+' EMA10 cross bar high ('+pl.rc_date+')';D.stop_src=ms.vlabel+' plan: spring low (structure stop)';}else{D.entry_src='GUD plan: buy stop at the '+tfw+' undercut-reclaim bar high ('+(pl.tf==='D'?pl.rc_date:pl.rc_start)+')';D.stop_src='GUD plan: '+tfw+' undercut-reclaim bar low';}D.r_src='entry + 2R / entry + 3R';
     D.risk_plan={default:0.75,min:0.5,max:1,tier:0.75,short:'MA STACK GUD PLAN',reasons:['0.75% desk default risk; the MA Stack page sizes a $100,000 placeholder account'],
       stop_pct:rp,size_pct:{'0.5':0.5/rp*100,'0.75':0.75/rp*100,'1':1/rp*100},m05:pl.m05,m10:pl.m10};}
   return out;}
