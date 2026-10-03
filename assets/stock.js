@@ -52,7 +52,7 @@ function chartFrom(kind){
       if(!keep.length&&OVM!=='vsa'&&OVM!=='setup'&&OVM!=='desk')keep=all.filter(function(o){return o.id!=='vsa';});   // nothing of that kind: show the detector drawings there are
       c.tc.overlays=keep;
       if(OVM==='vsa'||c.tc.no_levels){['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};}
-      c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;c.tc.r2=null;c.tc.r3=null;   // 2R / 3R targets go in the key, not the price scale (keeps bars readable at 330px)
+      c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;   // 2R / 3R also listed in the key; charts.js moves far-off targets out of the price scale (Targets layer)
       miniKey(c.tc,keep);
     }
     var NEON={'#1f9d3a':'#39ff88','#d62828':'#ff3d7f'};   // VSA sign colours -> desk neon (dark background)
@@ -60,7 +60,7 @@ function chartFrom(kind){
     window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
     if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
     $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=b8b6a5dd').then(function(){return loadScript('charts/_assets/charts.js?v=b8b6a5dd');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=bc656a99').then(function(){return loadScript('charts/_assets/charts.js?v=bc656a99');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
