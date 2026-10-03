@@ -60,7 +60,7 @@ function chartFrom(kind){
     window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
     if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
     $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=a000d4fc').then(function(){return loadScript('charts/_assets/charts.js?v=a000d4fc');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=3e60e677').then(function(){return loadScript('charts/_assets/charts.js?v=3e60e677');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];

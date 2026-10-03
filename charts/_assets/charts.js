@@ -11,12 +11,14 @@
   // ---------------------------------------------------------------- layers (LAYERS panel + TEXT switch + FULL / LEVELS / CLEAN presets)
   // One shared state for every chart (full chart pages, stock.html, inline dropdown charts): localStorage wa.desk.chartlayers.v1 =
   // {L:{layer:0|1}, text:0|1, axis:0|1}. Presets just set the toggles; any other mix shows CUSTOM. Changes redraw from memory (no refetch).
-  var LAYK=['bars','vol','sma','entry','stop','targets','acct','cuts','zones','last','rsp','rsl','ovl','oneup'];
-  var LPRE={full:{on:LAYK,text:1,axis:1},levels:{on:['bars','entry','stop','last'],text:1,axis:1},clean:{on:['bars','vol','sma','rsp'],text:0,axis:1}};
+  var LAYK=['bars','vol','sma','entry','stop','targets','pct','pctl','acct','cuts','zones','last','rsp','rsl','ovl','oneup'];
+  var LPRE={full:{on:LAYK.filter(function(k){return k!=='pctl';}),text:1,axis:1},   // faint % lines on the chart body: opt-in
+    levels:{on:['bars','entry','stop','last'],text:1,axis:1},clean:{on:['bars','vol','sma','rsp'],text:0,axis:1}};
   var LKEY='wa.desk.chartlayers.v1',MKEY='wa.desk.chartmode.v1';
   function preState(p){var P=LPRE[p],o={L:{},text:P.text,axis:P.axis};LAYK.forEach(function(k){o.L[k]=P.on.indexOf(k)>=0?1:0;});return o;}
   function loadLay(){var j=null;try{j=JSON.parse(localStorage.getItem(LKEY)||'null');}catch(e){}
-    if(j&&j.L){var o=preState('full');LAYK.forEach(function(k){if(j.L[k]!=null)o.L[k]=j.L[k]?1:0;});o.text=j.text?1:0;o.axis=j.axis==null?1:(j.axis?1:0);return o;}
+    if(j&&j.L){var base='full';for(var pp in LPRE){var q=preState(pp);if(LAYK.every(function(k){return j.L[k]==null||q.L[k]===(j.L[k]?1:0);})){base=pp;break;}}   // layers added later take the matching preset's value
+      var o=preState(base);LAYK.forEach(function(k){if(j.L[k]!=null)o.L[k]=j.L[k]?1:0;});o.text=j.text?1:0;o.axis=j.axis==null?1:(j.axis?1:0);return o;}
     var m=null;try{m=localStorage.getItem(MKEY);}catch(e){}return preState(LPRE[m]?m:'full');}   // first visit after the CLEAN-only version: keep its choice
   function presetOf(o){for(var p in LPRE){var q=preState(p);if(q.text===o.text&&q.axis===o.axis&&LAYK.every(function(k){return q.L[k]===o.L[k];}))return p;}return 'custom';}
   var LS=loadLay();
@@ -123,16 +125,28 @@
 
   function drawGauge(){
     var cv=$('tc-gauge'); if(!cv) return;
-    var gw=Math.max(200,cv.parentNode.getBoundingClientRect().width), gh=84, g=setup(cv,gw,gh);
-    var gx0=10,gx1=gw-14,gy=30,seg=gw<420?16:24,sh=22;
-    function gxp(v){return gx0+(v-D.stop)/(D.r3-D.stop)*(gx1-gx0);}
+    // trade strip: stop → 3R, plus % gain ticks from entry (+10 / +20 / +30 ... in 10s; layer 'pct'). The scale stretches past 3R only as
+    // far as +30% (at most 1.5 stop→3R spans more); % levels beyond the end are listed at the right of the % row.
+    var PCT=!!LS.L.pct&&D.entry>0, TXg=!!LS.text;
+    var gw=Math.max(200,cv.parentNode.getBoundingClientRect().width), gh=PCT?98:84, g=setup(cv,gw,gh);cv.parentNode.style.minHeight=gh+'px';
+    var gx0=10,gx1=gw-14,gy=30,seg=gw<420?16:24,sh=22, top=D.r3;
+    if(PCT)top=Math.max(D.r3,Math.min(D.entry*1.3,D.r3+(D.r3-D.stop)*1.5));
+    function gxp(v){return gx0+(v-D.stop)/(top-D.stop)*(gx1-gx0);}
     var mx0=gxp(D.last);g.font='8px '+FONT;g.fillStyle='#9a93d8';var gtit=gw>420?'HP / XP  ·  STOP → 3R':'HP / XP',gtw=g.measureText(gtit).width;if(mx0<gx0+gtw+30){g.textAlign='right';g.fillText(gtit,gx1,12);}else{g.textAlign='left';g.fillText(gtit,gx0,12);}
-    var sw=(gx1-gx0)/seg, fill=Math.max(0,Math.min(1,(D.last-D.stop)/(D.r3-D.stop)));
-    for(var i=0;i<seg;i++){var t=i/(seg-1),on=(i+.5)/seg<=fill,col=t<.3?C.stop:t<.55?'#ff9f1c':t<.8?C.r2:C.r3;
+    var sw=(gx1-gx0)/seg, fill=Math.max(0,Math.min(1,(D.last-D.stop)/(top-D.stop)));
+    for(var i=0;i<seg;i++){var v=D.stop+(i+.5)/seg*(top-D.stop),on=(i+.5)/seg<=fill,col=v<D.entry?C.stop:v<D.r2?'#ff9f1c':v<D.r3?C.r2:C.r3;
       g.fillStyle=on?col:'#241f4a';g.shadowColor=col;g.shadowBlur=on?8:0;g.fillRect(gx0+i*sw+1,gy,sw-3,sh);}
     g.shadowBlur=0;g.strokeStyle='#6b5cff';g.lineWidth=2;g.strokeRect(gx0-2,gy-3,gx1-gx0+3,sh+6);
-    [['STOP',D.stop,C.stop],['ENTRY',D.entry,C.entry],['2R',D.r2,C.r2],['3R',D.r3,C.r3]].forEach(function(a){var x=gxp(a[1]);
-      g.fillStyle=a[2];g.fillRect(x-1,gy+sh+3,3,8);g.font='7px '+FONT;g.textAlign=a[0]=='STOP'?'left':a[0]=='3R'?'right':'center';g.fillText(a[0],a[0]=='STOP'?x-2:a[0]=='3R'?x+2:x,gy+sh+22);});
+    var rEndL=-1e9;g.font='7px '+FONT;   // R labels left→right; a label that would overlap the previous one slides right (its tick stays put)
+    [['STOP',D.stop,C.stop],['ENTRY',D.entry,C.entry],['2R',D.r2,C.r2],['3R',D.r3,C.r3]].forEach(function(a){var x=gxp(a[1]),w=g.measureText(a[0]).width,x0=Math.max(gx0-2,Math.min(gx1+2-w,x-w/2));
+      if(x0<rEndL+5)x0=rEndL+5;g.fillStyle=a[2];g.fillRect(x-1,gy+sh+3,3,8);g.textAlign='left';g.fillText(a[0],x0,gy+sh+22);rEndL=x0+w;});
+    if(PCT){   // % ticks: thin dim notch under the bar + a dim label on their own row below the R labels (no collisions with 2R / 3R)
+      g.font='6px '+FONT;var lastX=-1e9,far=[],ry=gy+sh+35,rEnd=gx1;
+      for(var k=1;k<=20;k++){var pv=D.entry*(1+k/10);if(pv>top+1e-9){if(k<=3)far.push(k);continue;}var px=gxp(pv);
+        g.fillStyle='rgba(185,178,232,.55)';g.fillRect(Math.round(px)-0.5,gy+sh+3,1,5);g.fillRect(Math.round(px)-0.5,gy-3,1,3);}
+      if(far.length&&TXg){var ft=far.map(function(k){return '+'+k*10+'% '+(D.entry*(1+k/10)).toFixed(2);}).join(' · ')+' →';g.textAlign='right';g.fillStyle='#6f6a9c';g.fillText(ft,gx1,ry);rEnd=gx1-g.measureText(ft).width-10;}
+      if(TXg)for(var k2=1;k2<=20;k2++){var pv2=D.entry*(1+k2/10);if(pv2>top+1e-9)break;var px2=gxp(pv2),lt='+'+k2*10+'%',lw=g.measureText(lt).width;
+        var lx=Math.max(gx0,Math.min(gx1+2-lw,px2-lw/2));if(lx<lastX+6||lx+lw>rEnd+2)continue;g.textAlign='left';g.fillStyle='#8f88c4';g.fillText(lt,lx,ry);lastX=lx+lw;}}
     var mx=Math.max(gx0,Math.min(gx1,gxp(D.last)));g.fillStyle='#fff';g.shadowColor='#fff';g.shadowBlur=10;g.beginPath();g.moveTo(mx,gy-2);g.lineTo(mx-7,gy-12);g.lineTo(mx+7,gy-12);g.fill();g.fillRect(mx-1,gy-2,3,sh+4);g.shadowBlur=0;
     g.textAlign='center';g.font='7px '+FONT;g.fillText(D.last<D.stop?'KO':'YOU',mx,gy-15);
   }
@@ -283,6 +297,13 @@
     if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
       x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
     if(LY.ovl&&OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow,notext:!TX,novol:!LY.vol});
+    // % gain from entry (+10 / +20 / +30 ...): faint dotted lines across the bars, only inside the visible range (never stretch the scale);
+    // +10..+30 above the range go in the far-target key. Opt-in layer 'pctl' (the trade strip ticks are layer 'pct').
+    if(LY.pctl&&D.entry>0){x.save();x.setLineDash([1,4]);x.lineWidth=1;x.font=(narrow?5:6)+'px '+FONT;x.textAlign='right';
+      for(var pk=1;pk<=9;pk++){var pv=D.entry*(1+pk/10);if(pv>hi){if(pk<=3)OFF.push({k:'pct',v:pv,c:'#8f88c4',ol:'+'+pk*10+'% '});continue;}if(pv<lo)continue;
+        var py=Y(pv);x.globalAlpha=.3;x.strokeStyle='#b8b2e8';x.beginPath();x.moveTo(pl,py);x.lineTo(barsEnd,py);x.stroke();
+        if(TX){x.globalAlpha=.65;x.fillStyle='#9a93d8';x.fillText('+'+pk*10+'%',barsEnd-2,py-2);}}
+      x.restore();}
     // short, thick, glowing level segments in the strip
     var pulse=RM?1:(0.75+0.25*Math.sin((now-t0)/420));
     tags.forEach(function(t){var l=t.l,y=Y(l.v);t.y=y;if(l.inv)return;x.save();x.strokeStyle=l.c;x.shadowColor=l.c;x.shadowBlur=5;x.globalAlpha=.95;x.lineWidth=l.w;x.lineCap='butt';x.setLineDash(l.dash||[]);
@@ -318,8 +339,8 @@
     var lastV=V[n-1],ly=Y(last.c);if(!narrow&&TX&&LY.last&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle='#fff';x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
     // 1UP sprite above last bar
     LAST_OFF=OFF.length;if(TX&&OFF.length&&!FOLD){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='right';var ox=W-4;
-      if(narrow)OFF.slice().sort(function(a,b){return a.v-b.v;}).forEach(function(l,i){x.fillStyle=l.c;x.fillText('▲'+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2),ox,pt-8-i*9);});   // phone: stacked in the tag column
-      else{OFF.slice().reverse().forEach(function(l){var t='▲ '+(l.k==='r3'?'3R ':'2R ')+l.v.toFixed(2);x.fillStyle=l.c;x.fillText(t,ox,pt-8);ox-=x.measureText(t).width+8;});x.fillStyle=C.axis;x.fillText('OFF-SCALE',ox,pt-8);}}   // off-scale targets key
+      if(narrow)OFF.slice().sort(function(a,b){return a.v-b.v;}).forEach(function(l,i){x.fillStyle=l.c;x.fillText((l.ol||('▲'+(l.k==='r3'?'3R ':'2R ')))+l.v.toFixed(2),ox,pt-8-i*9);});   // phone: stacked in the tag column
+      else{OFF.slice().reverse().forEach(function(l){var t=(l.ol||('▲ '+(l.k==='r3'?'3R ':'2R ')))+l.v.toFixed(2);x.fillStyle=l.c;x.fillText(t,ox,pt-8);ox-=x.measureText(t).width+8;});x.fillStyle=C.axis;x.fillText('OFF-SCALE',ox,pt-8);}}   // off-scale targets key
     if(LY.oneup&&LY.bars&&atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];
     x.fillStyle=C.r3;x.shadowColor=C.r3;x.shadowBlur=10;
     spr.forEach(function(r,ry){r.split('').forEach(function(ch,cx){if(ch=='#')x.fillRect(spx+(cx-2.5)*P,spy-(spr.length-ry)*P,P,P);});});
@@ -399,10 +420,10 @@
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
   function layersUI(){
-    var NAMES={bars:'Bars (HLC)',vol:'Volume',sma:'SMA 50 / 150 / 200',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',
+    var NAMES={bars:'Bars (HLC)',vol:'Volume',sma:'SMA 50 / 150 / 200',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
       acct:'−0.5% / −1% acct loss',cuts:'Cut levels ✂',zones:'Risk / reward / buy-zone bands',last:'Price tag (last)',rsp:'RS rating panel',
       rsl:'RS line dots (new high first)',ovl:'Pattern overlays',oneup:'1UP marker (latest bar)'};
-    var HAS={bars:1,vol:1,sma:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
+    var HAS={bars:1,vol:1,sma:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
       zones:!!D.buy_zone||(D.entry!=null&&D.stop!=null),last:1,rsp:hasRT,rsl:Object.keys(RSM).some(function(k){return RSM[k]==='L';}),ovl:OVL.length>0,oneup:1};
     var zb=host.parentNode.querySelector('.tcz'),own=!zb;
     if(own){zb=document.createElement('div');zb.className='tcz tcz-m';host.parentNode.insertBefore(zb,host);}
@@ -425,7 +446,7 @@
       bt.textContent=LS.text?'Aa TEXT':'Aa TEXT OFF';bt.setAttribute('aria-pressed',LS.text?'true':'false');bt.setAttribute('aria-label','All chart text '+(LS.text?'on':'off'));
       var B=document.body.classList;B.toggle('tc-notext',!LS.text);B.toggle('tc-noovl',!LS.L.ovl);B.remove('tc-clean','tc-lvonly');
       if(!pn.hidden)render();}
-    function save(){try{localStorage.setItem(LKEY,JSON.stringify(LS));var p=presetOf(LS);if(p!=='custom')localStorage.setItem(MKEY,p);}catch(e){}lab();draw(performance.now());}
+    function save(){try{localStorage.setItem(LKEY,JSON.stringify(LS));var p=presetOf(LS);if(p!=='custom')localStorage.setItem(MKEY,p);}catch(e){}lab();redraw();}
     function syncOvl(){if(OBAR)OBAR.querySelectorAll('button[data-o]').forEach(function(b){var o=OVL[+b.getAttribute('data-o')];b.setAttribute('aria-pressed',String(o.on));b.innerHTML=OBTN(o);});}
     window._tcLaySync=function(){if(!pn.hidden)render();};
     function open(v){pn.hidden=!v;bl.setAttribute('aria-expanded',String(v));if(v)render();}
@@ -438,7 +459,7 @@
       if(k==='text'||k==='axis')LS[k]=LS[k]?0:1;else if(k)LS.L[k]=LS.L[k]?0:1;
       else if(o!=null){var ov=OVL[+o];ov.on=!ov.on;OLS.set('tc_ovl_'+ov.id,ov.on?'1':'0');if(ov.on)LS.L.ovl=1;syncOvl();}
       else if(p)LS=preState(p);
-      else if(a==='all')LS=preState('full');
+      else if(a==='all'){LS=preState('full');LAYK.forEach(function(k){LS.L[k]=1;});}
       else if(a==='reset'){LS=preState('full');OVL.forEach(function(ov){ov.on=true;try{localStorage.removeItem('tc_ovl_'+ov.id);}catch(e){}});syncOvl();}
       save();render();});
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
