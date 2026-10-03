@@ -31,6 +31,27 @@ document.title=T+' · Stock · Wyckoff Agentic';
 
 // ------------------------------------------------------------------ chart (desk chart design, charts.js)
 function loadScript(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.body.appendChild(s);});}
+// ma_stack.html rows (ov=mastack, research-tools/ma_stack.py -> data/ma_stack/<T>.json): EMA 10/20/50 lines + markers (fresh EMA10 cross,
+// GUD no-supply / undercut-reclaim bars) + for GUD rows the plan as the chart's own Entry / Stop / 2R / 3R lines (LAYERS + TEXT apply).
+var MSX=null;
+function msx(){if(OVM!=='mastack')return Promise.resolve(null);if(!MSX)MSX=get('data/ma_stack/'+encodeURIComponent(T)+'.json').then(function(r){return r.json();}).catch(function(){return null;});return MSX;}
+function msApply(D,ms){var out=[];if(!ms)return out;var first=(D.bars&&D.bars.length)?D.bars[0][0]:null;
+  var E=ms.ema||{},d=E.d||[],cols={e10:'#ff7ad9',e20:'#7aa2ff',e50:'#ffd23f'},it=[];
+  ['e10','e20','e50'].forEach(function(k){var v=E[k]||[];for(var i=1;i<d.length;i++){if(v[i]==null||v[i-1]==null||(first&&d[i-1]<first))continue;
+    it.push({t:'seg',d0:d[i-1],p0:v[i-1],d1:d[i],p1:v[i],c:cols[k],w:k==='e50'?1.8:1.4});}});
+  if(it.length)out.push({id:'ema_stack',label:'EMA 10 / 20 / 50 (daily closes)',color:cols.e10,legend:[[cols.e10,'EMA10'],[cols.e20,'EMA20'],[cols.e50,'EMA50']],items:it});
+  var vis=(ms.marks||[]).filter(function(m){return !first||m.d>=first;}),pt=function(m){return {t:'point',d:m.d,p:m.p,label:m.label,pos:m.pos,c:m.c};};
+  var mk=vis.filter(function(m){return m.g!=='ns'&&m.g!=='ur';}).map(pt),nk=vis.filter(function(m){return m.g==='ns';}).map(pt),uk=vis.filter(function(m){return m.g==='ur';}).map(pt);
+  if(mk.length)out.push({id:'ma_marks',label:ms.plan?'GUD: no supply / undercut reclaim bars':'MA Stack signal bars',color:ms.plan?'#ffd23f':'#39ff88',items:mk});
+  if(nk.length)out.push({id:'ma_ns',label:'NS: no supply in the 10/20 zone (notation)',color:'#ffd23f',items:nk});
+  if(uk.length)out.push({id:'ma_ur',label:'UR: undercut reclaim in the 10/20 zone (notation)',color:'#00e5ff',items:uk});
+  var pl=ms.plan;
+  if(pl&&pl.entry!=null&&pl.stop!=null&&pl.entry>pl.stop){var R=pl.entry-pl.stop,rp=R/pl.entry*100,tfw={D:'daily',W:'weekly',M:'monthly'}[pl.tf]||pl.tf;
+    D.entry=pl.entry;D.stop=pl.stop;D.risk=R;D.risk_pct=pl.risk_pct;D.r2=pl.r2;D.r3=pl.r3;D.no_levels=false;
+    D.entry_src='GUD plan: buy stop at the '+tfw+' undercut-reclaim bar high ('+(pl.tf==='D'?pl.rc_date:pl.rc_start)+')';D.stop_src='GUD plan: '+tfw+' undercut-reclaim bar low';D.r_src='entry + 2R / entry + 3R';
+    D.risk_plan={default:0.75,min:0.5,max:1,tier:0.75,short:'MA STACK GUD PLAN',reasons:['0.75% desk default risk; the MA Stack page sizes a $100,000 placeholder account'],
+      stop_pct:rp,size_pct:{'0.5':0.5/rp*100,'0.75':0.75/rp*100,'1':1/rp*100},m05:pl.m05,m10:pl.m10};}
+  return out;}
 function chartFrom(kind){
   var p;
   if(kind==='page'||kind===1){
@@ -40,7 +61,7 @@ function chartFrom(kind){
       var rb=doc.getElementById('tc-rsb');return {tc:D,rsb:rb?rb.outerHTML:'',page:true};});
   }else if(kind==='json'||kind===2){p=get('data/chart/'+encodeURIComponent(T)+'.json').then(function(r){return r.json();});}
   else return Promise.resolve(null);
-  return p.then(function(c){
+  return Promise.all([p,msx()]).then(function(pa){var c=pa[0],ms=pa[1];
     if(!c||!c.tc||!c.tc.bars)return null;
     if(MINI){   // expandable-row chart: overlays for the page's context (ov=vsa|spring|ema|setup|desk), levels unless ov=vsa
       var all=(c.tc.overlays||[]).filter(Boolean),keep;
@@ -52,6 +73,7 @@ function chartFrom(kind){
       if(!keep.length&&OVM!=='vsa'&&OVM!=='setup'&&OVM!=='desk')keep=all.filter(function(o){return o.id!=='vsa';});   // nothing of that kind: show the detector drawings there are
       c.tc.overlays=keep;
       if(OVM==='vsa'||c.tc.no_levels){['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};}
+      if(OVM==='mastack'){['entry','stop','zone_top','buy_zone','r2','r3','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.cuts=[];c.tc.no_levels=true;c.tc.risk_plan={};keep=msApply(c.tc,ms);c.tc.overlays=keep;}   // MA Stack: own EMA lines + GUD plan only
       c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;   // 2R / 3R also listed in the key; charts.js moves far-off targets out of the price scale (Targets layer)
       miniKey(c.tc,keep);
     }
