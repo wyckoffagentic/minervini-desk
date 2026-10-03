@@ -206,11 +206,11 @@ if(XP_ON){
 (function(){
   var KEY='wa.desk.springs.tf.v1',TFN={d:'Daily',w:'Weekly',m:'Monthly'},IDX={'0':'d','1':'w','2':'m'};
   function readUrl(){var q=(location.hash||'').replace(/^#/,'').split('&').concat((location.search||'').replace(/^\?/,'').split('&')),o={};
-    q.forEach(function(kv){var p=kv.split('=');if(p[0]==='tf'&&/^(all|d|w|m)$/.test(p[1]))o.tf=p[1];if(p[0]==='act')o.act=p[1]==='1'?1:0;});return o;}
+    q.forEach(function(kv){var p=kv.split('=');if(p[0]==='tf'&&/^(all|d|w|m)$/.test(p[1]))o.tf=p[1];if(p[0]==='act')o.act=p[1]==='1'?1:0;if(p[0]==='ph'&&/^(all|[A-F])$/.test(p[1]))o.ph=p[1];});return o;}
   var st={tf:'all',act:0};try{var sv=JSON.parse(localStorage.getItem(KEY)||'{}');if(/^(all|d|w|m)$/.test(sv.tf))st.tf=sv.tf;st.act=sv.act?1:0;}catch(e){}
   var U=readUrl(),fromUrl=('tf' in U)||('act' in U);if(U.tf)st.tf=U.tf;if('act' in U)st.act=U.act;
   function save(){try{localStorage.setItem(KEY,JSON.stringify({tf:st.tf,act:st.act}));}catch(e){}}
-  function hashFor(){return 'tf='+st.tf+(st.act?'&act=1':'');}
+  function hashFor(){return 'tf='+st.tf+(st.act?'&act=1':'')+(st.ph&&st.ph!=='all'?'&ph='+st.ph:'');}
   function bar(counts,opts){var b=el('div','dk-tfbar');b.setAttribute('role','group');b.setAttribute('aria-label','Springs timeframe filter');
     b.innerHTML=['all','d','w','m'].map(function(k){return '<button type="button" class="dk-tfc" data-tf="'+k+'">'+(k==='all'?'All':TFN[k])+' <b></b></button>';}).join('')+
       (opts.act?'<button type="button" class="dk-tfc dk-tfa" data-act>⚡ Actionable only <b></b></button>':'');
@@ -226,6 +226,41 @@ if(XP_ON){
   var lbl=function(){return 'No '+(st.tf==='all'?'':TFN[st.tf].toLowerCase()+' ')+'springs in this list.';};
 
   if(PAGE==='setups.html'){var h=D.getElementById('t-springs');if(!h)return;
+    var box=D.getElementById('springs-phases');
+    if(box&&box.querySelector('table.sp-tbl')){
+      // phase-grouped springs (setups_page.py springs_phase_section): Phase details -> bars-ago details -> table.sp-tbl rows
+      // (data-tf 0/1/2, data-ph A-E/F, data-act 1/0). Phase tab bar (.sp-phbar) + D/W/M + actionable filter compose; #tf=w&act=1&ph=C.
+      st.ph=U.ph||'all';   // phase choice lives in the URL only (#ph=C), never remembered - a return visit always opens on All
+      var allRows=[].slice.call(box.querySelectorAll('table.sp-tbl tbody tr[data-tf]'));
+      var okTf=function(r,tf,act){return (tf==='all'||IDX[r.getAttribute('data-tf')]===tf)&&(!act||r.getAttribute('data-act')==='1');};
+      var cntP=function(tf,act){var n=0;allRows.forEach(function(r){if(okTf(r,tf,act)&&(st.ph==='all'||r.getAttribute('data-ph')===st.ph))n++;});return n;};
+      var pb=box.querySelector('.sp-phbar'),b=bar(null,{act:1});b.classList.add('sp-tfbar');pb.parentNode.insertBefore(b,pb.nextSibling);
+      var mix=function(d){var sm=d.querySelector(':scope>summary>.sp-mix');if(!sm)return;var a=0,tr=0,n=0,c={'0':0,'1':0,'2':0};   // recount the TR/Uptrend + D/W/M line for the visible rows
+        d.querySelectorAll('tbody tr[data-tf]').forEach(function(r){if(r.classList.contains('dk-tfhide'))return;n++;if(r.getAttribute('data-act')==='1')a++;if(r.getAttribute('data-ty')==='TR')tr++;c[r.getAttribute('data-tf')]=(c[r.getAttribute('data-tf')]||0)+1;});
+        sm.textContent=(a?'⚡ '+a+' actionable · ':'')+'TR '+tr+' · Uptrend '+(n-tr)+' · D '+c['0']+' · W '+c['1']+' · M '+c['2'];};
+      var setCnt=function(cn,v,filt){if(!cn)return;var tot=cn.getAttribute('data-tot')||cn.textContent;cn.textContent=filt?v+' of '+tot:tot;};
+      var apply=function(user){var filt=st.tf!=='all'||!!st.act;
+        allRows.forEach(function(r){var ok=okTf(r,st.tf,st.act)&&(st.ph==='all'||r.getAttribute('data-ph')===st.ph);r.classList.toggle('dk-tfhide',!ok);});
+        var anyVis=0;
+        box.querySelectorAll('details.sp-ph').forEach(function(pd){var pk=pd.getAttribute('data-ph'),pv=0,show=st.ph==='all'||st.ph===pk;
+          pd.querySelectorAll('details.sp-ba').forEach(function(bd){var v=0;bd.querySelectorAll('tbody tr[data-tf]').forEach(function(r){if(!r.classList.contains('dk-tfhide'))v++;});
+            bd.hidden=!v;pv+=v;setCnt(bd.querySelector('summary>.cnt'),v,filt);mix(bd);});
+          pd.hidden=!show||!pv;if(!pd.hidden)anyVis++;setCnt(pd.querySelector('summary>.cnt'),pv,filt);mix(pd);
+          if(user&&show&&st.ph!=='all')pd.open=true;});
+        var em=box.querySelector('.sp-empty');if(!em){em=el('p','sp-empty none-now');pb.parentNode.insertBefore(em,pb.nextSibling);}
+        em.hidden=!!anyVis;em.textContent='No '+(st.tf==='all'?'':TFN[st.tf].toLowerCase()+' ')+(st.act?'actionable ':'')+'springs in '+(st.ph==='all'?'this list':(st.ph==='F'?'the failed group':'Phase '+st.ph))+'.';
+        pb.querySelectorAll('[data-ph]').forEach(function(x){var k=x.getAttribute('data-ph'),n=0;allRows.forEach(function(r){if(okTf(r,st.tf,st.act)&&(k==='all'||r.getAttribute('data-ph')===k))n++;});
+          x.setAttribute('aria-pressed',String(st.ph===k));x.querySelector('b').textContent=n;x.classList.toggle('zero',n===0);});
+        paint(b,cntP);if(user)try{history.replaceState(null,'',location.pathname+location.search+'#'+hashFor());}catch(e){}};
+      wire(b,apply);
+      pb.addEventListener('click',function(e){var x=e.target.closest('button[data-ph]');if(!x)return;st.ph=x.getAttribute('data-ph');save();closeCharts();apply(true);
+        if(st.ph!=='all'){var t=D.getElementById('springs-ph-'+st.ph);if(t&&t.getBoundingClientRect().top<0)window.scrollTo(0,pb.getBoundingClientRect().top+window.scrollY-8);}});
+      // folding a group closes any chart dropdown inside it
+      box.addEventListener('toggle',function(e){var d=e.target;if(d&&d.tagName==='DETAILS'&&!d.open)OPEN.slice().forEach(function(x){if(x&&d.contains(x))closeX(x);});},true);
+      apply(false);
+      if(fromUrl||U.ph)setTimeout(function(){D.documentElement.style.scrollBehavior='auto';window.scrollTo(0,h.getBoundingClientRect().top+window.scrollY-8);},60);
+      return;
+    }
     var tA=D.getElementById('springs-a'),tW=D.getElementById('springs-w');if(!tA&&!tW)return;
     function rows(t){return t?[].slice.call(t.querySelectorAll('tbody tr[data-tf]')):[];}
     var cnt=function(tf,act){var n=0;[[tA,1],[tW,0]].forEach(function(p){if(act&&!p[1])return;rows(p[0]).forEach(function(r){if(tf==='all'||IDX[r.getAttribute('data-tf')]===tf)n++;});});return n;};
