@@ -30,7 +30,8 @@
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   var bars=D.bars.map(function(b,i){return {d:b[0],o:b[1],h:b[2],l:b[3],c:b[4],up:!!b[5],v:(D.vol[i]||[])[1]||0};});
   function mapS(a){var m={};(a||[]).forEach(function(p){m[p[0]]=p[1];});return m;}
-  var S50=mapS(D.sma50),S150=mapS(D.sma150),S200=mapS(D.sma200);
+  var NOMA=!!D.no_ma;   // per-chart flag (Wyckoff Structure page, stock.js ov=wyckoff): no moving averages at all - SMA lines, legend and layer hidden; shared layer state untouched
+  var S50=mapS(NOMA?null:D.sma50),S150=mapS(NOMA?null:D.sma150),S200=mapS(NOMA?null:D.sma200);
   var last=bars[bars.length-1], hasR=D.r3!=null, RP=D.risk_plan||{};
   // RS line (research-tools/charts.py rs_payload): close ÷ SPY close on the chart's own bars; marks: L = new 52w RS high before price (blue dot), P = with price
   var RSD=D.rs||{}, RSL=mapS(RSD.line), RSM=RSD.marks||{}, RSC={lead:'#2f7bff',hi:'#9fc4ff'};
@@ -51,14 +52,99 @@
   function dix(d){if(d==null)return bars.length-1;if(DIX[d]!=null)return DIX[d];if(d<bars[0].d)return -1;var lo=0,hi=bars.length-1;if(d>bars[hi].d)return hi;
     while(lo<hi){var m=(lo+hi+1)>>1;if(bars[m].d<=d)lo=m;else hi=m-1;}return lo;}
   function ovlSpan(it){var a=it.d0!==undefined?it.d0:it.d,b=it.d1!==undefined?it.d1:it.d;return [dix(a),it.t==='hline'||it.t==='box'?(b==null?bars.length-1:dix(b)):dix(b)];}
-  function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;var sp=ovlSpan(it);
+  // ---------------------------------------------------------------- timeframe switch (1D / 1W / 1M) — one shared choice for every chart
+  // localStorage wa.desk.charttf.v1 = 'D'|'W'|'M' (default D).  W / M bars: the chart's own daily bars aggregated here (Mon-Fri weeks,
+  // calendar months; H = max, L = min, C = last close, V = sum) and, for the older periods, data/tf/<T>.json (research-tools/tf_data.py:
+  // Yahoo ~10y history spliced onto Massive, lazy-loaded once; rescaled if its closes disagree with the daily bars on the overlap).
+  // The newest period is PROVISIONAL until its last session (dashed bar, pro-rated volume outline).  SMAs are recomputed on the period
+  // closes (W 10/30/40 ≈ 50/150/200 days, M 3/7/10), as are the RS line dots (52 W / 12 M high) and the RS-rating panel (last rating of
+  // the period, MA4W / MA3M).  Price lines (entry / stop / 2R / 3R / levels / boxes / segments) map to the bar containing their date;
+  // single-bar markers (points: VSA, spring, NS / UR, events) show only on the timeframe they were detected on (overlay id suffix _D/_W/_M,
+  // item/overlay tf, or a "W " / "M " label prefix; everything else = the chart's native timeframe).  D.wk charts (weekly bars only) are fixed to 1W.
+  var TFROOT=(document.currentScript&&document.currentScript.src)||'';   // .../charts/_assets/charts.js -> site root for data/tf/
+  var TFK='wa.desk.charttf.v1', NATIVE=D.wk?'W':'D', TF=NATIVE, TFN={D:'1D',W:'1W',M:'1M'}, TFW={D:'daily',W:'weekly',M:'monthly'};
+  if(NATIVE==='D'){try{var _tf=localStorage.getItem(TFK);if(_tf==='W'||_tf==='M')TF=_tf;}catch(e){}}
+  var DAY={bars:bars,S50:S50,S150:S150,S200:S200,RSL:RSL,RSM:RSM,RTM:RTM}, TFX=null, TFXP=null, TFC={}, TFHID=0, TFSC='';
+  var HOL={};['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03','2026-09-07','2026-11-26','2026-12-25','2027-01-01','2027-01-18','2027-02-15','2027-03-26','2027-05-31','2027-06-18','2027-07-05','2027-09-06','2027-11-25','2027-12-24','2028-01-17','2028-02-21','2028-04-14','2028-05-29','2028-06-19','2028-07-04','2028-09-04','2028-11-23','2028-12-25'].forEach(function(d){HOL[d]=1;});   // NYSE weekday closures (rs_rank.HOLIDAYS)
+  function isoD(t){return t.toISOString().slice(0,10);}
+  function pStart(d,k){if(k==='M')return d.slice(0,8)+'01';var t=new Date(d+'T00:00:00Z');t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return isoD(t);}
+  function pNext(s,k){var t=new Date(s+'T00:00:00Z');if(k==='W')t.setUTCDate(t.getUTCDate()+7);else{t.setUTCDate(1);t.setUTCMonth(t.getUTCMonth()+1);}return isoD(t);}
+  function pSess(s,k){var t=new Date(s+'T00:00:00Z'),e=pNext(s,k),n=0,f=null,l=null;for(;isoD(t)<e;t.setUTCDate(t.getUTCDate()+1)){var w=t.getUTCDay(),q=isoD(t);if(w>0&&w<6&&!HOL[q]){n++;if(!f)f=q;l=q;}}return {n:n,first:f,last:l};}
+  function smaMap(B,n){var m={},s=0;for(var i=0;i<B.length;i++){s+=B[i].c;if(i>=n)s-=B[i-n].c;if(i>=n-1)m[B[i].d]=Math.round(s/n*1000)/1000;}return m;}
+  function emaArr(B,n){var o=[],k=2/(n+1),s=0,e=null;for(var i=0;i<B.length;i++){if(i<n){s+=B[i].c;if(i===n-1)e=s/n;}else e=B[i].c*k+e*(1-k);o.push(i>=n-1?e:null);}return o;}
+  function tfAgg(k){   // the chart's daily bars -> periods (the first one dropped when the data starts mid-period)
+    var out=[];DAY.bars.forEach(function(b){var s=pStart(b.d,k),p=out[out.length-1];
+      if(p&&p.d===s){p.de=b.d;p.h=Math.max(p.h,b.h);p.l=Math.min(p.l,b.l);p.c=b.c;p.v+=b.v;p.n++;}
+      else out.push({d:s,d1:b.d,de:b.d,o:b.o,h:b.h,l:b.l,c:b.c,v:b.v,n:1});});
+    if(out.length>2&&out[0].d1>pSess(out[0].d,k).first)out.shift();
+    return out;}
+  function tfSrv(k){var x=TFX&&TFX[k==='W'?'w':'m'];if(!x||!x.s||!x.r)return [];var out=[],s=x.s,vu=x.vu||1;
+    x.r.forEach(function(r){if(r)out.push({d:s,h:r[0],l:r[1],c:r[2],v:r[3]*vu,srv:1});s=pNext(s,k);});return out;}
+  function tfBuild(k){
+    if(TFC[k])return TFC[k];
+    var a=tfAgg(k),sv=tfSrv(k),sc=1,note='';
+    if(sv.length&&a.length){var A={};a.forEach(function(p){A[p.d]=p;});var rr=[];
+      sv.forEach(function(p){if(A[p.d]&&p.c>0)rr.push(A[p.d].c/p.c);});rr=rr.slice(-4).sort(function(x,y){return x-y;});
+      if(rr.length){var md=rr[rr.length>>1];if(Math.abs(md-1)>0.02){sc=md;note='older '+TFW[k]+' bars rescaled ×'+md.toFixed(4)+' to match the daily bars';}}
+      var a0=a[0].d;sv=sv.filter(function(p){return p.d<a0;});
+      if(sc!==1)sv=sv.map(function(p){return {d:p.d,h:p.h*sc,l:p.l*sc,c:p.c*sc,v:p.v/sc,srv:1};});}
+    else sv=[];
+    var B=sv.concat(a).map(function(p,i,arr){var ss=pSess(p.d,k),q={d:p.d,de:p.de||ss.last,o:p.o,h:p.h,l:p.l,c:p.c,v:p.v,n:p.n||ss.n,srv:p.srv,
+      up:i>0?p.c>=arr[i-1].c:true};return q;});
+    var L=B[B.length-1];if(L&&!L.srv){var ss=pSess(L.d,k);if(L.de<ss.last){L.prov=1;L.ns=ss.n;L.vx=L.v*Math.max(1,ss.n/Math.max(1,L.n));}}
+    // SMAs on the period closes
+    var P=k==='W'?[10,30,40]:[3,7,10],S=NOMA?[{},{},{}]:P.map(function(n){return smaMap(B,n);});
+    // RS line: the daily line sampled at each period's last session; dots = new 52-week (W) / 12-month (M) RS-line high before price
+    var rl={},rm={},lb=k==='W'?52:12,seq=[];(RSD.line||[]).forEach(function(p){rl[pStart(p[0],k)]=p[1];});
+    B.forEach(function(b){if(rl[b.d]!=null)seq.push([b.d,rl[b.d],b.c]);});
+    for(var i=0;i<seq.length;i++){if(i<lb-1)continue;var mr=-1e18,mc=-1e18;for(var j=i-lb+1;j<i;j++){mr=Math.max(mr,seq[j][1]);mc=Math.max(mc,seq[j][2]);}
+      if(seq[i][1]>mr)rm[seq[i][0]]=seq[i][2]>=mc?'P':'L';}
+    // RS rating panel: last rating of the period, MA over 4 weeks / 3 months, crosses + regime band (2-period confirmation)
+    var rt={},rows=(RTH&&RTH.rows)||[],per={},ord=[];rows.forEach(function(r){var s=pStart(r[0],k);if(!(s in per)){per[s]=null;ord.push(s);}if(r[1]!=null)per[s]=r[1];});
+    var man=k==='W'?4:3,win=[],side=0,band=null,pend=null;
+    ord.forEach(function(s){var r=per[s];if(r==null){win=[];side=0;band=null;pend=null;rt[s]=[s,null,null,null,null];return;}
+      win.push(r);if(win.length>man)win.shift();var m=win.length===man?win.reduce(function(x,y){return x+y;},0)/man:null,cr=null,bd=null;
+      if(m!=null){var sd=r>m?1:r<m?-1:0;if(sd&&side&&sd!==side)cr=sd>0?'U':'D';if(sd)side=sd;var d=r-m,st=(r<50||d<=-10)?'W':(r>=70&&d>=3)?'S':(r>=70&&d>-3)?'F':'N';
+        if(band==null)band=st;else if(st!==band){if(pend===st){band=st;pend=null;}else pend=st;}else pend=null;bd=band;}
+      rt[s]=[s,r,m==null?null:Math.round(m*100)/100,bd,cr];});
+    TFC[k]={bars:B,S50:S[0],S150:S[1],S200:S[2],RSL:rl,RSM:rm,RTM:rt,note:note,srv:sv.length};return TFC[k];}
+  function tfOf(o,it){var m;return it.tf||o.tf||((m=/_([DWM])$/.exec(o.id||''))&&m[1])||((m=/^([WM])(?=[\s→↑↓])/.exec(it.label||''))&&m[1])||NATIVE;}
+  function ptShow(o,it){return TF===NATIVE||tfOf(o,it)===TF;}
+  function maOv(o){   // overlays drawn as EMA / SMA line segments (legend "EMA10" ...): recomputed on the W / M closes
+    if(o._ma!==undefined)return o._ma;var L=o.legend||[],m=L.map(function(l){var x=/^(EMA|SMA)\s?(\d+)$/i.exec(String(l[1]||'').trim());return x?{k:x[1].toUpperCase(),n:+x[2],c:l[0]}:null;});
+    o._ma=(m.length&&m.every(Boolean)&&o.items.length&&o.items.every(function(it){return it.t==='seg';}))?m:null;if(o._ma){o._i0=o.items;o._l0=o.label;}return o._ma;}
+  function applyTF(){
+    var T0=TF===NATIVE?DAY:tfBuild(TF);
+    bars=T0.bars;S50=T0.S50;S150=T0.S150;S200=T0.S200;RSL=T0.RSL;RSM=T0.RSM;RTM=T0.RTM;TFSC=T0.note||'';
+    DIX={};bars.forEach(function(b,i){DIX[b.d]=i;});last=bars[bars.length-1];PVR=null;hover=-1;
+    TFHID=0;OVL.forEach(function(o){var mm=maOv(o);
+      if(mm){if(TF===NATIVE){o.items=o._i0;o.label=o._l0;}else{var it=[],wd={};o._i0.forEach(function(q){wd[q.c]=q.w;});
+        mm.forEach(function(s){var e=s.k==='EMA'?emaArr(bars,s.n):bars.map(function(b,i){if(i<s.n-1)return null;var t=0;for(var j=i-s.n+1;j<=i;j++)t+=bars[j].c;return t/s.n;});
+          for(var i=1;i<bars.length;i++){if(e[i]==null||e[i-1]==null)continue;it.push({t:'seg',d0:bars[i-1].d,p0:e[i-1],d1:bars[i].d,p1:e[i],c:s.c,w:wd[s.c]||1.4});}});
+        o.items=it;o.label=String(o._l0||'').replace(/\(daily closes\)/i,'('+TFW[TF]+' closes)');}}
+      else o.items.forEach(function(it){if(it.t==='point'&&!ptShow(o,it))TFHID++;});});
+    if(window.TCZoom&&TCZoom.setTf)TCZoom.setTf(TF,bars.length);
+    var tl=document.querySelector('.tc-tfl');if(tl)tl.textContent=TFN[TF];
+    if(typeof legendHTML==='function'&&$('tc-legend'))$('tc-legend').innerHTML=legendHTML();}
+  function tfFetch(){   // data/tf/<T>.json once (older W / M periods); never blocks the chart for long, never throws
+    if(TFXP)return TFXP;var src=TFROOT,i=src.indexOf('charts/_assets/charts.js'),root=i>=0?src.slice(0,i):'';
+    TFXP=(window.fetch&&D.ticker?fetch(root+'data/tf/'+encodeURIComponent(String(D.ticker).replace(/\//g,'_'))+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}):Promise.resolve(null))
+      .then(function(j){if(j&&(j.w||j.m)){TFX=j;TFC={};}return j;});return TFXP;}
+  function smaNames(){return TF==='W'?['SMA10W','SMA30W','SMA40W']:TF==='M'?['SMA3M','SMA7M','SMA10M']:['SMA50','SMA150','SMA200'];}
+  function rtMaLbl(){return TF==='W'?'MA4W':TF==='M'?'MA3M':'MA'+((RTH&&RTH.ma)||21);}
+  function tfDate(b){if(TF==='D'||!b.de)return esc(b.d);if(TF==='M')return MON[+b.d.slice(5,7)-1]+' '+b.d.slice(0,4);return 'WK '+esc(sday(b.d))+' → '+esc(sday(b.de))+' '+b.de.slice(0,4);}
+  function smaLeg(){var n=smaNames();return '<span><i style="background:#ff9f1c"></i>'+n[0]+'</span><span><i style="background:#b86bff"></i>'+n[1]+'</span><span><i style="background:#4da3ff"></i>'+n[2]+'</span>';}
+  function tfNote(){if(TF==='D')return '';var w=TF==='W'?'WEEK':'MONTH',h=TFC[TF]||{};
+    return '<span class="tc-warnline" style="white-space:normal">'+TFN[TF]+' BARS: '+(TF==='W'?'MON-FRI WEEKS':'CALENDAR MONTHS')+' FROM THE DAILY BARS'+(h.srv?' + OLDER '+w+'S FROM THE 10Y HISTORY':' (NO LONG HISTORY LOADED)')+
+      ' · NEWEST '+w+' PROVISIONAL UNTIL ITS LAST SESSION'+(TFHID?' · '+TFHID+' DAILY MARKER'+(TFHID===1?'':'S')+' HIDDEN (1D TO SEE)':'')+(TFSC?' · '+esc(TFSC.toUpperCase()):'')+'</span>';}
+  function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;if(it.t==='point'&&!ptShow(o,it))return;var sp=ovlSpan(it);
     if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
   function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2;
     x.fillStyle='rgba(0,0,0,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
   function drawOverlays(x,g){
     var fs=g.narrow?6:7;
     OVL.forEach(function(o){if(!o.on)return;var col=o.color||'#ffd23f';
-      o.items.forEach(function(it){var c=it.c||col,sp=ovlSpan(it);if(sp[1]<g.off-1||sp[0]>g.off+g.n)return;if(it.pane==='vol'&&g.novol)return;
+      o.items.forEach(function(it){if(it.t==='point'&&!ptShow(o,it))return;var c=it.c||col,sp=ovlSpan(it);if(sp[1]<g.off-1||sp[0]>g.off+g.n)return;if(it.pane==='vol'&&g.novol)return;
         var x0=g.X(sp[0]-g.off),x1=g.X(sp[1]-g.off);x.save();x.beginPath();
         if(it.pane==='vol')x.rect(g.pl,g.vb-g.vh-18,g.barsEnd-g.pl+4,g.vh+20);else x.rect(g.pl,g.pt-2,g.barsEnd-g.pl+4,g.ph+4);x.clip();
         x.lineCap='round';x.setLineDash(it.dash||[]);x.lineWidth=it.w||1.5;x.strokeStyle=c;
@@ -112,7 +198,7 @@
   var rm=D.rmult, rmTxt=rm==null?'N/A':(rm>=0?'+':'')+rm.toFixed(1)+'R';
   var words=state.split(' '), lvlHtml=words.length>1?esc(words.slice(0,Math.ceil(words.length/2)).join(' '))+'<br>'+esc(words.slice(Math.ceil(words.length/2)).join(' ')):esc(state);
   $('tc-hud').innerHTML=
-    '<div class="tc-id"><div class="tc-tk">'+esc(D.ticker)+'</div><div class="tc-sub">'+esc(((D.company||'').replace(/[,.].*$/,'').split(/\s+/)[0]||'').toUpperCase().slice(0,14))+' · 1D</div></div>'+
+    '<div class="tc-id"><div class="tc-tk">'+esc(D.ticker)+'</div><div class="tc-sub">'+esc(((D.company||'').replace(/[,.].*$/,'').split(/\s+/)[0]||'').toUpperCase().slice(0,14))+' · <span class="tc-tfl">'+TFN[TF]+'</span></div></div>'+
     '<div class="tc-blk"><div class="l">PRICE</div><div class="v">'+money(D.last)+'</div><div class="tc-sub">'+esc(D.last_date)+'</div></div>'+
     '<div class="tc-blk"><div class="l">LEVEL</div><div class="v tc-lvl '+lvlCls+'">'+lvlHtml+'</div></div>'+
     '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+(D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
@@ -210,10 +296,12 @@
     x.strokeStyle=C.grid;x.lineWidth=1;x.font=(narrow?6:fs)+'px '+FONT;x.fillStyle=C.axis;x.textAlign=narrow?'right':'left';
     if(AX)for(var v=Math.ceil(lo/step)*step;v<hi;v+=step){x.fillText(step<1?v.toFixed(2):String(Math.round(v*100)/100),axX,Y(v)+3);}
     x.textAlign='left';x.font=fs+'px '+FONT;if(!narrow&&AX){x.strokeStyle='rgba(107,92,255,.35)';x.beginPath();x.moveTo(W-axisW,pt-6);x.lineTo(W-axisW,H-pb);x.stroke();}x.strokeStyle=C.grid;
-    var pm=V[0].d.slice(0,7);
+    function mkey(b){return TF==='M'?b.d.slice(0,4):(TF==='W'&&b.de?b.de:b.d).slice(0,7);}   // W: month of the week's last session; M: years only
+    var pm=mkey(V[0]);
     var lastLab=-1e9, labGap=narrow?30:36;
-    if(AX)V.forEach(function(b,i){var m=b.d.slice(0,7);if(m!=pm&&i>0){pm=m;if(X(i)-lastLab<labGap||X(i)>barsEnd-10)return;lastLab=X(i);var mo=+b.d.slice(5,7);
-      x.fillStyle=mo===1?'#cfc9ff':C.axis;x.fillText(mo===1?b.d.slice(0,4):MON[mo-1],X(i)+3,H-pb+18);x.fillStyle=C.axis;}});
+    if(AX)V.forEach(function(b,i){var m=mkey(b);if(m!=pm&&i>0){pm=m;var mo=TF==='M'?1:+(TF==='W'&&b.de?b.de:b.d).slice(5,7);if(TF==='W'&&bw*4.35<labGap&&(mo-1)%3)return;   // W: quarter months only when months are tight
+      if(X(i)-lastLab<labGap||X(i)>barsEnd-10)return;lastLab=X(i);
+      x.fillStyle=mo===1?'#cfc9ff':C.axis;x.fillText(mo===1?(TF==='W'&&b.de?b.de:b.d).slice(0,4):MON[mo-1],X(i)+3,H-pb+18);x.fillStyle=C.axis;}});
     // right-side strip: risk / reward / buy-zone bands only between the last bar and the tags
     if(LY.zones&&LY.entry&&LY.stop&&D.entry!=null&&D.stop!=null&&D.entry>D.stop){x.fillStyle='rgba(255,42,42,.08)';x.fillRect(sx0,Y(D.entry),sx1-sx0,Y(D.stop)-Y(D.entry));}
     if(LY.zones&&LY.targets&&hasR&&!OFF.length){x.fillStyle='rgba(57,255,20,.045)';x.fillRect(sx0,Y(D.r3),sx1-sx0,Y(D.entry)-Y(D.r3));}
@@ -229,7 +317,8 @@
       x.beginPath();x.moveTo(pl,y);x.lineTo(sx0,y);x.stroke();x.restore();});}
     // volume
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb;
-    if(LY.vol)V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);});
+    if(LY.vol)V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);
+      if(b.vx){var hx=Math.min(vh,b.vx/vmax*vh);x.save();x.strokeStyle=(b.up?C.up:C.dn)+'bb';x.setLineDash([2,2]);x.lineWidth=1;x.strokeRect(X(i)-bw*.35,vb-hx,Math.max(1,bw*.7),hx);x.restore();}});   // provisional period: dotted outline = volume pro-rated to a full period
     x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;if(LY.vol&&TX)x.fillText('VOL',pl+6,vb-vh+4);
     // RS RATING panel (top): area fill, smooth rating-vs-MA21 fill, crossover dots, 0-100 scale + value tags on the right
     // (no per-bar regime band columns: on phones they rendered as dozens of thin vertical stripes; band names stay in the tooltip)
@@ -263,14 +352,14 @@
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});x.stroke();});x.shadowBlur=0;
       vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#000';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),narrow?2.2:2.7,0,Math.PI*2);x.fill();x.stroke();});
       // where the stored history starts / blank before it
-      var f0=RTH.from, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&b.d>=f0)fi=i;});
+      var f0=RTH.from, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&(b.de||b.d)>=f0)fi=i;});
       x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';
       if(!TX){}else if(!f0||!any){x.fillStyle=C.axis;x.textAlign='center';x.fillText(f0?'NO RS RATING IN VIEW':'NO RS RATING HISTORY',pl+rw/2,ry0+RH/2+3);}
       else if(fi>0){x.strokeStyle='rgba(57,255,136,.45)';x.setLineDash([3,3]);x.beginPath();x.moveTo(X(fi)-bw/2,ry0);x.lineTo(X(fi)-bw/2,ry0+RH);x.stroke();x.setLineDash([]);
         var ht='RS HISTORY FROM '+sday(f0);x.fillStyle=C.axis;var htw=x.measureText(ht).width;
         if(X(fi)-bw/2-pl>htw+8){x.textAlign='right';x.fillText(ht,X(fi)-bw/2-4,ry0+RH/2+3);}else{x.fillText(ht,X(fi)+4,ry0+RH-5);}}
       x.restore();
-      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(TX)x.fillText('RS RATING · MA'+(RTH.ma||21),pl+5,ry0+10);
+      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(TX)x.fillText('RS RATING · '+rtMaLbl(),pl+5,ry0+10);
       x.strokeStyle='rgba(57,255,136,.35)';x.lineWidth=1;x.strokeRect(pl+.5,ry0+.5,rw-1,RH-1);
       // right column: value tags (rating green, MA orange) + scale labels that don't collide with them
       var lr=null;for(var k=vis.length-1;k>=0;k--){if(vis[k]&&vis[k][1]!=null){lr=vis[k];break;}}
@@ -283,16 +372,17 @@
       if(AX)for(var tv=Math.ceil(rlo/rstep)*rstep;tv<=rhi;tv+=rstep){var ty=RY(tv);if(tg.some(function(t){return Math.abs(t.y-ty)<8;}))continue;x.fillText(String(tv),W-3,Math.max(ry0+6,Math.min(ry0+RH-1,ty+3)));}
     }
     // SMAs
-    if(LY.sma)[[S50,'#ff9f1c','SMA50'],[S150,'#b86bff','SMA150'],[S200,'#4da3ff','SMA200']].forEach(function(a,j){
+    if(LY.sma&&!NOMA)[[S50,'#ff9f1c',smaNames()[0]],[S150,'#b86bff',smaNames()[1]],[S200,'#4da3ff',smaNames()[2]]].forEach(function(a,j){
       x.strokeStyle=a[1];x.lineWidth=1.3;x.globalAlpha=.85;x.beginPath();var s=0;
       V.forEach(function(b,i){var val=a[0][b.d];if(val==null)return;var y=Y(val);if(y<pt-2||y>pt+ph+2){s=0;return;}s?x.lineTo(X(i),y):x.moveTo(X(i),y);s=1;});
       x.stroke();x.globalAlpha=1;var has=Object.keys(a[0]).length>0;x.fillStyle=has?a[1]:'#4a456f';x.font=fs+'px '+FONT;x.textAlign='left';
       if(TX)x.fillText(a[2]+(has?'':' n/a'),pl+10+j*(narrow?70:90),pt-8);});
     // HLC bars: low→high bar + right close tick, no open tick
     var bLW=Math.max(1,Math.min(bw*.38,narrow?5:6)), tLW=Math.max(1,Math.min(bw*.3,2.4)), tLen=Math.max(1.5,Math.min(bw*.5,9));
-    if(LY.bars)V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';
+    if(LY.bars)V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
       x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l)+(Y(b.l)-Y(b.h)<1?1:0));x.stroke();
-      x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();});
+      x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();
+      if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
     if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
       x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
@@ -350,13 +440,13 @@
       x.beginPath();x.moveTo(hx,pt);x.lineTo(hx,H-pb);x.stroke();x.restore();}
   }
 
-  function ovlTips(d){var t='';OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.t==='point'&&it.d===d&&it.tip)t+='<br><span class="tc-otip" style="color:'+esc(it.c||o.color)+'">'+esc(it.tip)+'</span>';});});return t;}   // overlay point notes (e.g. VSA why)
+  function ovlTips(bi){var t='',d=bars[bi]&&bars[bi].d;OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.t==='point'&&(TF===NATIVE?it.d===d:(ptShow(o,it)&&dix(it.d)===bi))&&it.tip)t+='<br><span class="tc-otip" style="color:'+esc(it.c||o.color)+'">'+esc(it.tip)+'</span>';});});return t;}   // overlay point notes (e.g. VSA why)
   function showTip(i,px,py){
     if(i<0){tip.hidden=true;return;}
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
-    tip.innerHTML='<b>'+esc(b.d)+'</b><br>H '+b.h.toFixed(2)+'<br>L '+b.l.toFixed(2)+'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>')+
-      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+(S50[b.d]?'<br>SMA50 '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
-      (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">MA21 '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(b.d);
+    tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+'<br>H '+b.h.toFixed(2)+'<br>L '+b.l.toFixed(2)+'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>')+
+      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+(S50[b.d]?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
+      (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i);
     tip.hidden=false;var w=host.clientWidth;tip.style.left=(px>w/2?Math.max(4,px-tip.offsetWidth-14):px+14)+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,py-40))+'px';
   }
   function onMove(e){if(!geo)return;var r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e,px=p.clientX-r.left,py=p.clientY-r.top;
@@ -379,14 +469,15 @@
   cv.addEventListener('mouseleave',function(){hover=-1;showTip(-1);if(RM)draw(performance.now());});
 
   // ---------------------------------------------------------------- legend, levels table, footer
-  $('tc-legend').innerHTML='<span><i style="background:'+C.up+'"></i>HLC BAR UP (CLOSE ≥ PRIOR CLOSE)</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+
-    '<span><i style="background:#ff9f1c"></i>SMA50</span><span><i style="background:#b86bff"></i>SMA150</span><span><i style="background:#4da3ff"></i>SMA200</span>'+
+  function legendHTML(){return '<span><i style="background:'+C.up+'"></i>HLC BAR UP (CLOSE ≥ PRIOR CLOSE)</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+
+    (NOMA?'<span class="tc-warnline">NO MOVING AVERAGES ON THIS CHART (STRUCTURE + VOLUME ONLY)</span>':smaLeg())+
     (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
-    (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>MA'+(RTH.ma||21)+' OF RATING</span>'+
+    (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>'+rtMaLbl()+' OF RATING</span>'+
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
-    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'');
+    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
+  $('tc-legend').innerHTML=legendHTML();
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
   var tbl='<h2>LEVELS &amp; SOURCES</h2><div class="tc-scroll"><table class="tc-tbl"><thead><tr><th>LEVEL</th><th>PRICE</th><th>R</th><th>SOURCE</th></tr></thead><tbody>'+
     row('c-r3','★★ 3R BOSS',D.r3,D.r3!=null?D.r_src+' = '+D.entry.toFixed(2)+' + 3×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+3R')+
@@ -420,15 +511,15 @@
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
   function layersUI(){
-    var NAMES={bars:'Bars (HLC)',vol:'Volume',sma:'SMA 50 / 150 / 200',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
+    var NAMES={bars:'Bars (HLC)',vol:'Volume',sma:'Moving averages (SMA 50/150/200 · 1W 10/30/40 · 1M 3/7/10)',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
       acct:'−0.5% / −1% acct loss',cuts:'Cut levels ✂',zones:'Risk / reward / buy-zone bands',last:'Price tag (last)',rsp:'RS rating panel',
       rsl:'RS line dots (new high first)',ovl:'Pattern overlays',oneup:'1UP marker (latest bar)'};
-    var HAS={bars:1,vol:1,sma:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
+    var HAS={bars:1,vol:1,sma:NOMA?0:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
       zones:!!D.buy_zone||(D.entry!=null&&D.stop!=null),last:1,rsp:hasRT,rsl:Object.keys(RSM).some(function(k){return RSM[k]==='L';}),ovl:OVL.length>0,oneup:1};
     var zb=host.parentNode.querySelector('.tcz'),own=!zb;
     if(own){zb=document.createElement('div');zb.className='tcz tcz-m';host.parentNode.insertBefore(zb,host);}
     var g=document.createElement('div');g.className='tcg';g.setAttribute('role','group');g.setAttribute('aria-label','Chart layers');
-    g.innerHTML='<button type="button" class="tcm"></button><button type="button" class="tcl" aria-haspopup="dialog" aria-expanded="false">☰ LAYERS</button><button type="button" class="tct"></button>';
+    g.innerHTML='<span class="tctf" role="radiogroup" aria-label="Timeframe">'+['D','W','M'].map(function(k){return '<button type="button" role="radio" data-tf="'+k+'" aria-checked="false" title="'+(NATIVE!=='D'&&k!==NATIVE?'This chart is drawn on '+TFW[NATIVE]+' bars only':TFW[k].charAt(0).toUpperCase()+TFW[k].slice(1)+' bars (saved for every chart)')+'">'+TFN[k]+'</button>';}).join('')+'</span><button type="button" class="tcm"></button><button type="button" class="tcl" aria-haspopup="dialog" aria-expanded="false">☰ LAYERS</button><button type="button" class="tct"></button>';
     zb.appendChild(g);
     var pn=document.createElement('div');pn.className='tclp';pn.hidden=true;pn.setAttribute('role','dialog');pn.setAttribute('aria-label','Chart layers');
     function tb(k,lab,on,extra){return '<button type="button" class="tg'+(extra||'')+'" data-k="'+k+'" aria-pressed="'+(on?'true':'false')+'"><i></i><span>'+esc(lab)+'</span></button>';}
@@ -452,6 +543,15 @@
     function open(v){pn.hidden=!v;bl.setAttribute('aria-expanded',String(v));if(v)render();}
     bm.addEventListener('click',function(){var pre=presetOf(LS);LS=preState({full:'levels',levels:'clean',clean:'full',custom:'full'}[pre]);save();});
     bt.addEventListener('click',function(){LS.text=LS.text?0:1;save();});
+    // timeframe segmented switch (1D / 1W / 1M): shared by every chart (localStorage wa.desk.charttf.v1); other open charts follow via 'storage'
+    var tfg=g.querySelector('.tctf');
+    function tfLab(){tfg.querySelectorAll('button').forEach(function(b){var k=b.getAttribute('data-tf');b.setAttribute('aria-checked',String(k===TF));b.disabled=NATIVE!=='D'&&k!==NATIVE;});}
+    window._tcSetTF=function(k,nosave){if(NATIVE!=='D'||(k!=='D'&&k!=='W'&&k!=='M'))return;TF=k;if(!nosave){try{localStorage.setItem(TFK,k);}catch(e){}}
+      applyTF();tfLab();redraw();if(k!=='D'&&!TFX)tfFetch().then(function(j){if(j&&TF===k){applyTF();redraw();}});};
+    tfg.addEventListener('click',function(e){var b=e.target.closest('button[data-tf]');if(!b||b.disabled)return;if(b.getAttribute('data-tf')!==TF)window._tcSetTF(b.getAttribute('data-tf'));});
+    tfg.addEventListener('keydown',function(e){var ks=['D','W','M'],i=ks.indexOf(TF),d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d||NATIVE!=='D')return;e.preventDefault();var k=ks[(i+d+3)%3];window._tcSetTF(k);var nb=tfg.querySelector('[data-tf="'+k+'"]');if(nb)nb.focus();});
+    window.addEventListener('storage',function(e){if(e.key===TFK&&e.newValue&&e.newValue!==TF)window._tcSetTF(e.newValue,1);});
+    tfLab();
     bl.addEventListener('click',function(e){e.stopPropagation();open(pn.hidden);});
     pn.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;e.stopPropagation();
       if(b.classList.contains('x')){open(false);return;}
@@ -482,7 +582,17 @@
     if(FOLD){FOLD=false;document.body.classList.remove('tc-fold');setTimeout(function(){NN=count();FOLD=true;flab();draw(performance.now());},0);}   // count what is foldable, then fold
     else setTimeout(flab,0);
     setTimeout(function(){if(!FOLD)flab();},600);}
-  ready.then(function(){
+  if(!document.getElementById('tc-tf-css')){var tcs=document.createElement('style');tcs.id='tc-tf-css';   // 1D / 1W / 1M segmented switch (cyan, next to the gold presets)
+    tcs.textContent='.tcz .tcg .tctf{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #00e5ff;box-shadow:2px 2px 0 #000}'+
+      '.tcz .tcg .tctf button{min-width:38px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(0,229,255,.45)!important;box-shadow:none!important;color:#00e5ff!important;background:#07061a!important;padding:4px 6px;flex:0 0 auto}'+
+      '.tcz .tcg .tctf button:last-child{border-right:0!important}.tcz .tcg .tctf button[aria-checked=true]{background:#00e5ff!important;color:#07061a!important}'+
+      '.tcz .tcg .tctf button:disabled{opacity:.3;cursor:not-allowed}.tcz .tcg .tctf button:focus-visible{outline:2px solid #ffd23f;outline-offset:-2px}'+
+      '@media (max-width:760px){.tcz .tcg{flex-wrap:wrap}.tcz .tcg .tctf{flex:1 1 100%}.tcz .tcg .tctf button{flex:1 1 0!important}}'+
+      'body.tc-mini .tcz .tcg .tctf{flex:1 1 100%}body.tc-mini .tcz .tcg .tctf button{flex:1 1 0!important}';
+    document.head.appendChild(tcs);}
+  var tfReady=TF!==NATIVE?Promise.race([tfFetch(),new Promise(function(r){setTimeout(r,1500);})]):null;
+  Promise.all([ready,tfReady]).then(function(){
+    if(TF!==NATIVE){applyTF();if(!TFX)tfFetch().then(function(j){if(j&&TF!==NATIVE){applyTF();redraw();}});}
     try{layersUI();}catch(e){if(window.console)console.error(e);}
     redraw(); document.body.classList.add('tc-ready');
     var to=null;window.addEventListener('resize',function(){clearTimeout(to);to=setTimeout(redraw,60);});

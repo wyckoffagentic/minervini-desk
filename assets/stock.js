@@ -53,6 +53,33 @@ function msApply(D,ms){var out=[];if(!ms)return out;
     D.risk_plan={default:0.75,min:0.5,max:1,tier:0.75,short:'MA STACK GUD PLAN',reasons:['0.75% desk default risk; the MA Stack page sizes a $100,000 placeholder account'],
       stop_pct:rp,size_pct:{'0.5':0.5/rp*100,'0.75':0.75/rp*100,'1':1/rp*100},m05:pl.m05,m10:pl.m10};}
   return out;}
+// wyckoff_structure.html rows (ov=wyckoff, research-tools/wyckoff_structure.py -> data/wyckoff/<T>.json): the trading-range box, the dated
+// Wyckoff events (SC / AR / ST / spring / test / SOS / LPS / UT / UTAD / SOW / LPSY), cause & effect targets and, on ticket cards (&wt=long|short),
+// the ticket's entry / hard stop / trailing stop / 2R / 3R lines.  NO moving averages: D.no_ma (charts.js hides SMA lines/legend/layer for this
+// chart only) and the RS-rating panel (it carries a 21-day MA of the rating) is dropped.  &wv=d|w picks the daily or the weekly structure (weekly: drawn on the weekly bars shipped in data/wyckoff/<T>.json 'wb').
+var WYX=null,WYV=(P.get('wv')||'d').replace(/[^a-z]/g,''),WYT=(P.get('wt')||'').replace(/[^a-z]/g,'');
+function wyx(){if(OVM!=='wyckoff')return Promise.resolve(null);if(!WYX)WYX=get('data/wyckoff/'+encodeURIComponent(T)+'.json').then(function(r){return r.json();}).catch(function(){return null;});return WYX;}
+function wyApply(D,wy){var out=[];if(!wy)return out;var st=(WYV==='w'?wy.w:wy.d)||wy.d||wy.w,bs=D.bars||[],last=bs.length?bs[bs.length-1][0]:null,lc=bs.length?bs[bs.length-1][4]:null;
+  var far=function(p){return lc&&Math.abs(p/lc-1)>0.5;};D._wyfar=[];
+  if(st){var acc=st.side==='acc',col=acc?'#39ff88':'#ff3d7f',it=[];
+    it.push({t:'box',d0:st.d0,d1:st.d1||last,lo:st.bottom,hi:st.top,c:col,fill:acc?'rgba(57,255,136,.07)':'rgba(255,61,127,.07)',label:(st.tf==='W'?'WEEKLY ':'')+String(st.sub||'').toUpperCase()+' · PHASE '+st.phase});
+    it.push({t:'hline',d0:st.d0,p:st.top,c:'#00e5ff',w:1.2,dash:[5,3],label:'RANGE TOP'+(acc?' / CREEK ':' ')+st.top.toFixed(2)});
+    it.push({t:'hline',d0:st.d0,p:st.bottom,c:'#ff9f1c',w:1.2,dash:[5,3],label:'RANGE BOTTOM'+(acc?' ':' / ICE ')+st.bottom.toFixed(2)});
+    out.push({id:'wy_range',label:'Trading range ('+(st.tf==='W'?'weekly':'daily')+' structure)',color:col,items:it});
+    var ev=(st.events||[]).map(function(e){return {t:'point',d:e.d,p:e.p,label:e.label,pos:e.pos,c:e.c,tip:e.tip};});
+    if(ev.length)out.push({id:'wy_events',label:'Wyckoff events (dated)',color:'#ffd23f',items:ev});
+    var ce=st.ce||{},ci=[],d0=st.d1||last;
+    [['cons','C&E CONS ',ce.cons],['agg','C&E AGG ',ce.agg]].forEach(function(a){if(a[2]==null)return;if(far(a[2])){D._wyfar.push(a[1]+a[2].toFixed(2));return;}
+      ci.push({t:'hline',d0:d0,p:a[2],c:a[0]==='cons'?'#b388ff':'#ff2bd6',w:1.3,dash:[2,4],label:a[1]+a[2].toFixed(2)});});
+    if(ci.length)out.push({id:'wy_ce',label:'Cause & effect targets (P&F count / range height)',color:'#b388ff',items:ci});
+    D._wy=st;}
+  var tks=(wy.tickets||[]).filter(function(k){return WYT&&k.side===WYT;});
+  if(tks.length){var k=tks[0],ti=[],d0=k.signal_date;
+    [['ENTRY ',k.entry,'#00e5ff'],['HARD STOP ',k.hard_stop,'#ff2a2a'],['2R ',k.r2,'#39ff14'],['3R ',k.r3,'#ffd700']].forEach(function(a){if(a[1]==null)return;if(far(a[1])){D._wyfar.push(a[0]+a[1].toFixed(2));return;}
+      ti.push({t:'hline',d0:d0,p:a[1],c:a[2],w:1.6,label:a[0]+a[1].toFixed(2)});});
+    if(k.stop!=null&&Math.abs(k.stop-k.hard_stop)>1e-6)ti.push({t:'hline',d0:k.triggered||d0,p:k.stop,c:'#ff9f1c',w:1.8,dash:[6,3],label:'TRAIL STOP '+k.stop.toFixed(2)});
+    if(ti.length)out.push({id:'wy_ticket',label:(k.side==='long'?'Long':'Short')+' ticket levels ('+k.status+')',color:'#00e5ff',items:ti});D._wyt=k;}
+  return out;}
 function chartFrom(kind){
   var p;
   if(kind==='page'||kind===1){
@@ -62,7 +89,7 @@ function chartFrom(kind){
       var rb=doc.getElementById('tc-rsb');return {tc:D,rsb:rb?rb.outerHTML:'',page:true};});
   }else if(kind==='json'||kind===2){p=get('data/chart/'+encodeURIComponent(T)+'.json').then(function(r){return r.json();});}
   else return Promise.resolve(null);
-  return Promise.all([p,msx()]).then(function(pa){var c=pa[0],ms=pa[1];
+  return Promise.all([p,msx(),wyx()]).then(function(pa){var c=pa[0],ms=pa[1],wy=pa[2];
     if(!c||!c.tc||!c.tc.bars)return null;
     if(MINI){   // expandable-row chart: overlays for the page's context (ov=vsa|spring|ema|setup|desk), levels unless ov=vsa
       var all=(c.tc.overlays||[]).filter(Boolean),keep;
@@ -75,6 +102,7 @@ function chartFrom(kind){
       c.tc.overlays=keep;
       if(OVM==='vsa'||c.tc.no_levels){['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};}
       if(OVM==='mastack'){['entry','stop','zone_top','buy_zone','r2','r3','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.cuts=[];c.tc.no_levels=true;c.tc.risk_plan={};keep=msApply(c.tc,ms);c.tc.overlays=keep;}   // MA Stack: own EMA lines + GUD plan only
+      if(OVM==='wyckoff'){['entry','stop','zone_top','buy_zone','r2','r3','risk','risk_pct','sma50','sma150','sma200'].forEach(function(k){c.tc[k]=null;});c.tc.cuts=[];c.tc.no_levels=true;c.tc.risk_plan={};c.tc.no_ma=true;if(c.tc.rs)c.tc.rs.hist=null;if(WYV==='w'&&wy&&wy.wb&&wy.wb.bars&&wy.wb.bars.length){c.tc.bars=wy.wb.bars;c.tc.vol=wy.wb.vol;c.tc.wk=true;}keep=wyApply(c.tc,wy);c.tc.overlays=keep;}   // Wyckoff Structure: range box + events + C&E (+ ticket lines); no MAs
       c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;   // 2R / 3R also listed in the key; charts.js moves far-off targets out of the price scale (Targets layer)
       miniKey(c.tc,keep);
     }
@@ -83,10 +111,14 @@ function chartFrom(kind){
     window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
     if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
     $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=3e60e677').then(function(){return loadScript('charts/_assets/charts.js?v=3e60e677');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=47c192d4').then(function(){return loadScript('charts/_assets/charts.js?v=47c192d4');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
+  if(OVM==='wyckoff'){var w=D._wy,t=D._wyt;if(w)h.push('<span>range <b>'+w.bottom.toFixed(2)+' – '+w.top.toFixed(2)+'</b> · '+esc(w.sub||'')+' · phase <b>'+esc(w.phase)+'</b>'+(w.ce&&w.ce.cons!=null?' · C&amp;E '+w.ce.cons.toFixed(2)+' / '+w.ce.agg.toFixed(2):'')+'</span>');else h.push('<span class="mut">no Wyckoff structure for this name</span>');
+    if(t)h.push('<span>ticket: '+esc(t.side)+' · entry <b>'+t.entry.toFixed(2)+'</b> · stop <b>'+t.stop.toFixed(2)+'</b> · 2R '+t.r2.toFixed(2)+' / 3R '+t.r3.toFixed(2)+' · '+esc(t.status)+'</span>');
+    if(D._wyfar&&D._wyfar.length)h.push('<span class="mut">off-scale: '+esc(D._wyfar.join(' · '))+'</span>');
+    h.push('<span class="mut">no moving averages · price structure + volume only · tap a bar for details</span>');k.innerHTML=h.join('');return;}
   if(OVM==='vsa'){h.push('<span><i class="dk-up">●</i> strength sign (under the bar)</span><span><i class="dk-dn">●</i> weakness sign (over the bar)</span><span><i>!</i> high significance in context</span>');}
   else{if(!D.no_levels&&D.entry!=null)h.push('<span>levels: entry <b>'+(+D.entry).toFixed(2)+'</b>'+(D.stop!=null?' · stop <b>'+(+D.stop).toFixed(2)+'</b>':'')+(D._r2!=null?' · targets 2R '+(+D._r2).toFixed(2)+' / 3R '+(+D._r3).toFixed(2):'')+'</span>');
     else h.push('<span class="mut">no desk levels for this name</span>');

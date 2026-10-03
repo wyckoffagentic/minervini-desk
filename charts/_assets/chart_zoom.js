@@ -4,16 +4,19 @@
    TCZoom.geo({...}); this file owns the toolbar (− TIGHTER / slider / + WIDER, 3M·6M·1Y·ALL, ▶| LATEST), the gestures
    (drag-to-pan + pinch on touch; drag + wheel/trackpad on desktop; keyboard on the focused canvas) and the saved density.
    Density is saved in localStorage ("tc_density_narrow" for phones, "tc_density_wide" for desktop) and shared by every chart page.
-   The window is always anchored to the newest bar unless the user pans back (pan is not saved). */
+   The window is always anchored to the newest bar unless the user pans back (pan is not saved).
+   Timeframe (charts.js 1D / 1W / 1M switch): TCZoom.setTf(tf,total) swaps the bar count, the range presets (D 3M/6M/1Y, W 6M/1Y/2Y,
+   M 2Y/5Y/10Y) and the saved density key (D keeps "tc_density_<cls>"; W / M use "tc_density_<cls>_w|_m"). */
 (function(){
   'use strict';
-  var PRESETS=[['3M',63],['6M',126],['1Y',252],['ALL',0]];
+  var PRE={D:[['3M',63],['6M',126],['1Y',252],['ALL',0]],W:[['6M',26],['1Y',52],['2Y',104],['ALL',0]],M:[['2Y',24],['5Y',60],['10Y',120],['ALL',0]]},PRESETS=PRE.D;
+  var MPB={D:1/21,W:12/52,M:1};      // months per bar (readout)
   var DEF_PX={narrow:4.7,wide:6};      // default bar pitch: ~60 bars on a 390px phone, ~130-140 on a 1240px desktop
   var MIN_BARS=12, MAX_PX=40, STEP=1.25;
   var LS={get:function(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
-  var S={total:0,A:0,cls:null,pref:null,count:0,offset:0,bw:6,pl:0,barsEnd:0,start:0,n:0}, O=null, ui={}, raf=0, Z={dragging:false};
+  var S={tf:'D',total:0,A:0,cls:null,pref:null,count:0,offset:0,bw:6,pl:0,barsEnd:0,start:0,n:0}, O=null, ui={}, raf=0, Z={dragging:false};
 
-  function key(){return 'tc_density_'+S.cls;}
+  function key(){return 'tc_density_'+S.cls+(S.tf!=='D'?'_'+S.tf.toLowerCase():'');}
   function minCount(){return Math.min(S.total,Math.max(MIN_BARS,Math.ceil(S.A/MAX_PX)));}
   function clampCount(c){return Math.max(minCount(),Math.min(S.total,Math.round(c)));}
   function countFor(p){
@@ -70,14 +73,15 @@
    '.tcz .lt{color:#ffd700;border-color:#ffd700}'+
    '.tc-canvas{cursor:grab}.tc-canvas.tcz-drag{cursor:grabbing}.tc-canvas:focus-visible{outline:2px solid #00e5ff;outline-offset:-2px}'+
    '@media (max-width:760px){.tcz{gap:6px}.tcz .zg{flex-basis:100%}.tcz .zg button .t{display:none}.tcz .pr{flex:1}.tcz .pr button{flex:1;padding:4px 2px}.tcz .rd{flex-basis:100%;text-align:left;margin-left:0}}';
+  function prHtml(){return PRESETS.map(function(p){return '<button type="button" data-p="'+p[0]+'">'+p[0]+'</button>';}).join('')+
+      '<button type="button" class="lt" data-z="latest" title="Jump back to the newest bar" aria-label="Jump to the newest bar">▶|</button>';}
   function build(){
     var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
     var bar=document.createElement('div');bar.className='tcz';bar.setAttribute('role','toolbar');bar.setAttribute('aria-label','Chart density and range');
     bar.innerHTML='<div class="zg"><button type="button" class="pm" data-z="tighter" title="Tighter: more bars (−)" aria-label="Tighter, show more bars">-<span class="t">TIGHTER</span></button>'+
       '<input type="range" min="0" max="1000" step="1" aria-label="Bar density: left shows more bars, right shows wider bars">'+
       '<button type="button" class="pm" data-z="wider" title="Wider: fewer, wider bars (+)" aria-label="Wider, show fewer wider bars">+<span class="t">WIDER</span></button></div>'+
-      '<div class="pr" role="group" aria-label="Range presets">'+PRESETS.map(function(p){return '<button type="button" data-p="'+p[0]+'">'+p[0]+'</button>';}).join('')+
-      '<button type="button" class="lt" data-z="latest" title="Jump back to the newest bar" aria-label="Jump to the newest bar">▶|</button></div>'+
+      '<div class="pr" role="group" aria-label="Range presets">'+prHtml()+'</div>'+
       '<div class="rd" aria-live="polite"></div>';
     O.host.parentNode.insertBefore(bar,O.host);
     ui.bar=bar;ui.range=bar.querySelector('input');ui.rd=bar.querySelector('.rd');ui.lt=bar.querySelector('[data-z=latest]');
@@ -94,7 +98,7 @@
     if(document.activeElement!==ui.range) ui.range.value=String(Math.round((Math.log(S.count)-hi)/(lo-hi)*1000));
     ui.bar.querySelectorAll('[data-p]').forEach(function(b){var p=b.getAttribute('data-p'),on=S.pref&&S.pref.preset===p&&countFor(S.pref)===S.count;b.setAttribute('aria-pressed',String(!!on));});
     var off=Math.round(S.offset);ui.lt.disabled=off<1;
-    var pitch=S.A/S.count, mo=S.count/21;
+    var pitch=S.A/S.count, mo=S.count*(MPB[S.tf]||1/21);
     ui.rd.innerHTML='<b>'+S.count+'</b> OF '+S.total+' BARS · ≈'+(mo>=12?(mo/12).toFixed(1)+'Y':mo.toFixed(mo<10?1:0)+'M')+' · '+pitch.toFixed(1)+'PX/BAR'+(off?' · <b style="color:#ffd700">◀ '+off+' BACK</b>':'');
   }
 
@@ -160,6 +164,9 @@
   }
 
   // opts: {host, canvas, total, redraw(), tap(clientX,clientY), clearTip()}
-  Z.mount=function(opts){O=opts;S.total=opts.total;build();attach();};
+  Z.mount=function(opts){O=opts;S.total=opts.total;if(opts.tf&&PRE[opts.tf]){S.tf=opts.tf;PRESETS=PRE[S.tf];}build();attach();};
+  Z.setTf=function(tf,total){if(!PRE[tf])tf='D';var ch=tf!==S.tf;S.tf=tf;PRESETS=PRE[tf];S.total=total;
+    if(ch){S.offset=0;if(S.cls)S.pref=LS.get(key());if(ui.bar){ui.bar.querySelector('.pr').innerHTML=prHtml();ui.lt=ui.bar.querySelector('[data-z=latest]');}}
+    if(S.cls)S.count=countFor(S.pref);clampOff();ui.sig='';kick();};
   window.TCZoom=Z;
 })();
