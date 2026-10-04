@@ -10,7 +10,10 @@
    Future space (4 Oct 2026, Chris: "Allow price to be pulled away from the right hand side, don't make it fixed"): S.offset < 0 = blank bar
    slots right of the newest bar. Default RM bars (so the newest bar + the 5-bar BUY projection clear the price tags); drag / wheel / keys pan
    into up to FUT_MAX of the view as future; ▶| LATEST, double-click, a range preset and a timeframe switch snap back to the default.
-   view() -> {start, n (real bars), fut (blank slots)}; charts.js lays out n + fut slots. */
+   view() -> {start, n (real bars), fut (blank slots)}; charts.js lays out n + fut slots.
+   Inertia (4 Oct 2026 pro polish): a flick keeps the chart gliding - release velocity from the last ~100 ms of the drag, exponential
+   friction (time constant ~260 ms), stops at either end / below 0.02 px/ms, cancelled by any new touch, wheel, key or button; off when the
+   OS asks for reduced motion. state().coast = 1 while gliding. */
 (function(){
   'use strict';
   var PRE={D:[['3M',63],['6M',126],['1Y',252],['ALL',0]],W:[['6M',26],['1Y',52],['2Y',104],['ALL',0]],M:[['2Y',24],['5Y',60],['10Y',120],['ALL',0]]},PRESETS=PRE.D;
@@ -18,6 +21,7 @@
   var DEF_PX={narrow:4.7,wide:6};      // default bar pitch: ~60 bars on a 390px phone, ~130-140 on a 1240px desktop
   var MIN_BARS=12, MAX_PX=40, STEP=1.25, RM=7, FUT_MAX=0.5;
   var LS={get:function(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+  var RMQ=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)'),IN=null;
   var S={tf:'D',total:0,A:0,cls:null,pref:null,count:0,offset:-7,bw:6,pl:0,barsEnd:0,start:0,n:0}, O=null, ui={}, raf=0, Z={dragging:false};
 
   function key(){return 'tc_density_'+S.cls+(S.tf!=='D'?'_'+S.tf.toLowerCase():'');}
@@ -33,6 +37,13 @@
   function clampOff(){var mf=Math.floor(S.count*FUT_MAX);S.offset=Math.max(-mf,Math.min(Math.max(0,S.total-S.count),S.offset));}
   function kick(){if(raf) return;raf=requestAnimationFrame(function(){raf=0;if(O&&O.redraw)O.redraw();sync();});}
   function save(p){S.pref=p;LS.set(key(),p);}
+  function coastStop(){if(IN){cancelAnimationFrame(IN.raf);IN=null;}}
+  function coast(v){coastStop();if(RMQ&&RMQ.matches)return;if(Math.abs(v)<0.25)return;   // px/ms
+    IN={v:Math.max(-6,Math.min(6,v)),t:performance.now(),raf:0};
+    (function step(){IN.raf=requestAnimationFrame(function(now){if(!IN)return;var dt=Math.min(40,now-IN.t);IN.t=now;var o0=S.offset;
+      S.offset+=IN.v*dt/Math.max(0.5,S.bw);clampOff();IN.v*=Math.exp(-dt/260);
+      var hit=S.offset===o0;if(Math.round(S.offset)!==Math.round(o0)){if(O&&O.redraw)O.redraw();sync();}
+      if(hit||Math.abs(IN.v)<0.02){IN=null;kick();return;}step();});})();}
 
   // ------------------------------------------------------------------ public: called by charts.js draw()
   Z.view=function(A,narrow){
@@ -46,7 +57,7 @@
     return {start:S.start,n:Math.min(real,S.total-S.start),fut:f};
   };
   Z.geo=function(g){S.bw=g.bw;S.pl=g.pl;S.barsEnd=g.barsEnd;S.n=g.n;if(!ui.bar)return;var sig=[S.count,Math.round(S.offset),Math.round(S.A)].join();if(sig!==ui.sig){ui.sig=sig;sync();}};
-  Z.state=function(){return {count:S.count,offset:Math.round(S.offset),fut:fut(),rm:rmDef(),total:S.total,px:+(S.A/Math.max(1,S.count)).toFixed(2),barPitch:+S.bw.toFixed(2),mode:S.cls,pref:S.pref};};
+  Z.state=function(){return {coast:IN?1:0,count:S.count,offset:Math.round(S.offset),fut:fut(),rm:rmDef(),total:S.total,px:+(S.A/Math.max(1,S.count)).toFixed(2),barPitch:+S.bw.toFixed(2),mode:S.cls,pref:S.pref};};
 
   // ------------------------------------------------------------------ actions
   function setCount(c,focalFrac,keepPreset){
@@ -59,9 +70,9 @@
     if(!keepPreset) save({px:+(S.A/nc).toFixed(3)});
     kick();
   }
-  function preset(name){save({preset:name});S.count=countFor(S.pref);S.offset=-rmDef();kick();}
-  function pan(dBars){S.offset+=dBars;clampOff();kick();}
-  function latest(){S.offset=-rmDef();kick();}
+  function preset(name){coastStop();save({preset:name});S.count=countFor(S.pref);S.offset=-rmDef();kick();}
+  function pan(dBars){coastStop();S.offset+=dBars;clampOff();kick();}
+  function latest(){coastStop();S.offset=-rmDef();kick();}
   function frac(clientX){var r=O.canvas.getBoundingClientRect();var w=Math.max(1,S.barsEnd-S.pl);return (clientX-r.left-S.pl)/w;}
   Z.tighter=function(){setCount(S.count*STEP);};
   Z.wider=function(){setCount(S.count/STEP);};
@@ -118,10 +129,11 @@
       pinch={d0:d,c0:S.count,mx:(a[0].x+a[1].x)/2,off0:S.offset,f:frac((a[0].x+a[1].x)/2),bw0:S.bw};drag=null;Z.dragging=true;if(O.clearTip)O.clearTip();}
     cv.addEventListener('pointerdown',function(e){
       if(e.pointerType==='mouse'&&e.button!==0) return;
+      coastStop();
       if(e.isPrimary){P={};pinch=null;}            // a new gesture: drop any pointer whose pointerup was missed
       P[e.pointerId]={x:e.clientX,y:e.clientY};
       if(pts().length===2){startPinch();return;}
-      drag={x0:e.clientX,y0:e.clientY,off0:S.offset,moved:false,type:e.pointerType,id:e.pointerId};
+      drag={x0:e.clientX,y0:e.clientY,off0:S.offset,moved:false,type:e.pointerType,id:e.pointerId,hs:[[performance.now(),e.clientX]]};
       try{cv.setPointerCapture(e.pointerId);}catch(_){}
     });
     cv.addEventListener('pointermove',function(e){
@@ -138,6 +150,7 @@
       var dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;
       if(!drag.moved){if(Math.abs(dx)<(drag.type==='mouse'?3:7)) return; if(drag.type!=='mouse'&&Math.abs(dy)>Math.abs(dx)){drag=null;return;}
         drag.moved=true;Z.dragging=true;cv.classList.add('tcz-drag');if(O.clearTip)O.clearTip();}
+      var tn=performance.now();drag.hs.push([tn,e.clientX]);while(drag.hs.length>2&&tn-drag.hs[0][0]>100)drag.hs.shift();
       S.offset=drag.off0+dx/Math.max(0.5,S.bw);clampOff();kick();
     });
     function end(e){
@@ -145,12 +158,13 @@
       if(pinch){if(pts().length<2){pinch=null;drag=null;setTimeout(function(){Z.dragging=false;},0);}return;}
       if(drag&&drag.id===e.pointerId){
         if(!drag.moved&&e.type==='pointerup'&&drag.type!=='mouse'&&O.tap&&was) O.tap(e.clientX,e.clientY);   // tap = inspect bar
-        drag=null;cv.classList.remove('tcz-drag');setTimeout(function(){Z.dragging=false;},0);
+        var hs=drag.hs,tn=performance.now(),vel=0;if(drag.moved&&e.type==='pointerup'&&hs.length>1){var h0=hs[0],h1=hs[hs.length-1];if(tn-h1[0]<70&&h1[0]-h0[0]>8)vel=(h1[1]-h0[1])/(h1[0]-h0[0]);}   // stopped before lifting = no glide
+        drag=null;cv.classList.remove('tcz-drag');setTimeout(function(){Z.dragging=false;},0);if(vel)coast(vel);
       }
     }
     cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
     cv.addEventListener('wheel',function(e){
-      e.preventDefault();
+      e.preventDefault();coastStop();
       var dx=e.deltaX,dy=e.deltaY; if(e.deltaMode===1){dx*=16;dy*=16;}
       if(e.shiftKey&&!dx){dx=dy;dy=0;}
       if(Math.abs(dx)>Math.abs(dy)){pan(-dx/Math.max(0.5,S.bw));return;}
@@ -172,7 +186,7 @@
 
   // opts: {host, canvas, total, redraw(), tap(clientX,clientY), clearTip()}
   Z.mount=function(opts){O=opts;S.total=opts.total;if(opts.tf&&PRE[opts.tf]){S.tf=opts.tf;PRESETS=PRE[S.tf];}build();attach();};
-  Z.setTf=function(tf,total){if(!PRE[tf])tf='D';var ch=tf!==S.tf;S.tf=tf;PRESETS=PRE[tf];S.total=total;
+  Z.setTf=function(tf,total){coastStop();if(!PRE[tf])tf='D';var ch=tf!==S.tf;S.tf=tf;PRESETS=PRE[tf];S.total=total;
     if(ch){if(S.cls)S.pref=LS.get(key());if(ui.bar){ui.bar.querySelector('.pr').innerHTML=prHtml();ui.lt=ui.bar.querySelector('[data-z=latest]');}}
     if(S.cls)S.count=countFor(S.pref);if(ch)S.offset=-rmDef();clampOff();ui.sig='';kick();};
   window.TCZoom=Z;

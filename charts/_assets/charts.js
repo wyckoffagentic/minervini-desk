@@ -398,7 +398,10 @@
   var NOPLAN=D.entry==null&&!PLS.length;document.body.classList.toggle('tc-noplan',NOPLAN);
   if(NOPLAN){$('tc-hud').hidden=true;$('tc-hud').style.display='none';$('tc-level').hidden=true;$('tc-level').style.display='none';}
 
-  function setup(cv,w,h){var d=Math.max(2,window.devicePixelRatio||1);cv.width=Math.round(w*d);cv.height=Math.round(h*d);cv.style.width=w+'px';cv.style.height=h+'px';var x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);return x;}
+  var DPR=2;function setup(cv,w,h){var d=Math.max(2,window.devicePixelRatio||1),W2=Math.round(w*d),H2=Math.round(h*d),x=cv.getContext('2d');DPR=d;   // the backing store is only reallocated when the size changes (phone performance)
+    if(cv.width!==W2||cv.height!==H2){cv.width=W2;cv.height=H2;cv.style.width=w+'px';cv.style.height=h+'px';}else if(typeof x.reset==='function')x.reset();else cv.width=W2;
+    x.setTransform(d,0,0,d,0,0);return x;}
+  function snp(v,lw){var d=DPR,o=(Math.round((lw||1)*d)%2)/2;return (Math.round(v*d-o)+o)/d;}   // crisp: snap a line of width lw to the device-pixel grid
 
   function drawGauge(){
     var cv=$('tc-gauge'); if(!cv) return;
@@ -452,7 +455,7 @@
   // ---------------------------------------------------------------- chart
   var host=$('tc-chart'), cv=document.createElement('canvas'), tip=document.createElement('div');
   cv.className='tc-canvas'; tip.className='tc-tip'; tip.hidden=true; host.appendChild(cv); host.appendChild(tip);
-  var geo=null, hover=-1, t0=performance.now(), PVR=null;
+  var geo=null, hover=-1, hoverY=-1, t0=performance.now(), PVR=null, HRAF=0;
 
   function levels(){
     var L=[];
@@ -488,6 +491,75 @@
       OVR.forEach(function(r){var ox=Math.min(xx+w,r[0]+r[2])-Math.max(xx,r[0]),oy=Math.min(yy+h,r[1]+r[3])-Math.max(yy,r[1]);if(ox>0&&oy>0)ov+=ox*oy;});
       if(!ov){OVR.push([xx,yy,w,h]);return [xx,yy];}if(ov<bo){bo=ov;best=[xx,yy];}}
     OVR.push([best[0],best[1],w,h]);return best;}   // nowhere free: the least-covered spot
+  // ---------------------------------------------------------------- bar style + volume profile (4 Oct 2026, Chris: "make our charting package
+  // more professional" + "detailed volume profiles", Deepvue as the reference, the desk's dark-neon look kept)
+  var BSK='wa.desk.chartstyle.v1',BST='candle';try{if(localStorage.getItem(BSK)==='hlc')BST='hlc';}catch(e){}
+  // VOLUME PROFILE - method. A horizontal histogram of traded volume by price on the right of the price pane, always built from DAILY
+  // sessions (also on 1W / 1M: finer than the period bars; where the daily history does not reach - older 1W / 1M bars - those period bars
+  // are used the same way). Range: VISIBLE = every session inside the bars on screen (recomputed on pan / zoom / timeframe), 20 / 50 / 100 =
+  // the newest N bars of the current timeframe, TR = the Wyckoff trading-range box (spring_tr_<tf> overlay, else any spring_tr / spring_up box)
+  // from its start to its end or today. Bins: N equal price bins (24 / 48 / 72 / 96, default 48) from the lowest low to the highest high of
+  // the range. Each session's volume is spread uniformly over its own low→high: a bin gets v × overlap(bin, [L, H]) / (H − L); a session with
+  // H = L puts it all in its close's bin, so the bins always sum to the range's total volume. Up / down split: a session's volume is UP when it
+  // closed ≥ the prior close, else DOWN (the desk's bar colour). POC = the fullest bin (its mid price). Value area 70%: start at the POC and keep
+  // adding the fuller of the next bin above / below until ≥ 70% of the volume is inside; VAH / VAL = its top / bottom edges. HVN / LVN: the
+  // profile smoothed 1-2-1; HVN = a local peak ≥ 1.3× the mean bin, LVN = a local trough ≤ 0.5× the mean with ≥ mean volume on both sides
+  // (strongest 3 of each). Saved for every chart: localStorage wa.desk.vprof.v1 = {on, m: vis|20|50|100|tr, b: bins}; off by default.
+  var VPK='wa.desk.vprof.v1',VPM=['vis','20','50','100','tr'],VPB=[24,48,72,96],VPN={vis:'VISIBLE','20':'20 BARS','50':'50 BARS','100':'100 BARS',tr:'WYCKOFF TR'},VP={on:0,m:'vis',b:48},VPC={};
+  function vpLoad(){VP={on:0,m:'vis',b:48};try{var j=JSON.parse(localStorage.getItem(VPK)||'null');if(j){VP.on=j.on?1:0;if(VPM.indexOf(String(j.m))>=0)VP.m=String(j.m);if(VPB.indexOf(+j.b)>=0)VP.b=+j.b;}}catch(e){}}
+  vpLoad();
+  function vpSave(){try{localStorage.setItem(VPK,JSON.stringify(VP));}catch(e){}}
+  function vpTR(){var best=null;OVL.forEach(function(o){var id=o.id||'',r=id==='spring_tr_'+TF?0:/^spring_tr/.test(id)?1:/^spring_up/.test(id)?2:/^wy/.test(id)?3:9;if(r>3)return;
+    (o.items||[]).forEach(function(it){if(it.t!=='box'||!it.d0)return;if(!best||r<best.r||(r===best.r&&it.d0>best.d0))best={d0:it.d0,d1:it.d1||null,r:r,id:id};});});return best;}
+  function vpCalc(d0,d1,nb){var t0=performance.now(),S=[],DB=DAY.bars,D0=DB.length?DB[0].d:'9999',src='1D',k;
+    if(TF!=='D'&&d0<D0)bars.forEach(function(b){if(b.d>=d0&&b.d<=d1&&(b.de||b.d)<D0)S.push(b);});
+    var np=S.length;DB.forEach(function(b){if(b.d>=d0&&b.d<=d1)S.push(b);});if(np)src='1D + '+np+' older '+TFN[TF]+' bars';
+    if(!S.length)return null;
+    var lo=Infinity,hi=-Infinity;S.forEach(function(b){if(b.l<lo)lo=b.l;if(b.h>hi)hi=b.h;});if(!(hi>lo))hi=lo+Math.max(.01,lo*.001);
+    var st=(hi-lo)/nb,up=new Float64Array(nb),dn=new Float64Array(nb),t=new Float64Array(nb),tot=0;
+    S.forEach(function(b){var v=+b.v||0;if(!(v>0))return;tot+=v;var A=b.up?up:dn;
+      if(!(b.h>b.l)){A[Math.min(nb-1,Math.max(0,Math.floor((b.c-lo)/st)))]+=v;return;}
+      var k0=Math.max(0,Math.floor((b.l-lo)/st)),k1=Math.min(nb-1,Math.floor((b.h-lo)/st)),r=b.h-b.l;
+      for(var q=k0;q<=k1;q++){var a=Math.max(b.l,lo+q*st),z=q===nb-1?b.h:Math.min(b.h,lo+(q+1)*st);if(z>a)A[q]+=v*(z-a)/r;}});
+    var poc=0;for(k=0;k<nb;k++){t[k]=up[k]+dn[k];if(t[k]>t[poc])poc=k;}
+    var a0=poc,a1=poc,va=t[poc];while(va<.7*tot&&(a0>0||a1<nb-1)){var vb=a0>0?t[a0-1]:-1,vu=a1<nb-1?t[a1+1]:-1;if(vu>=vb){a1++;va+=t[a1];}else{a0--;va+=t[a0];}}
+    var sm=[],f=-1,l=-1;for(k=0;k<nb;k++){sm.push((t[Math.max(0,k-1)]+2*t[k]+t[Math.min(nb-1,k+1)])/4);if(t[k]>0){if(f<0)f=k;l=k;}}
+    var mean=tot/Math.max(1,l-f+1),hv=[],lv=[],pre=[],suf=[];for(k=0;k<nb;k++)pre[k]=Math.max(k?pre[k-1]:0,sm[k]);for(k=nb-1;k>=0;k--)suf[k]=Math.max(k<nb-1?suf[k+1]:0,sm[k]);
+    for(k=Math.max(1,f+1);k<Math.min(nb-1,l);k++){if(sm[k]>=sm[k-1]&&sm[k]>sm[k+1]&&sm[k]>=1.3*mean)hv.push(k);if(sm[k]<=sm[k-1]&&sm[k]<sm[k+1]&&sm[k]<=.5*mean&&pre[k-1]>=mean&&suf[k+1]>=mean)lv.push(k);}
+    hv=hv.sort(function(p,q){return sm[q]-sm[p];}).slice(0,3);lv=lv.sort(function(p,q){return sm[p]-sm[q];}).slice(0,3);var hvs={};hv.forEach(function(q){hvs[q]=1;});
+    var su=0,sd=0;for(k=0;k<nb;k++){su+=up[k];sd+=dn[k];}
+    return {d0:d0,d1:d1,nb:nb,lo:lo,hi:hi,st:st,up:up,dn:dn,t:t,tot:tot,su:su,sd:sd,poc:poc,pocp:lo+(poc+.5)*st,va0:a0,va1:a1,va:va,vah:lo+(a1+1)*st,val:lo+a0*st,hv:hv,hvs:hvs,lv:lv,
+      n:S.length,nd:S.length-np,src:src,ms:+(performance.now()-t0).toFixed(2)};}
+  function vpGet(d0,d1,nb){var key=[TF,d0,d1,nb,DAY.bars.length,bars.length].join('|');if(!VPC[key]){var ks=Object.keys(VPC);if(ks.length>24)VPC={};VPC[key]=vpCalc(d0,d1,nb);}return VPC[key];}   // cached: a pan only recomputes when the range changes
+  function vpRange(g){var V=g.V,n=g.n,L=bars[bars.length-1],m=VP.m;if(!n)return null;
+    if(m==='tr'){var tr=vpTR();if(tr){var i0=dix(tr.d0);return {d0:tr.d0,d1:tr.d1||(L.de||L.d),x0:g.X(i0-g.off)-g.bw/2,lab:'WYCKOFF TR',tr:tr.id};}m='vis';}
+    if(m==='vis')return {d0:V[0].d,d1:V[n-1].de||V[n-1].d,x0:g.pl,lab:VP.m==='tr'?'VISIBLE (NO TR)':'VISIBLE'};
+    var N=+m,j0=Math.max(0,bars.length-N);return {d0:bars[j0].d,d1:L.de||L.d,x0:g.X(j0-g.off)-g.bw/2,lab:N+' BARS'};}
+  function drawVP(x,g){var r=vpRange(g),P=r&&vpGet(r.d0,r.d1,VP.b);if(!P){window.TC_VP={on:1,ok:0,mode:VP.m,bins:VP.b};return null;}
+    var R=g.R,maxW=Math.max(28,(R-g.pl)*(g.narrow?.3:.24)),x0=Math.max(g.pl,Math.min(r.x0,R-maxW)),tmax=0,k,fp=function(v){return v<1?v.toFixed(4):v.toFixed(2);};
+    for(k=0;k<P.nb;k++)if(P.t[k]>tmax)tmax=P.t[k];tmax=tmax||1;
+    x.save();x.beginPath();x.rect(g.pl,g.pt,R-g.pl,g.ph);x.clip();
+    var yH=g.Y(P.vah),yL=g.Y(P.val),yP=snp(g.Y(P.pocp),1);
+    x.fillStyle='rgba(255,174,0,.05)';x.fillRect(x0,yH,R-x0,yL-yH);   // value area band across the range
+    for(k=0;k<P.nb;k++){if(!P.t[k])continue;var yt=Math.round(g.Y(P.lo+(k+1)*P.st)),yb=Math.round(g.Y(P.lo+k*P.st)),hh=yb-yt;if(hh>=3)hh-=1;if(hh<1)hh=1;
+      var inV=k>=P.va0&&k<=P.va1,hv=P.hvs[k],wu=P.up[k]/tmax*maxW,wd=P.dn[k]/tmax*maxW,a=k===P.poc?.78:hv?.62:inV?.42:.2;
+      x.fillStyle='rgba(57,255,136,'+a+')';x.fillRect(R-wu,yt,wu,hh);x.fillStyle='rgba(255,61,127,'+a+')';x.fillRect(R-wu-wd,yt,wd,hh);
+      if(hv){x.fillStyle='#72f6ff';x.fillRect(Math.round(R-wu-wd)-2,yt,2,hh);}}   // HVN: cyan cap
+    x.lineWidth=1;x.strokeStyle='rgba(255,210,63,.75)';x.setLineDash([2,3]);P.lv.forEach(function(q){var y=snp(g.Y(P.lo+(q+.5)*P.st),1);x.beginPath();x.moveTo(R-maxW,y);x.lineTo(R,y);x.stroke();});   // LVN: yellow dots
+    x.strokeStyle='rgba(255,174,0,.5)';x.setLineDash([1,3]);[yH,yL].forEach(function(y){y=snp(y,1);x.beginPath();x.moveTo(x0,y);x.lineTo(R,y);x.stroke();});
+    if(r.x0>g.pl+1&&r.x0<R-maxW){var xs=snp(r.x0,1);x.strokeStyle='rgba(255,174,0,.45)';x.setLineDash([2,3]);x.beginPath();x.moveTo(xs,g.pt);x.lineTo(xs,g.pt+g.ph);x.stroke();}   // fixed range: where it starts
+    x.setLineDash([]);x.strokeStyle='#ffae00';x.shadowColor='#ffae00';x.shadowBlur=g.narrow?0:4;x.beginPath();x.moveTo(x0,yP);x.lineTo(R,yP);x.stroke();x.restore();
+    var hvp=P.hv.map(function(q){return +(P.lo+(q+.5)*P.st).toFixed(4);}),lvp=P.lv.map(function(q){return +(P.lo+(q+.5)*P.st).toFixed(4);});
+    var TV={on:1,ok:1,mode:VP.m,lab:r.lab,bins:P.nb,d0:P.d0,d1:P.d1,n:P.n,nd:P.nd,src:P.src,lo:+P.lo.toFixed(4),hi:+P.hi.toFixed(4),step:+P.st.toFixed(6),poc:+P.pocp.toFixed(4),
+      vah:+P.vah.toFixed(4),val:+P.val.toFixed(4),va_pct:+(P.va/P.tot*100).toFixed(2),total:Math.round(P.tot),up:Math.round(P.su),dn:Math.round(P.sd),hvn:hvp,lvn:lvp,
+      x0:Math.round(x0),R:Math.round(R),maxW:Math.round(maxW),ms:P.ms,tr:r.tr||null,labels:[]};window.TC_VP=TV;
+    return function(){if(!g.TX)return;x.save();var fz=g.narrow?5:6,h=fz+6;x.font=fz+'px '+FONT;x.textBaseline='middle';x.textAlign='left';var _ob=OVB;OVB={l:g.pl+2,r:R};
+      [['POC '+fp(P.pocp),'#ffae00',yP,1],['VAH '+fp(P.vah),'#ffc75a',yH],['VAL '+fp(P.val),'#ffc75a',yL]].forEach(function(it){if(it[2]<g.pt+4||it[2]>g.pt+g.ph-4)return;
+        var w=x.measureText(it[0]).width+6,p=freeBox(Math.max(g.pl+2,R-maxW-w-3),Math.round(it[2]-h/2),w,h,[0,-40,-80]);
+        x.fillStyle=it[3]?'#ffae00':'rgba(7,6,26,.85)';x.fillRect(p[0],p[1],w,h);if(!it[3]){x.strokeStyle='rgba(255,174,0,.6)';x.lineWidth=1;x.strokeRect(p[0]+.5,p[1]+.5,w-1,h-1);}
+        x.fillStyle=it[3]?'#07061a':it[1];x.fillText(it[0],p[0]+3,p[1]+h/2+.5);TV.labels.push(it[0]);});
+      if(!g.narrow){var cap='VOL PROFILE · '+r.lab+' · '+P.nb+' BINS',cw=x.measureText(cap).width+6,cp=freeBox(R-cw,g.pt+g.ph-h-2,cw,h,[0]);x.fillStyle='rgba(255,174,0,.8)';x.fillText(cap,cp[0]+3,cp[1]+h/2+.5);}
+      OVB=_ob;x.restore();};}
   // Layout (left→right): HLC bars | level strip (short glowing segments + zone bands, right of the last bar) | tag flags | price axis
   var DRT={n:0,ms:0,max:0};window.TC_DRAW=DRT;   // draw cost (ms, EMA + max) for phone performance QA
   function draw(now){var _t0=performance.now();draw0(now);var dt=performance.now()-_t0;DRT.n++;DRT.ms=DRT.n<2?dt:DRT.ms*.9+dt*.1;if(dt>DRT.max)DRT.max=dt;}
@@ -496,7 +568,7 @@
     if(W<50||H<50) return;
     var x=setup(cv,W,H), narrow=W<700, LY=LS.L, TX=!!LS.text, AX=!!LS.axis, RSP=hasRT&&!!LY.rsp;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
-    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=(narrow?26:22)+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
+    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=34+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
     var LK={entry:'entry',stop:'stop',a05:'acct',a10:'acct',cut:'cuts',r2:'targets',r3:'targets'};
     var axisW=(AX||(!narrow&&TX&&LY.last))?(narrow?46:56):8, L=levels().filter(function(l){return l.v!=null&&LY[LK[l.k]];});
     // far-off targets (2R / 3R well above the visible bars) go in the key at the top instead of stretching the price scale
@@ -504,7 +576,7 @@
     var BG=LY.entry?buyGroups(buyWant()):[];
     var OFF=[];L=L.filter(function(l){if((l.k==='r2'||l.k==='r3')&&l.v>_bhi+(_bhi-_blo)*(H<420?.15:.45)){OFF.push(l);return false;}return true;});
     // phones: level tags double as the price axis (one merged right column) and the last price joins the tag stack, so the bars get the width
-    if(narrow&&TX&&LY.last) L.push({k:'last',v:last.c,c:'#ffffff',nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
+    if(narrow&&TX&&LY.last) L.push({k:'last',v:last.c,c:last.up?C.up:C.dn,nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
     // measure tag widths first so the right margin always fits them (nothing covers the bars)
     x.font=tfs+'px '+SYM;
     var tags=L.map(function(l){var t=narrow?[l.nt||(l.short||l.t)[0]]:l.t;return {l:l,t:t,tw:Math.max.apply(null,t.map(function(s){return x.measureText(s).width;}))+(narrow?12:22)+(l.skull&&!narrow?22:0),bh:(l.thin?(narrow?12:16):(narrow?13:20))+(t.length-1)*(narrow?11:12)};});
@@ -529,19 +601,35 @@
     if(LY.ovl)ovlPrices(off,n).forEach(function(v){lo=Math.min(lo,v);hi=Math.max(hi,v);});   // keep visible detector drawings in range
     var pad=(hi-lo)*.04; lo-=pad; hi+=pad;
     function Y(v){return pt+(hi-v)/(hi-lo)*ph;}
-    geo={X:X,Y:Y,bw:bw,pl:pl,barsEnd:barsEnd,off:off,n:n,W:W,H:H};
+    geo={X:X,Y:Y,bw:bw,pl:pl,barsEnd:barsEnd,off:off,n:n,W:W,H:H,pt:pt};
     if(window.TCZoom) TCZoom.geo({pl:pl,bw:bw,barsEnd:barsEnd,n:n,start:off,W:W});
     // grid + price axis (far right)
     var span=hi-lo, raw=span/(narrow?5:8), mag=Math.pow(10,Math.floor(Math.log10(raw))), step=[1,2,2.5,5,10].map(function(m){return m*mag;}).find(function(s){return s>=raw;});
     x.strokeStyle=C.grid;x.lineWidth=1;x.font=(narrow?6:fs)+'px '+FONT;x.fillStyle=C.axis;x.textAlign=narrow?'right':'left';
-    if(AX)for(var v=Math.ceil(lo/step)*step;v<hi;v+=step){x.fillText(step<1?v.toFixed(2):String(Math.round(v*100)/100),axX,Y(v)+3);}
-    x.textAlign='left';x.font=fs+'px '+FONT;if(!narrow&&AX){x.strokeStyle='rgba(107,92,255,.35)';x.beginPath();x.moveTo(W-axisW,pt-6);x.lineTo(W-axisW,H-pb);x.stroke();}x.strokeStyle=C.grid;
-    function mkey(b){return TF==='M'?b.d.slice(0,4):(TF==='W'&&b.de?b.de:b.d).slice(0,7);}   // W: month of the week's last session; M: years only
-    var pm=mkey(V[0]);
-    var lastLab=-1e9, labGap=narrow?30:36;
-    if(AX)V.forEach(function(b,i){var m=mkey(b);if(m!=pm&&i>0){pm=m;var mo=TF==='M'?1:+(TF==='W'&&b.de?b.de:b.d).slice(5,7);if(TF==='W'&&bw*4.35<labGap&&(mo-1)%3)return;   // W: quarter months only when months are tight
-      if(X(i)-lastLab<labGap||X(i)>barsEnd-10)return;lastLab=X(i);
-      x.fillStyle=mo===1?'#cfc9ff':C.axis;x.fillText(mo===1?(TF==='W'&&b.de?b.de:b.d).slice(0,4):MON[mo-1],X(i)+3,H-pb+18);x.fillStyle=C.axis;}});
+    var AXT=[];if(AX)for(var v=Math.ceil(lo/step)*step;v<hi;v+=step){var gy0=Y(v);if(gy0<pt+3||gy0>pt+ph-1)continue;AXT.push({v:v,y:gy0,t:step<1?v.toFixed(2):String(Math.round(v*100)/100)});}
+    if(AX){x.save();x.strokeStyle='rgba(107,92,255,.11)';x.lineWidth=1;x.beginPath();AXT.forEach(function(a){var gy=snp(a.y,1);x.moveTo(pl,gy);x.lineTo(sx0-2,gy);});x.stroke();   // crisp horizontal grid
+      if(!narrow){x.strokeStyle='rgba(107,92,255,.45)';x.beginPath();AXT.forEach(function(a){var gy=snp(a.y,1);x.moveTo(W-axisW,gy);x.lineTo(W-axisW+3,gy);});x.stroke();}x.restore();}   // axis ticks; numbers are drawn after the tags (collision-free)
+    x.textAlign='left';x.font=fs+'px '+FONT;if(!narrow&&AX){x.strokeStyle='rgba(107,92,255,.35)';x.beginPath();x.moveTo(snp(W-axisW,1),pt-6);x.lineTo(snp(W-axisW,1),H-pb);x.stroke();}x.strokeStyle=C.grid;
+    // date axis (pro, 4 Oct 2026): the finest unit whose labels keep a readable gap - 1D: week → month → quarter → year; 1W: month → quarter
+    // → year → 2Y; 1M: quarter → year → 2Y → 5Y. A tick = the first bar of a new unit (1W bars count in the month of their last session). The
+    // labels are centred on their tick, year boundaries are bright and print the year, and a faint crisp grid line runs up the panes.
+    var TCAX={unit:'',ticks:[],price:[]};
+    if(AX&&n>1){x.font=(narrow?6:7)+'px '+FONT;var UN=TF==='D'?['wk','mo','qt','yr']:TF==='W'?['mo','qt','yr','y2']:['qt','yr','y2','y5'],TGAP=narrow?34:46,xEnd=barsEnd-2;
+      var dOf=function(b){return TF==='W'&&b.de?b.de:b.d;};
+      var ukey=function(u,b){var d=dOf(b),y=+d.slice(0,4),m=+d.slice(5,7);return u==='wk'?pStart(b.d,'W'):u==='mo'?d.slice(0,7):u==='qt'?y+'q'+((m-1)/3|0):u==='yr'?String(y):u==='y2'?String(y>>1):String(Math.floor(y/5));};
+      var TK=null;
+      for(var ui=0;ui<UN.length&&!TK;ui++){var u=UN[ui],tk=[],pk=ukey(u,V[0]),ok=true;
+        for(var i=1;i<n;i++){var b=V[i],kk=ukey(u,b);if(kk===pk)continue;pk=kk;var xx=X(i);if(xx>xEnd)break;
+          var d=dOf(b),mo=+d.slice(5,7),ny=d.slice(0,4)!==dOf(V[i-1]).slice(0,4),nm=d.slice(0,7)!==dOf(V[i-1]).slice(0,7),t,lv;
+          if(ny||u==='yr'||u==='y2'||u==='y5'){t=d.slice(0,4);lv=2;}else if(u==='wk'&&!nm){t=d.slice(8,10);lv=0;}else{t=MON[mo-1];lv=1;}
+          tk.push({x:xx,t:t,lv:lv,w:x.measureText(t).width});}
+        for(var q=1;q<tk.length&&ok;q++)if(tk[q].x-tk[q-1].x<Math.max(TGAP,(tk[q].w+tk[q-1].w)/2+8))ok=false;
+        if(ok||ui===UN.length-1){if(!ok){var kp=[];tk.forEach(function(a){var p=kp[kp.length-1];if(!p||a.x-p.x>=Math.max(TGAP,(a.w+p.w)/2+8))kp.push(a);});tk=kp;}TK=tk;TCAX.unit=u;}}
+      x.save();x.lineWidth=1;TK.forEach(function(a){var gx=snp(a.x,1);x.strokeStyle=a.lv===2?'rgba(107,92,255,.2)':'rgba(107,92,255,.09)';x.beginPath();x.moveTo(gx,pt);x.lineTo(gx,H-pb);x.stroke();
+        x.strokeStyle='rgba(107,92,255,.5)';x.beginPath();x.moveTo(gx,H-pb+1);x.lineTo(gx,H-pb+4);x.stroke();});x.restore();
+      x.textAlign='center';TK.forEach(function(a){if(a.x-a.w/2<pl)return;x.fillStyle=a.lv===2?'#cfc9ff':a.lv===1?'#9d97cf':C.axis;x.fillText(a.t,a.x,H-pb+15);TCAX.ticks.push([Math.round(a.x),a.t,Math.round(a.w)]);});
+      x.textAlign='left';x.fillStyle=C.axis;x.font=fs+'px '+FONT;}
+    var VPL=VP.on?drawVP(x,{X:X,Y:Y,pl:pl,R:sx0-2,pt:pt,ph:ph,V:V,off:off,n:n,narrow:narrow,TX:TX,bw:bw}):null;if(!VP.on)window.TC_VP={on:0};
     // right-side strip: risk / reward / buy-zone bands only between the last bar and the tags
     if(LY.zones&&LY.entry&&LY.stop&&D.entry!=null&&D.stop!=null&&D.entry>D.stop){x.fillStyle='rgba(255,42,42,.08)';x.fillRect(sx0,Y(D.entry),sx1-sx0,Y(D.stop)-Y(D.entry));}
     if(LY.zones&&LY.targets&&hasR&&!OFF.length){x.fillStyle='rgba(57,255,20,.045)';x.fillRect(sx0,Y(D.r3),sx1-sx0,Y(D.entry)-Y(D.r3));}
@@ -554,7 +642,7 @@
 
       x.restore();}
     var FULLW=[];   // levels drawn across the bars this frame (audit: never entry / 2R / 3R)
-    if(narrow||!TX){tags.forEach(function(t){var l=t.l;if(l.k==='last'||l.k==='entry'||l.k==='r2'||l.k==='r3')return;FULLW.push(l.k);var y=Y(l.v);x.save();x.strokeStyle=l.c;x.globalAlpha=l.thin?.35:.45;x.lineWidth=1;x.setLineDash(l.dash||[4,3]);
+    if(narrow||!TX){tags.forEach(function(t){var l=t.l;if(l.k==='last'||l.k==='entry'||l.k==='r2'||l.k==='r3'||l.k==='a05'||l.k==='a10')return;FULLW.push(l.k);var y=Y(l.v);x.save();x.strokeStyle=l.c;x.globalAlpha=l.thin?.35:.45;x.lineWidth=1;x.setLineDash(l.dash||[4,3]);
       x.beginPath();x.moveTo(pl,y);x.lineTo(sx0,y);x.stroke();x.restore();});}
     // volume
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb, VSAV=!!LY.vol&&VM==='vsa';
@@ -619,11 +707,37 @@
     if(LY.sma&&!NOMA)[[S50,'#ff9f1c',smaNames()[0]],[S150,'#b86bff',smaNames()[1]],[S200,'#4da3ff',smaNames()[2]]].forEach(function(a,j){
       x.strokeStyle=a[1];x.lineWidth=1.3;x.globalAlpha=.85;x.beginPath();var s=0;
       V.forEach(function(b,i){var val=a[0][b.d];if(val==null)return;var y=Y(val);if(y<pt-2||y>pt+ph+2){s=0;return;}s?x.lineTo(X(i),y):x.moveTo(X(i),y);s=1;});
-      x.stroke();x.globalAlpha=1;var has=Object.keys(a[0]).length>0;x.fillStyle=has?a[1]:'#4a456f';x.font=fs+'px '+FONT;x.textAlign='left';
-      if(TX)x.fillText(a[2]+(has?'':' n/a'),pl+10+j*(narrow?70:90),pt-8);});
+      x.stroke();x.globalAlpha=1;});
+    // header (Deepvue-style readout): row 1 = date · O H L C · change · volume of the bar under the crosshair (else the newest bar);
+    // row 2 = the moving averages with their values on that bar. Shrinks (drops the open, then a smaller font) to fit a phone.
+    var hi0=hover>=0&&hover<n?hover:n-1,hb=V[hi0],hpv=hi0+off>0?bars[hi0+off-1].c:null,hch=hpv?(hb.c/hpv-1)*100:null,fp=function(v){return v==null?'—':Math.abs(v)<1?v.toFixed(4):v.toFixed(2);};
+    var hdt=TF==='M'?MON[+hb.d.slice(5,7)-1]+' '+hb.d.slice(0,4):TF==='W'?'WK '+sday(hb.d)+(narrow?'':' → '+sday(hb.de||hb.d))+' '+(hb.de||hb.d).slice(2,4):sday(hb.d)+' '+hb.d.slice(narrow?2:0,4);
+    var HS=function(dropO,brief){var a=[[hdt+(hb.prov?' PROV':''),hover>=0?'#00e5ff':'#e8e6ff'],['  ']];if(!dropO&&hb.o!=null)a.push(['O ','#8f88c4'],[fp(hb.o)+'  ']);
+      a.push(['H ','#8f88c4'],[fp(hb.h)+'  '],['L ','#8f88c4'],[fp(hb.l)+'  '],['C ','#8f88c4'],[fp(hb.c)+'  ',hb.up?C.up:C.dn]);
+      if(hch!=null)a.push([(hch>=0?'+':'')+hch.toFixed(2)+'%'+(brief?'':' ('+(hb.c-hpv>=0?'+':'-')+Math.abs(hb.c-hpv).toFixed(hb.c<1?4:2)+')')+'  ',hch>=0?C.up:C.dn]);
+      a.push(['V ','#8f88c4'],[fmtV(hb.v)]);return a;};
+    var hmax=(narrow&&OFF.length&&TX?tagX:W-6)-pl-4,HV=[[0,0,narrow?6:8],[0,1,narrow?6:8],[1,1,6],[1,1,5]],hseg=null,hfz=6;
+    for(var hq=0;hq<HV.length;hq++){hfz=HV[hq][2];x.font=hfz+'px '+FONT;var sg=HS(HV[hq][0],HV[hq][1]||narrow);if(x.measureText(sg.map(function(z){return z[0];}).join('')).width<=hmax||hq===HV.length-1){hseg=sg;break;}}
+    var HDR={i:hi0+off,d:hb.d,hover:hover>=0?1:0,text:hseg.map(function(z){return z[0];}).join('').replace(/\s+/g,' ').trim(),ma:[]};
+    if(TX){x.textAlign='left';x.font=hfz+'px '+FONT;var hxp=pl+4;hseg.forEach(function(z){x.fillStyle=z[1]||'#e8e6ff';x.fillText(z[0],hxp,pt-20);hxp+=x.measureText(z[0]).width;});}
+    if(LY.sma&&!NOMA){x.font=(narrow?6:fs)+'px '+FONT;var mxp=pl+4,MAS=[[S50,'#ff9f1c',smaNames()[0]],[S150,'#b86bff',smaNames()[1]],[S200,'#4da3ff',smaNames()[2]]];
+      var mw=MAS.map(function(a){var vv=a[0][hb.d];return a[2]+' '+(vv!=null?fp(vv):Object.keys(a[0]).length?'—':'n/a');});
+      var full=x.measureText(mw.join('   ')).width<=hmax;
+      MAS.forEach(function(a,j){var has=Object.keys(a[0]).length>0,t=full?mw[j]:a[2]+(has?'':' n/a');HDR.ma.push(mw[j]);x.fillStyle=has?a[1]:'#4a456f';if(TX)x.fillText(t,mxp,pt-8);mxp+=x.measureText(t).width+(narrow?8:14);});}
+    window.TC_HDR=HDR;
+    // price bars. CANDLES (default, 4 Oct 2026 pro polish): colour = close vs the prior close (the desk's up / down, same as volume), HOLLOW body =
+    // close ≥ open, FILLED = close < open; 1px wick on the half-pixel, odd body widths on whole pixels (crisp at any zoom). HLC = the old style.
+    // Older 1W / 1M bars from the server history have no open: the prior close stands in.
+    if(LY.bars&&BST!=='hlc'){var bodyW=Math.max(1,Math.min(Math.round(bw*.75),narrow?11:17));if(bodyW%2===0)bodyW+=bodyW+1<=bw-1?1:-1;
+      V.forEach(function(b,i){var c=b.up?C.up:C.dn,o=b.o!=null?b.o:(i+off>0?bars[i+off-1].c:b.c),cx=Math.floor(X(i))+.5,yh=Math.round(Y(b.h)),yl=Math.max(yh+1,Math.round(Y(b.l))),
+        t=Math.round(Y(Math.max(o,b.c))),bb=Math.max(t+1,Math.round(Y(Math.min(o,b.c)))),bx=cx-bodyW/2,hol=b.c>=o&&bodyW>=3&&bb-t>=3;
+        x.strokeStyle=c;x.fillStyle=c;x.lineWidth=1;if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
+        x.beginPath();if(hol){x.moveTo(cx,yh);x.lineTo(cx,t);x.moveTo(cx,bb);x.lineTo(cx,yl);}else{x.moveTo(cx,yh);x.lineTo(cx,yl);}x.stroke();
+        if(hol){x.fillStyle=C.bg;x.fillRect(bx,t,bodyW,bb-t);x.strokeRect(bx+.5,t+.5,bodyW-1,bb-t-1);}else if(bodyW>1)x.fillRect(bx,t,bodyW,bb-t);
+        if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});}
     // HLC bars: low→high bar + right close tick, no open tick
     var bLW=Math.max(1,Math.min(bw*.38,narrow?5:6)), tLW=Math.max(1,Math.min(bw*.3,2.4)), tLen=Math.max(1.5,Math.min(bw*.5,9));
-    if(LY.bars)V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
+    if(LY.bars&&BST==='hlc')V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
       x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l)+(Y(b.l)-Y(b.h)<1?1:0));x.stroke();
       x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();
       if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
@@ -661,6 +775,7 @@
         if(TX){x.globalAlpha=.65;x.fillStyle='#9a93d8';x.fillText('+'+pk*10+'%',barsEnd-2,py-2);}}
       x.restore();}
     BUYL.forEach(function(f){f();});   // BUY labels on top of the detector drawings (positions were reserved first)
+    if(VPL)VPL();   // volume profile POC / VAH / VAL labels (collision-checked against the BUY + overlay labels)
     // short, thick, glowing level segments in the strip
     var pulse=RM?1:(0.75+0.25*Math.sin((now-t0)/420));
     tags.forEach(function(t){var l=t.l,y=Y(l.v);t.y=y;if(l.inv)return;x.save();x.strokeStyle=l.c;x.shadowColor=l.c;x.shadowBlur=5;x.globalAlpha=.95;x.lineWidth=l.w;x.lineCap='butt';x.setLineDash(l.dash||[]);
@@ -691,20 +806,32 @@
       var lh=narrow?11:12;t.t.forEach(function(s,k){x.fillText(s,k?bx+6:tx,t.cy+(narrow?3:4)-(t.t.length-1)*lh/2+k*lh);});
       if(l.warn){x.shadowBlur=0;for(var q=0;q<t.tw-6;q+=6){x.fillRect(bx+3+q,by-4,3,2);x.fillRect(bx+3+q,by+t.bh+2,3,2);}}
       x.restore();});
+    // price axis numbers: skipped where a tag / the last-price box sits (no hidden or overlapping numbers)
+    var lyT=(!narrow&&TX&&LY.last)?Y(last.c):null;x.font=(narrow?6:fs)+'px '+FONT;x.fillStyle=C.axis;x.textAlign=narrow?'right':'left';
+    AXT.forEach(function(a){if(lyT!=null&&Math.abs(a.y-lyT)<11)return;if(narrow&&TX&&tags.some(function(t){return Math.abs(t.cy-a.y)<t.bh/2+5;}))return;x.fillText(a.t,axX,a.y+3);TCAX.price.push(a.t);});
+    window.TC_AXIS=TCAX;x.textAlign='left';
     if(TX&&LY.stop&&D.stop==null&&!D.no_levels){x.font=(narrow?8:10)+'px '+SYM;x.fillStyle=C.stop;x.shadowColor=C.stop;x.shadowBlur=10;x.textAlign='center';x.fillText('☠ STOP NOT SET — NO R TARGETS',(pl+barsEnd)/2,pt+ph*.5);x.shadowBlur=0;}
     // last price tag on the axis
-    var lastV=V[n-1],ly=Y(last.c);if(!narrow&&TX&&LY.last&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle='#fff';x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
+    var lastV=V[n-1],ly=Y(last.c);if(LY.last&&ly>pt&&ly<pt+ph){x.save();x.strokeStyle=last.up?C.up:C.dn;x.globalAlpha=.3;x.setLineDash([1,3]);x.lineWidth=1;x.beginPath();x.moveTo(pl,snp(ly,1));x.lineTo(sx0-2,snp(ly,1));x.stroke();x.restore();}   // faint last-price line
+   if(!narrow&&TX&&LY.last&&ly>pt-8&&ly<pt+ph+8){x.font=fs+'px '+FONT;var lt=lastV.c.toFixed(2),ltw=x.measureText(lt).width+6;x.fillStyle=last.up?C.up:C.dn;x.beginPath();x.moveTo(W-axisW-5,ly);x.lineTo(W-axisW+1,ly-7);x.lineTo(W-2,ly-7);x.lineTo(W-2,ly+7);x.lineTo(W-axisW+1,ly+7);x.fill();x.fillStyle='#07061a';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';x.fillText(lt,W-axisW+3,ly+4);}
     // 1UP sprite above last bar
     LAST_OFF=OFF.length;if(TX&&OFF.length&&!FOLD){x.font=(narrow?6:7)+'px '+FONT;x.textAlign='right';var ox=W-4;
       if(narrow)OFF.slice().sort(function(a,b){return a.v-b.v;}).forEach(function(l,i){x.fillStyle=l.c;x.fillText((l.ol||('▲'+(l.k==='r3'?'3R ':'2R ')))+l.v.toFixed(2),ox,pt-8-i*9);});   // phone: stacked in the tag column
       else{OFF.slice().reverse().forEach(function(l){var t=(l.ol||('▲ '+(l.k==='r3'?'3R ':'2R ')))+l.v.toFixed(2);x.fillStyle=l.c;x.fillText(t,ox,pt-8);ox-=x.measureText(t).width+8;});x.fillStyle=C.axis;x.fillText('OFF-SCALE',ox,pt-8);}}   // off-scale targets key
-    if(LY.oneup&&LY.bars&&atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];
+    if(LY.oneup&&LY.bars&&atLatest){var bob=RM?0:Math.round(Math.sin((now-t0)/260)*2), spx=X(n-1), spy=Y(lastV.h)-8+bob, P=narrow?2:3, spr=['.###.','.###.','.###.','#####','.###.','..#..'];spy=Math.max(spy,pt+spr.length*P+(TX?11:1));   // never up into the header readout
     x.fillStyle=C.r3;x.shadowColor=C.r3;x.shadowBlur=10;
     spr.forEach(function(r,ry){r.split('').forEach(function(ch,cx){if(ch=='#')x.fillRect(spx+(cx-2.5)*P,spy-(spr.length-ry)*P,P,P);});});
     x.shadowBlur=0;x.fillStyle='#fff';x.font=fs+'px '+FONT;x.textAlign='center';if(TX)x.fillText('1UP',spx,spy-spr.length*P-6);}
     // crosshair
-    if(hover>=0&&hover<n){var hx=X(hover);x.save();x.strokeStyle='rgba(255,255,255,.35)';x.setLineDash([3,3]);x.lineWidth=1;
-      x.beginPath();x.moveTo(hx,pt);x.lineTo(hx,H-pb);x.stroke();x.restore();}
+    // crosshair (pro): vertical snapped to the bar, horizontal at the pointer inside the price pane; price box on the right axis, date box on the date axis
+    window.TC_XH=null;
+    if(hover>=0&&hover<n){var hx=snp(X(hover),1),hy=hoverY,inP=hy>=pt&&hy<=pt+ph,pv=inP?hi-(hy-pt)/ph*(hi-lo):null,xr=narrow?tagX:W-axisW;x.save();x.strokeStyle='rgba(232,230,255,.42)';x.setLineDash([3,3]);x.lineWidth=1;
+      x.beginPath();x.moveTo(hx,pt-2);x.lineTo(hx,H-pb);if(inP){var yy=snp(hy,1);x.moveTo(pl,yy);x.lineTo(xr,yy);}x.stroke();x.setLineDash([]);
+      x.font=(narrow?6:7)+'px '+FONT;x.textBaseline='middle';
+      if(inP){var ptx=pv<1?pv.toFixed(4):pv.toFixed(2),pw=x.measureText(ptx).width+8,px0=narrow?W-pw-2:W-axisW+1;x.fillStyle='#e8e6ff';x.fillRect(px0,Math.round(hy)-6,pw,12);x.fillStyle='#07061a';x.textAlign='left';x.fillText(ptx,px0+4,Math.round(hy)+.5);}
+      var hbx=V[hover],dtx=TF==='M'?MON[+hbx.d.slice(5,7)-1]+' '+hbx.d.slice(0,4):(TF==='W'?'WK ':'')+sday(hbx.d)+' '+hbx.d.slice(2,4);
+      if(AX){var dw=x.measureText(dtx).width+8,dx0=Math.max(pl,Math.min(W-dw-2,hx-dw/2));x.fillStyle='#e8e6ff';x.fillRect(dx0,H-pb+9,dw,12);x.fillStyle='#07061a';x.textAlign='center';x.fillText(dtx,dx0+dw/2,H-pb+15.5);}
+      x.restore();window.TC_XH={i:hover+off,d:hbx.d,y:inP?Math.round(hy):null,p:inP?+pv.toFixed(4):null,date:dtx};}
   }
 
   function ovlTips(bi){var t='',d=bars[bi]&&bars[bi].d;OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.t==='point'&&(TF===NATIVE?it.d===d:(ptShow(o,it)&&dix(it.d)===bi))&&it.tip)t+='<br><span class="tc-otip" style="color:'+esc(it.c||o.color)+'">'+esc(it.tip)+'</span>';});});return t;}   // overlay point notes (e.g. VSA why)
@@ -715,13 +842,13 @@
   function showTip(i,px,py){
     if(i<0){tip.hidden=true;return;}
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
-    tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+'<br>H '+b.h.toFixed(2)+'<br>L '+b.l.toFixed(2)+'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>')+
-      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
+    tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+(LS.text?'':'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>'))+
+      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]&&!LS.text?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
       (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i);
-    tip.hidden=false;var w=host.clientWidth;tip.style.left=(px>w/2?Math.max(4,px-tip.offsetWidth-14):px+14)+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,py-40))+'px';
+    tip.hidden=false;var w=host.clientWidth,ty=geo&&geo.pt!=null?geo.pt+4:py-40;tip.style.left=(px>w/2?Math.max(4,Math.min(px-tip.offsetWidth-14,geo?geo.pl+4:4)):Math.max(px+14,(geo?geo.barsEnd:w)-tip.offsetWidth-4))+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,ty))+'px';   // pinned to the top corner away from the pointer
   }
   function onMove(e){if(!geo)return;var r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e,px=p.clientX-r.left,py=p.clientY-r.top;
-    var i=Math.floor((px-geo.pl)/geo.bw);if(px>geo.barsEnd||i<0||i>=geo.n){hover=-1;showTip(-1);}else{hover=i;showTip(i+geo.off,px,py);}if(RM)draw(performance.now());}
+    var i=Math.floor((px-geo.pl)/geo.bw);hoverY=py;if(px>geo.barsEnd||i<0||i>=geo.n){hover=-1;showTip(-1);}else{hover=i;showTip(i+geo.off,px,py);}if(!HRAF)HRAF=requestAnimationFrame(function(){HRAF=0;draw(performance.now());});}
   cv.addEventListener('mousemove',function(e){if(window.TCZoom&&TCZoom.dragging){return;}onMove(e);});
   if(window.TCZoom) TCZoom.mount({host:host,canvas:cv,total:bars.length,redraw:function(){draw(performance.now());},
     tap:function(cx,cy){onMove({clientX:cx,clientY:cy});},clearTip:function(){hover=-1;showTip(-1);}});
@@ -739,9 +866,11 @@
     ob.addEventListener('click',function(e){var b=e.target.closest('button[data-o]');if(!b)return;var o=OVL[+b.getAttribute('data-o')];o.on=!o.on;
       OLS.set('tc_ovl_'+o.id,o.on?'1':'0');b.setAttribute('aria-pressed',String(o.on));b.innerHTML=obtn(o);draw(performance.now());if(window._tcLaySync)_tcLaySync();});
   }
-  cv.addEventListener('mouseleave',function(){hover=-1;showTip(-1);if(RM)draw(performance.now());});
+  cv.addEventListener('mouseleave',function(){hover=-1;hoverY=-1;showTip(-1);draw(performance.now());});
 
   // ---------------------------------------------------------------- legend, levels table, footer
+  function vpKey(){if(!VP.on)return '';var T=window.TC_VP||{};return '<span class="tc-vpk" style="white-space:normal;overflow-wrap:anywhere;max-width:100%"><i style="background:#ffae00"></i>VOLUME PROFILE · '+esc(T.lab||VPN[VP.m])+' · '+VP.b+' BINS'+' · AMBER LINE = POC · DOTTED BAND = VALUE AREA 70% (VAH / VAL)'+
+    ' · GREEN / RED = UP / DOWN-DAY VOLUME · CYAN CAP = HVN · YELLOW DOTS = LVN · EACH DAY’S VOLUME SPREAD EVENLY OVER ITS HIGH–LOW</span>';}
   function volKey(){if(!LS.L.vol)return '';if(VM!=='vsa')return '<span>VOL: PLAIN · GREEN UP / RED DOWN</span>';
     var hasV=OVL.some(function(o){return o.id==='vsa';}),mini=document.body.classList.contains('tc-mini');
     function sw(c,t,gl){return '<i style="background:'+c+';width:9px;height:7px;margin:0 3px 0 6px'+(gl?';box-shadow:0 0 6px #fff2c0':'')+'"></i>'+t;}
@@ -750,7 +879,7 @@
       '<span class="tc-vsal">REL VOL'+sw(VCOL.dim,'&lt;0.7×')+sw(VCOL.cy,'0.7–1.5')+sw(VCOL.cy2,'1.5–2')+sw(VCOL.hot,'2–3')+sw('#fff','≥3× CLIMAX',1)+'</span>'+
       (mini?'':'<span class="tc-vsal">'+how+'</span>')+
       (LS.L.weis?'<span class="tc-vsal"><i style="background:rgba(57,255,136,.5)"></i>/<i style="background:rgba(255,43,214,.5);margin-left:4px"></i>WEIS WAVES UP / DOWN · NEW WAVE WHEN THE CLOSE REVERSES ≥1×ATR14</span>':'');}
-  function legendHTML(){return '<span><i style="background:'+C.up+'"></i>HLC BAR UP (CLOSE ≥ PRIOR CLOSE)</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+
+  function legendHTML(){return '<span><i style="background:'+C.up+'"></i>'+(BST==='hlc'?'HLC BAR UP (CLOSE ≥ PRIOR CLOSE)':'UP: CLOSE ≥ PRIOR CLOSE')+'</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+(BST==='hlc'?'':'<span>HOLLOW = CLOSE ≥ OPEN</span>')+vpKey()+
     (NOMA?'<span class="tc-warnline">NO MOVING AVERAGES ON THIS CHART (STRUCTURE + VOLUME ONLY)</span>':smaLeg())+
     (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
     (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>'+rtMaLbl()+' OF RATING</span>'+
@@ -801,7 +930,7 @@
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
   function layersUI(){
-    var NAMES={bars:'Bars (HLC)',vol:'Volume',weis:'Weis waves (VOL: VSA panel)',sma:'Moving averages (SMA 50/150/200 · 1W 10/30/40 · 1M 3/7/10)',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
+    var NAMES={bars:'Price bars',vol:'Volume',weis:'Weis waves (VOL: VSA panel)',sma:'Moving averages (SMA 50/150/200 · 1W 10/30/40 · 1M 3/7/10)',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
       acct:'−0.5% / −1% acct loss',cuts:'Cut levels ✂',zones:'Risk / reward / buy-zone bands',last:'Price tag (last)',rsp:'RS rating panel',
       rsl:'RS line dots (new high first)',ovl:'Pattern overlays',oneup:'1UP marker (latest bar)'};
     var HAS={bars:1,vol:1,weis:1,sma:NOMA?0:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
@@ -819,7 +948,12 @@
     function render(){var pre=presetOf(LS);
       pn.innerHTML='<div class="tclh"><b>LAYERS</b><span class="pp">'+['full','levels','clean'].map(function(p){return '<button type="button" data-p="'+p+'" aria-pressed="'+(pre===p)+'">'+p.toUpperCase()+'</button>';}).join('')+'</span>'+
         '<button type="button" class="x" aria-label="Close layers">✕</button></div>'+
+        '<div class="tcvp" role="radiogroup" aria-label="Bar style"><b>BARS</b>'+[['candle','CANDLES'],['hlc','HLC']].map(function(q){return '<button type="button" role="radio" data-bst="'+q[0]+'" aria-checked="'+(BST===q[0])+'" aria-pressed="'+(BST===q[0])+'">'+q[1]+'</button>';}).join('')+'</div>'+
         '<div class="tclg">'+LAYK.filter(function(k){return HAS[k];}).map(function(k){return tb(k,NAMES[k],LS.L[k]);}).join('')+'</div>'+
+        '<div class="tcls">VOLUME PROFILE</div><div class="tclg">'+'<button type="button" class="tg" data-vp="on" aria-pressed="'+(VP.on?'true':'false')+'"><i></i><span>Volume profile (right side · POC · value area 70% · HVN / LVN · up / down split)</span></button></div>'+
+        '<div class="tcvp" role="radiogroup" aria-label="Volume profile range"><b>RANGE</b>'+VPM.map(function(m){var dis=m==='tr'&&!vpTR();return '<button type="button" role="radio" data-vpm="'+m+'" aria-checked="'+(VP.m===m)+'" aria-pressed="'+(VP.m===m)+'"'+(dis?' disabled title="No Wyckoff trading range on this chart"':'')+'>'+{vis:'VISIBLE','20':'20','50':'50','100':'100',tr:'TR'}[m]+'</button>';}).join('')+'</div>'+
+        '<div class="tcvp" role="radiogroup" aria-label="Volume profile bins"><b>BINS</b>'+VPB.map(function(q){return '<button type="button" role="radio" data-vpb="'+q+'" aria-checked="'+(VP.b===q)+'" aria-pressed="'+(VP.b===q)+'">'+q+'</button>';}).join('')+'</div>'+
+        '<div class="tcvn">Built from daily bars: each day’s volume is spread evenly over its high–low, green / red = up / down days. VISIBLE follows pan + zoom; 20 / 50 / 100 = the newest bars; TR = the Wyckoff trading range.</div>'+
         (OVL.length?'<div class="tcls">PATTERN OVERLAYS'+(LS.L.ovl?'':' (layer off)')+'</div><div class="tclg">'+OVL.map(function(o,i){return '<button type="button" class="tg tgo" data-o="'+i+'" aria-pressed="'+o.on+'"><i style="border-color:'+esc(o.color||'#ffd23f')+'"></i><span>'+esc(String(o.label||o.id).slice(0,60))+'</span></button>';}).join('')+'</div>':'')+
         '<div class="tcls">TEXT</div><div class="tclg">'+tb('text','All text labels',LS.text,' tgt')+tb('axis','Axis numbers + months',LS.axis,' tgt')+'</div>'+
         '<div class="tclf"><button type="button" data-a="all">ALL ON</button><button type="button" data-a="reset">RESET</button><span>'+(pre==='custom'?'CUSTOM mix · saved for every chart':'preset '+pre.toUpperCase()+' · saved for every chart')+'</span></div>';}
@@ -857,6 +991,9 @@
     bl.addEventListener('click',function(e){e.stopPropagation();open(pn.hidden);});
     pn.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;e.stopPropagation();
       if(b.classList.contains('x')){open(false);return;}
+      var vpa=b.getAttribute('data-vp'),vpm=b.getAttribute('data-vpm'),vpb=b.getAttribute('data-vpb'),bst=b.getAttribute('data-bst');
+      if(vpa||vpm||vpb){if(vpa)VP.on=VP.on?0:1;if(vpm){VP.m=vpm;VP.on=1;}if(vpb){VP.b=+vpb;VP.on=1;}vpSave();legRe();redraw();render();return;}
+      if(bst){BST=bst==='hlc'?'hlc':'candle';try{localStorage.setItem(BSK,BST);}catch(e){}legRe();redraw();render();return;}
       var k=b.getAttribute('data-k'),o=b.getAttribute('data-o'),p=b.getAttribute('data-p'),a=b.getAttribute('data-a');
       if(k==='text'||k==='axis')LS[k]=LS[k]?0:1;else if(k)LS.L[k]=LS.L[k]?0:1;
       else if(o!=null){var ov=OVL[+o];ov.on=!ov.on;OLS.set('tc_ovl_'+ov.id,ov.on?'1':'0');if(ov.on)LS.L.ovl=1;syncOvl();}
@@ -867,6 +1004,7 @@
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pn.hidden){open(false);bl.focus();}});
     window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();legRe();draw(performance.now());}});   // other open charts / tabs
+    window.addEventListener('storage',function(e){if(e.key===VPK){vpLoad();legRe();if(!pn.hidden)render();draw(performance.now());}else if(e.key===BSK){BST=e.newValue==='hlc'?'hlc':'candle';legRe();if(!pn.hidden)render();draw(performance.now());}});
     zb.appendChild(pn);lab();
     // ---- notes fold row
     var fr=document.createElement('button');fr.type='button';fr.className='tcf';fr.setAttribute('aria-controls','tc-chart');
@@ -885,7 +1023,10 @@
     else setTimeout(flab,0);
     setTimeout(function(){if(!FOLD)flab();},600);}
   if(!document.getElementById('tc-tf-css')){var tcs=document.createElement('style');tcs.id='tc-tf-css';   // 1D / 1W / 1M segmented switch (cyan, next to the gold presets)
-    tcs.textContent='.tc-now{font-size:11px;line-height:1.5;margin:2px 0 7px;padding:5px 7px;border:2px solid currentColor;box-shadow:0 0 8px currentColor inset}.tc-now.pos{color:#39ff88}.tc-now.neg{color:#ff3d7f}.tc-now b{font-weight:400;color:inherit}.tc-pgd{white-space:nowrap}'+'.tc-legend span.tc-vsak,.tc-legend span.tc-vsal,.tc-legend span.tc-pgk,.tc-legend .tc-warnline{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}'+   // the module never widens the page, with or without desk.css (raw generator output)
+    tcs.textContent='.tclp .tcvp{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:6px 0}.tclp .tcvp b{font:400 8px var(--tc-px,monospace);color:#ffae00;min-width:48px;letter-spacing:1px}'+
+      '.tclp .tcvp button{min-height:34px!important;min-width:40px;padding:4px 7px!important;font-size:11px!important}.tclp .tcvp button[aria-pressed=true]{border-color:#ffae00!important;color:#ffae00!important;background:rgba(255,174,0,.14)!important}'+
+      '.tclp .tcvp button:disabled{opacity:.35;cursor:not-allowed}.tclp .tcvn{font:11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#9d97cf;margin:2px 0 8px}'+
+      '.tc-now{font-size:11px;line-height:1.5;margin:2px 0 7px;padding:5px 7px;border:2px solid currentColor;box-shadow:0 0 8px currentColor inset}.tc-now.pos{color:#39ff88}.tc-now.neg{color:#ff3d7f}.tc-now b{font-weight:400;color:inherit}.tc-pgd{white-space:nowrap}'+'.tc-legend span.tc-vsak,.tc-legend span.tc-vsal,.tc-legend span.tc-vpk,.tc-legend span.tc-pgk,.tc-legend .tc-warnline{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}'+   // the module never widens the page, with or without desk.css (raw generator output)
       '.tc-legend{min-width:0;max-width:100%}.tc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}.tc-tbl td.tc-src{overflow-wrap:anywhere}.tc-stage,.tc-panel,.tc-foot{min-width:0;max-width:100%}'+
       '.tcz .tcg .tctf{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #00e5ff;box-shadow:2px 2px 0 #000}'+
       '.tcz .tcg .tctf button{min-width:38px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(0,229,255,.45)!important;box-shadow:none!important;color:#00e5ff!important;background:#07061a!important;padding:4px 6px;flex:0 0 auto}'+
