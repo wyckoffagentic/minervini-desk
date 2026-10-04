@@ -173,3 +173,4 @@
 #rso .rso-sum .s-bt{display:flex;gap:6px;margin-top:9px}
 #rso .rso-sum .s-bt button{flex:1;border:1px solid var(--acc);background:none;color:#fff;padding:9px;border-radius:3px;font-size:10px;letter-spacing:1.5px}
 #rso .rso-stage:has(.rso-sum.on) .rso-tm{opacity:0}
+#rso .rso-tag,#rso .rso-tl{z-index:1}#rso svg.rso-lead,#rso .rso-ret{z-index:2}#rso .rso-co{z-index:3}
