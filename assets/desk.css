@@ -482,3 +482,7 @@ details.pg-ph[data-ph=F]>summary .pg-pht{color:var(--rd,#ff6b6b)}details.pg-ph[d
 .pg-note{color:var(--dim);font-size:10.5px;white-space:normal}.pg-evh{font-weight:500;text-transform:none;letter-spacing:0}.pg-bac small{white-space:nowrap}
 @media (max-width:760px){.pg-pw{display:none}details.pg-ph{padding:0 4px 4px}details.pg-ph>summary{font-size:15px}details.pg-ba{margin-left:0;padding-left:5px}
   details.pg-ba>summary{font-size:14px}details.pg-sec>summary.pg-ssum{font-size:16px}.pg-phbar .dk-tfc,.pg-tfbar .dk-tfc{font-size:12.5px;padding:4px 9px}.pg-bac small{white-space:normal}}
+/* one chart module · inline dropdowns: folded levels/sources (charts.js wraps them in details.tc-fold when body.tc-mini) */
+body.tc-mini details.tc-fold>summary{cursor:pointer;list-style:none;padding:10px 4px;min-height:24px;font:700 11px/1.4 var(--f-mono,monospace);color:var(--cy,#0ef);border:1px dashed rgba(0,238,255,.35);border-radius:8px;text-align:center}
+body.tc-mini details.tc-fold>summary::-webkit-details-marker{display:none}
+body.tc-mini details.tc-fold[open]>summary{margin-bottom:8px}

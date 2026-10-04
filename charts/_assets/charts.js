@@ -577,6 +577,14 @@
   $('tc-foot').innerHTML='<p><b>RESEARCH, NOT ADVICE.</b> Entry/stop are the desk\'s planning levels (watchlist.md, daily report, alert state), not orders; 2R/3R are arithmetic targets. Verify before trading.</p>'+
     '<p>Prices: '+esc(D.price_src)+' · fetched '+esc(D.fetched_at||'?')+' · page generated '+esc(D.generated||'')+' (Sydney).</p><p>Font: Press Start 2P (SIL OFL 1.1). Chart drawn on canvas, no third-party code.</p>';
 
+  // inline dropdowns (stock.html?mini=1): same module, but the long levels table + sources fold closed so the
+  // dropdown stays phone-sized (chart canvas at phone height, trade panel / RISK / key open, details one tap away)
+  if(document.body.classList.contains('tc-mini')){
+    var lvE=$('tc-levels'),ftE=$('tc-foot');
+    if(lvE&&!lvE.querySelector('details.tc-fold')){var nr=lvE.querySelectorAll('table tbody tr').length;
+      lvE.innerHTML='<details class="tc-fold"><summary>LEVELS &amp; SOURCES'+(nr?' · '+nr+' ROWS':'')+' ▸</summary>'+lvE.innerHTML+'</details>';}
+    if(ftE&&!ftE.querySelector('details.tc-fold'))ftE.innerHTML='<details class="tc-fold"><summary>RESEARCH, NOT ADVICE · SOURCES ▸</summary>'+ftE.innerHTML+'</details>';}
+
   // ---------------------------------------------------------------- run
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
