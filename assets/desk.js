@@ -234,7 +234,7 @@ if(XP_ON){
       var FH={};(location.hash||'').replace(/^#/,'').split('&').forEach(function(kv){var p=kv.split('=');if(p[1]&&/^(all|[A-FN])$/.test(p[1]))FH[p[0]]=p[1];});
       if(FH.ph&&!FH.spr)FH.spr=FH.ph;   // old springs links (#ph=C)
       var FS={},anyTf=0;
-      var fullHash=function(){var h=[];if(anyTf){h.push('tf='+st.tf);if(st.act)h.push('act=1');}
+      var fullHash=function(){var h=[];if(anyTf){if(st.tf!=='all')h.push('tf='+st.tf);if(st.act)h.push('act=1');}
         fams.forEach(function(f){var k=f.getAttribute('data-fam');if(FS[k]&&FS[k]!=='all')h.push(k+'='+FS[k]);});return h.join('&');};
       var mixTxt=function(rows,ord){var a=0,c={},n=0;rows.forEach(function(r){n++;if(r.getAttribute('data-act')==='1')a++;(r.getAttribute('data-mx')||'').split(' ').forEach(function(t){if(t)c[t]=(c[t]||0)+1;});});
         var keys=ord.length?ord:Object.keys(c).sort(),p=[];if(a)p.push('⚡ '+a+' actionable');keys.forEach(function(k){if(c[k])p.push(k.replace(/_/g,' ')+' '+c[k]);});
