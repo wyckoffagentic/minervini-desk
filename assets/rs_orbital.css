@@ -176,12 +176,14 @@
 #rso .rso-tag,#rso .rso-tl{z-index:1}#rso svg.rso-lead,#rso .rso-ret{z-index:2}#rso .rso-co{z-index:3}
 /* ---- open a tier (4 Oct 2026, v2): tappable ring labels, BACK chip, tier panel ---- */
 #rso .rso-stage{-webkit-touch-callout:none}
-#rso .rso-tl{pointer-events:auto;cursor:pointer;padding:6px 6px 6px 0;margin:-6px 0 0;transition:opacity .3s}
+#rso .rso-tl{transition:opacity .3s}
+#rso .rso-tl .hit{pointer-events:auto;cursor:pointer;display:inline-block;padding:7px 4px 7px 0;margin:-7px 0}
+#rso .rso-tl.off .hit{pointer-events:none}
 #rso .rso-tl u{text-decoration:none;display:inline-block;margin-right:4px;font-size:10px;opacity:.85}
 #rso .rso-tl.open{font-size:11px;letter-spacing:1.2px}
 #rso .rso-tl.open u{transform:rotate(45deg)}
 #rso .rso-tl.off{pointer-events:none}
-#rso .rso-tl:focus-visible{outline:1px dashed var(--c);outline-offset:2px}
+#rso .rso-tl .hit:focus-visible{outline:1px dashed var(--c);outline-offset:2px}
 #rso .rso-cb.back{border-color:var(--acc);color:#fff}
 #rso .rso-tp{margin:6px 8px 0;padding:8px 9px 6px;border:1px solid color-mix(in srgb,var(--c) 55%,transparent);border-radius:4px;background:rgba(2,8,18,.75);
  font:500 10px/1.25 ui-monospace,'SF Mono',Menlo,monospace;color:#d3e6f6;letter-spacing:.5px;box-shadow:0 0 18px -10px var(--c)}

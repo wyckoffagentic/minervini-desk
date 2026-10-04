@@ -261,7 +261,7 @@ function init(D,THREE){
 
   // ---------------------------------------------------------------- HTML overlay: tier labels, ticker tags, reticle, callout
   var labels=TIERS.map(function(t,ti){var e=document.createElement('div');e.className='rso-tl'+(ti===4?' dim':'');
-    e.innerHTML=esc(t.label)+'<i>'+t.shown+(t.dust?' +'+t.dust.toLocaleString()+' dust':'')+'</i>';ov.appendChild(e);return e;});
+    e.innerHTML='<span class="hit">'+esc(t.label)+'</span><i>'+t.shown+(t.dust?' +'+t.dust.toLocaleString()+' dust':'')+'</i>';ov.appendChild(e);return e;});
   var topIdx=[]; (function(){for(var i=0;i<N&&topIdx.length<6;i++){if(S[i].g===0) topIdx.push(i);} for(var t=1;t<5;t++){for(i=0;i<N;i++){if(S[i].g===t){topIdx.push(i);break;}}}})();
   var tags={};
   function tag(i){if(tags[i]) return tags[i];var e=document.createElement('div');e.className='rso-tag';e.textContent=info[i].t;ov.appendChild(e);tags[i]=e;return e;}
@@ -482,10 +482,10 @@ function init(D,THREE){
   var tp=document.createElement('div'); tp.className='rso-tp'; tp.hidden=true; stage.parentNode.insertBefore(tp,ctl);
   var backB=document.createElement('button'); backB.type='button'; backB.className='rso-cb back'; backB.innerHTML='<i>◂</i>BACK'; backB.hidden=true; cb.insertBefore(backB,hudB);
   backB.addEventListener('click',function(){closeTier();});
-  labels.forEach(function(e,t){e.setAttribute('role','button'); e.setAttribute('tabindex','0'); e.setAttribute('aria-label','Open '+TIERS[t].label);
-    e.insertAdjacentHTML('afterbegin','<u>⊕</u>');
-    e.addEventListener('click',function(ev){ev.stopPropagation(); if(op.t===t&&op.target>0) closeTier(); else openTier(t);});
-    e.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault(); e.click();}});});
+  labels.forEach(function(e,t){var h=e.querySelector('.hit'); h.setAttribute('role','button'); h.setAttribute('tabindex','0'); h.setAttribute('aria-label','Open '+TIERS[t].label);
+    h.insertAdjacentHTML('afterbegin','<u>⊕</u>');
+    h.addEventListener('click',function(ev){ev.stopPropagation(); if(op.t===t&&op.target>0) closeTier(); else openTier(t);});
+    h.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault(); h.click();}});});
   function labelsState(){labels.forEach(function(e,t){e.classList.toggle('open',op.t===t&&op.target>0); e.classList.toggle('off',rp.on||(op.t>=0&&op.target>0&&t!==op.t));});}
   function ringAt(x,y){var best=-1,bd=30,o=new Float32Array(3);cY=Math.cos(yaw);sY=Math.sin(yaw);
     for(var t=0;t<TIERS.length;t++){for(var j=0;j<72;j++){W3(1.0,t,j/72*6.2832,0,o); v.set(o[0],o[1],o[2]).project(cam); var d=Math.hypot((v.x*0.5+0.5)*W-x,(-v.y*0.5+0.5)*H-y); if(d<bd){bd=d;best=t;}}}
@@ -557,6 +557,6 @@ function init(D,THREE){
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[Math.round(rp.p)]:null,events:rp.events.length};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
-    label:function(t){var r=labels[t].getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}};
+    label:function(t){var r=labels[t].querySelector('.hit').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}};
 }
 })();
