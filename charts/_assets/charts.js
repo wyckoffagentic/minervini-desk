@@ -515,7 +515,8 @@
       var rlo=Math.max(1,Math.floor(mn-3)), rhi=Math.min(99,Math.ceil(mx+2));if(!any){rlo=1;rhi=99;}
       if(rhi-rlo<10){var _c=(rhi+rlo)/2;rlo=Math.round(_c-5);rhi=rlo+10;if(rhi>99){rhi=99;rlo=89;}if(rlo<1){rlo=1;rhi=11;}}
       var rstep=20;[1,2,5,10,20].some(function(st){if(rh*st/(rhi-rlo)>=(narrow?14:18)){rstep=st;return true;}});   // scale labels >= ~14px apart
-      var RY=function(v){return ry0+3+(rhi-v)/(rhi-rlo)*(RH-6);};
+      var rtp=TX?(narrow?12:14):3;   // top pad: keep the 'RS RATING · MA21' title clear of a 95-99 rating line (longer history, 4 Oct 2026)
+      var RY=function(v){return ry0+rtp+(rhi-v)/(rhi-rlo)*(RH-rtp-3);};
       x.beginPath();x.rect(pl,ry0,rw,RH);x.clip();
       // grid (20-step) inside the plot
       x.strokeStyle='rgba(255,255,255,.07)';x.lineWidth=1;if(AX)for(var gv=Math.ceil(rlo/rstep)*rstep;gv<=rhi;gv+=rstep){var gy=Math.round(RY(gv))+.5;x.beginPath();x.moveTo(pl,gy);x.lineTo(barsEnd,gy);x.stroke();}
