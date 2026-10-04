@@ -494,3 +494,8 @@ body.tc-volvsa.tc-embed .tc-chart{height:clamp(340px,calc(100vh - 290px),640px)}
 @media (max-width:760px){body.tc-volvsa.tc-embed .tc-chart{height:clamp(356px,calc(58vh + 36px),536px)}}
 body.tc-volvsa.tc-mini .tc-chart{height:600px}@media (max-width:760px){body.tc-volvsa.tc-mini .tc-chart{height:576px}}
 .tc-legend span.tc-vsak{color:#8fe9ff}.tc-legend span.tc-vsak,.tc-legend span.tc-vsal{white-space:normal!important;overflow-wrap:anywhere}
+/* Floor: TODAY'S TRADES banner (research-tools/unify.py trades_html -> trades.html) */
+a.dk-tt{display:flex;flex-direction:column;gap:3px;margin:10px 0 12px;padding:12px 14px;border-radius:14px;text-decoration:none;color:inherit;
+  border:1px solid rgba(0,229,255,.55);background:linear-gradient(135deg,rgba(0,229,255,.10),rgba(255,121,198,.08));box-shadow:0 0 14px rgba(0,229,255,.25)}
+.dk-tt-h{font:700 15px var(--f-head,inherit);letter-spacing:.5px;color:var(--cy,#0ef)}.dk-tt-n{font:600 17px var(--f-mono,monospace)}.dk-tt-n b{color:#fff}
+.dk-tt-x{font-size:12.5px;color:var(--tx2,#cfc4f0);overflow-wrap:anywhere}.dk-tt-go{margin-top:4px;font-weight:700;color:var(--cy,#0ef);text-decoration:underline;text-underline-offset:3px}
