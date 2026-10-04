@@ -6,25 +6,31 @@
    Density is saved in localStorage ("tc_density_narrow" for phones, "tc_density_wide" for desktop) and shared by every chart page.
    The window is always anchored to the newest bar unless the user pans back (pan is not saved).
    Timeframe (charts.js 1D / 1W / 1M switch): TCZoom.setTf(tf,total) swaps the bar count, the range presets (D 3M/6M/1Y, W 6M/1Y/2Y,
-   M 2Y/5Y/10Y) and the saved density key (D keeps "tc_density_<cls>"; W / M use "tc_density_<cls>_w|_m"). */
+   M 2Y/5Y/10Y) and the saved density key (D keeps "tc_density_<cls>"; W / M use "tc_density_<cls>_w|_m").
+   Future space (4 Oct 2026, Chris: "Allow price to be pulled away from the right hand side, don't make it fixed"): S.offset < 0 = blank bar
+   slots right of the newest bar. Default RM bars (so the newest bar + the 5-bar BUY projection clear the price tags); drag / wheel / keys pan
+   into up to FUT_MAX of the view as future; ▶| LATEST, double-click, a range preset and a timeframe switch snap back to the default.
+   view() -> {start, n (real bars), fut (blank slots)}; charts.js lays out n + fut slots. */
 (function(){
   'use strict';
   var PRE={D:[['3M',63],['6M',126],['1Y',252],['ALL',0]],W:[['6M',26],['1Y',52],['2Y',104],['ALL',0]],M:[['2Y',24],['5Y',60],['10Y',120],['ALL',0]]},PRESETS=PRE.D;
   var MPB={D:1/21,W:12/52,M:1};      // months per bar (readout)
   var DEF_PX={narrow:4.7,wide:6};      // default bar pitch: ~60 bars on a 390px phone, ~130-140 on a 1240px desktop
-  var MIN_BARS=12, MAX_PX=40, STEP=1.25;
+  var MIN_BARS=12, MAX_PX=40, STEP=1.25, RM=7, FUT_MAX=0.5;
   var LS={get:function(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
-  var S={tf:'D',total:0,A:0,cls:null,pref:null,count:0,offset:0,bw:6,pl:0,barsEnd:0,start:0,n:0}, O=null, ui={}, raf=0, Z={dragging:false};
+  var S={tf:'D',total:0,A:0,cls:null,pref:null,count:0,offset:-7,bw:6,pl:0,barsEnd:0,start:0,n:0}, O=null, ui={}, raf=0, Z={dragging:false};
 
   function key(){return 'tc_density_'+S.cls+(S.tf!=='D'?'_'+S.tf.toLowerCase():'');}
   function minCount(){return Math.min(S.total,Math.max(MIN_BARS,Math.ceil(S.A/MAX_PX)));}
-  function clampCount(c){return Math.max(minCount(),Math.min(S.total,Math.round(c)));}
+  function clampCount(c){return Math.max(minCount(),Math.min(S.total+RM,Math.round(c)));}   // slots: up to every bar + the default future margin
+  function rmDef(){return Math.min(RM,Math.floor(S.count*FUT_MAX));}
+  function fut(){return Math.max(0,-Math.round(S.offset));}
   function countFor(p){
     if(!p) p={px:DEF_PX[S.cls]};
-    if(p.preset){var d=PRESETS.filter(function(q){return q[0]===p.preset;})[0];return clampCount(d&&d[1]?d[1]:S.total);}
+    if(p.preset){var d=PRESETS.filter(function(q){return q[0]===p.preset;})[0];return clampCount((d&&d[1]?d[1]:S.total)+RM);}
     return clampCount(S.A/(+p.px||DEF_PX[S.cls]));
   }
-  function clampOff(){S.offset=Math.max(0,Math.min(S.total-S.count,S.offset));}
+  function clampOff(){var mf=Math.floor(S.count*FUT_MAX);S.offset=Math.max(-mf,Math.min(Math.max(0,S.total-S.count),S.offset));}
   function kick(){if(raf) return;raf=requestAnimationFrame(function(){raf=0;if(O&&O.redraw)O.redraw();sync();});}
   function save(p){S.pref=p;LS.set(key(),p);}
 
@@ -34,17 +40,18 @@
     S.A=Math.max(40,A);
     if(cls!==S.cls){S.cls=cls;S.pref=LS.get(key());S.count=0;}
     S.count=countFor(S.pref); clampOff();
-    S.start=S.total-Math.round(S.offset)-S.count;
+    var f=fut(),real=Math.min(S.total,S.count-f);
+    S.start=S.total-Math.max(0,Math.round(S.offset))-real;
     if(S.start<0) S.start=0;
-    return {start:S.start,n:S.count};
+    return {start:S.start,n:Math.min(real,S.total-S.start),fut:f};
   };
   Z.geo=function(g){S.bw=g.bw;S.pl=g.pl;S.barsEnd=g.barsEnd;S.n=g.n;if(!ui.bar)return;var sig=[S.count,Math.round(S.offset),Math.round(S.A)].join();if(sig!==ui.sig){ui.sig=sig;sync();}};
-  Z.state=function(){return {count:S.count,offset:Math.round(S.offset),total:S.total,px:+(S.A/Math.max(1,S.count)).toFixed(2),barPitch:+S.bw.toFixed(2),mode:S.cls,pref:S.pref};};
+  Z.state=function(){return {count:S.count,offset:Math.round(S.offset),fut:fut(),rm:rmDef(),total:S.total,px:+(S.A/Math.max(1,S.count)).toFixed(2),barPitch:+S.bw.toFixed(2),mode:S.cls,pref:S.pref};};
 
   // ------------------------------------------------------------------ actions
   function setCount(c,focalFrac,keepPreset){
     var old=S.count, nc=clampCount(c); if(!old||nc===old&&!keepPreset){return;}
-    if(S.offset>=0.5&&focalFrac!=null){           // zoom around the focal bar; at the right edge stay anchored to the newest bar
+    if(S.offset>-rmDef()+0.5&&focalFrac!=null){           // zoom around the focal bar; at the right edge stay anchored to the newest bar
       var f=Math.max(0,Math.min(1,focalFrac)), R=S.total-S.offset, F=R-(1-f)*old;
       S.offset=S.total-(F+(1-f)*nc);
     }
@@ -52,9 +59,9 @@
     if(!keepPreset) save({px:+(S.A/nc).toFixed(3)});
     kick();
   }
-  function preset(name){S.offset=0;save({preset:name});S.count=countFor(S.pref);kick();}
+  function preset(name){save({preset:name});S.count=countFor(S.pref);S.offset=-rmDef();kick();}
   function pan(dBars){S.offset+=dBars;clampOff();kick();}
-  function latest(){S.offset=0;kick();}
+  function latest(){S.offset=-rmDef();kick();}
   function frac(clientX){var r=O.canvas.getBoundingClientRect();var w=Math.max(1,S.barsEnd-S.pl);return (clientX-r.left-S.pl)/w;}
   Z.tighter=function(){setCount(S.count*STEP);};
   Z.wider=function(){setCount(S.count/STEP);};
@@ -97,9 +104,9 @@
     var lo=Math.log(minCount()),hi=Math.log(Math.max(S.total,minCount()+1));
     if(document.activeElement!==ui.range) ui.range.value=String(Math.round((Math.log(S.count)-hi)/(lo-hi)*1000));
     ui.bar.querySelectorAll('[data-p]').forEach(function(b){var p=b.getAttribute('data-p'),on=S.pref&&S.pref.preset===p&&countFor(S.pref)===S.count;b.setAttribute('aria-pressed',String(!!on));});
-    var off=Math.round(S.offset);ui.lt.disabled=off<1;
-    var pitch=S.A/S.count, mo=S.count*(MPB[S.tf]||1/21);
-    ui.rd.innerHTML='<b>'+S.count+'</b> OF '+S.total+' BARS · ≈'+(mo>=12?(mo/12).toFixed(1)+'Y':mo.toFixed(mo<10?1:0)+'M')+' · '+pitch.toFixed(1)+'PX/BAR'+(off?' · <b style="color:#ffd700">◀ '+off+' BACK</b>':'');
+    var off=Math.round(S.offset),f=fut(),real=Math.min(S.total,S.count-f);ui.lt.disabled=off===-rmDef();
+    var pitch=S.A/S.count, mo=real*(MPB[S.tf]||1/21);
+    ui.rd.innerHTML='<b>'+real+'</b> OF '+S.total+' BARS · ≈'+(mo>=12?(mo/12).toFixed(1)+'Y':mo.toFixed(mo<10?1:0)+'M')+' · '+pitch.toFixed(1)+'PX/BAR'+(off>0?' · <b style="color:#ffd700">◀ '+off+' BACK</b>':f>rmDef()?' · <b style="color:#ffd700">'+f+' BARS FUTURE ▶</b>':'');
   }
 
   // ------------------------------------------------------------------ gestures
@@ -122,10 +129,10 @@
       P[e.pointerId]={x:e.clientX,y:e.clientY};
       if(pinch){var a=pts();if(a.length<2)return;var d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1,mx=(a[0].x+a[1].x)/2;
         var nc=clampCount(pinch.c0*pinch.d0/d);
-        if(nc!==S.count){var anchored=pinch.off0<0.5;S.count=nc;
+        if(nc!==S.count){var anchored=pinch.off0<=0;S.count=nc;
           if(!anchored){var R=S.total-pinch.off0,F=R-(1-pinch.f)*pinch.c0;S.offset=S.total-(F+(1-pinch.f)*nc);}
           save({px:+(S.A/nc).toFixed(3)});}
-        if(pinch.off0>=0.5||S.offset>=0.5) S.offset+= (mx-pinch.mx)/Math.max(1,S.bw);
+        if(pinch.off0>0||S.offset>0) S.offset+= (mx-pinch.mx)/Math.max(1,S.bw);
         pinch.mx=mx;clampOff();kick();e.preventDefault();return;}
       if(!drag) return;
       var dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;
@@ -158,7 +165,7 @@
       var k=e.key;
       if(k==='+'||k==='='){Z.wider();}else if(k==='-'||k==='_'){Z.tighter();}
       else if(k==='ArrowLeft'){pan(Math.max(1,Math.round(S.count/10)));}else if(k==='ArrowRight'){pan(-Math.max(1,Math.round(S.count/10)));}
-      else if(k==='End'){latest();}else if(k==='Home'){pan(S.total);}else return;
+      else if(k==='End'){latest();}else if(k==='Home'){pan(S.total);}else return;   // ArrowRight past the newest bar opens future space
       e.preventDefault();
     });
   }
@@ -166,7 +173,7 @@
   // opts: {host, canvas, total, redraw(), tap(clientX,clientY), clearTip()}
   Z.mount=function(opts){O=opts;S.total=opts.total;if(opts.tf&&PRE[opts.tf]){S.tf=opts.tf;PRESETS=PRE[S.tf];}build();attach();};
   Z.setTf=function(tf,total){if(!PRE[tf])tf='D';var ch=tf!==S.tf;S.tf=tf;PRESETS=PRE[tf];S.total=total;
-    if(ch){S.offset=0;if(S.cls)S.pref=LS.get(key());if(ui.bar){ui.bar.querySelector('.pr').innerHTML=prHtml();ui.lt=ui.bar.querySelector('[data-z=latest]');}}
-    if(S.cls)S.count=countFor(S.pref);clampOff();ui.sig='';kick();};
+    if(ch){if(S.cls)S.pref=LS.get(key());if(ui.bar){ui.bar.querySelector('.pr').innerHTML=prHtml();ui.lt=ui.bar.querySelector('[data-z=latest]');}}
+    if(S.cls)S.count=countFor(S.pref);if(ch)S.offset=-rmDef();clampOff();ui.sig='';kick();};
   window.TCZoom=Z;
 })();

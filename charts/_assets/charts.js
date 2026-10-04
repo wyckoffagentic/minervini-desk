@@ -121,6 +121,11 @@
   var OVL=(D.overlays||[]).filter(function(o){return o&&o.items&&o.items.length;});
   var OLS={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
   OVL.forEach(function(o){o.on=OLS.get('tc_ovl_'+o.id)!=='0';});
+  // overlay hlines that ARE a plan entry (spring overlays 'ENTRY 12.34' / 'SPRING ENTRY', Wyckoff ticket 'ENTRY') are drawn by the BUY-line code below
+  OVL.forEach(function(o){o.items.forEach(function(it){var lb=String(it.label||'');if(it.t==='hline'&&/\b(ENTRY|PIVOT)\b/i.test(lb)&&!/NOT THE ENTRY/i.test(lb)){it.buy=1;
+    it.side=/^short\b/i.test(String(o.label||''))?'short':'long';it.bnm=ovlName(o);}});});
+  function ovlName(o){var id=String(o.id||'');if(/^spring_tr/.test(id))return 'SPRING (TR)'+(id.split('_')[2]?' '+id.split('_')[2]:'');if(/^spring_up/.test(id))return 'SPRING (UP)';
+    if(id==='wy_ticket')return 'WYCKOFF '+(/^short/i.test(String(o.label||''))?'SHORT':'LONG')+' TICKET';return id.replace(/_/g,' ').toUpperCase();}
   var DIX={}; bars.forEach(function(b,i){DIX[b.d]=i;});
   function dix(d){if(d==null)return bars.length-1;if(DIX[d]!=null)return DIX[d];if(d<bars[0].d)return -1;var lo=0,hi=bars.length-1;if(d>bars[hi].d)return hi;
     while(lo<hi){var m=(lo+hi+1)>>1;if(bars[m].d<=d)lo=m;else hi=m-1;}return lo;}
@@ -212,7 +217,7 @@
       ' · NEWEST '+w+' PROVISIONAL UNTIL ITS LAST SESSION'+(TFHID?' · '+TFHID+' DAILY MARKER'+(TFHID===1?'':'S')+' HIDDEN (1D TO SEE)':'')+(TFSC?' · '+esc(TFSC.toUpperCase()):'')+'</span>';}
   function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;if(it.t==='point'&&!ptShow(o,it))return;var sp=ovlSpan(it);
     if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
-  function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2;
+  function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2,pb=freeBox(x0,cy-h/2,w,h);x0=pb[0];cy=pb[1]+h/2;
     x.fillStyle='rgba(0,0,0,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
   function drawOverlays(x,g){
     var fs=g.narrow?6:7;
@@ -226,6 +231,7 @@
           if(!g.notext&&it.label)ovlTag(x,it.label,Math.max(g.pl+2,bx0+2),y1-fs,c,'left',fs);}
         else if(it.t==='seg'){x.beginPath();x.moveTo(x0,g.Y(it.p0));x.lineTo(x1,g.Y(it.p1));x.stroke();
           if(!g.notext&&it.label){x.setLineDash([]);ovlTag(x,it.label,(x0+x1)/2,(g.Y(it.p0)+g.Y(it.p1))/2,c,'center',fs);}}
+        else if(it.t==='hline'&&it.buy&&g.buyon){}
         else if(it.t==='hline'){var y=g.Y(it.p),xe=it.d1==null?g.barsEnd:x1;x.beginPath();x.moveTo(x0,y);x.lineTo(xe,y);x.stroke();x.setLineDash([]);
           if(!g.notext&&it.label){x.font=fs+'px '+FONT;var lw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(x0,xe-lw)),y-fs-1,c,'left',fs);}}
         else if(it.t==='point'){var py=g.Y(it.p);x.setLineDash([]);x.fillStyle=c;x.beginPath();x.arc(x0,py,g.narrow?2.5:3.2,0,Math.PI*2);x.fill();
@@ -305,11 +311,15 @@
   // $ POSITION SIZE block (4 Oct 2026, Chris): a $10,000 default position per trade (changeable, one value for every page: wa_pos.js WAPos),
   // assumed bought at the plan's buy-stop entry -> shares, $ / % risk to the stop, 2R / 3R prices and $ profit. Shorts mirrored (stop above).
   function posSrc(){var P0=D.entry==null&&PLS.length?PLS[0].pnl:null,e=D.entry!=null?D.entry:P0&&P0.entry,st=D.entry!=null?D.stop:P0&&P0.stop;
-    var side=(P0&&P0.side)||(st!=null&&e!=null&&st>e?'short':'long');return {e:e,s:st,side:side};}
+    var side=(P0&&P0.side)||(st!=null&&e!=null&&st>e?'short':'long');
+    // ACTIVE (triggered) trade -> its last close for the NOW $ P/L line (pending plans: none)
+    var open=D.entry!=null?!!(PGO&&PG.last!=null):!!(P0&&P0.state==='open'&&P0.last!=null),lc=open?(D.entry!=null?PG.last:P0.last):null;
+    return {e:e,s:st,side:side,last:lc};}
+  function pgUsd(){var q=posSrc();if(!window.WAPos||q.last==null)return '';var o=WAPos.calc(q.e,q.s,q.side,null,q.last);return o&&o.pl!=null?' · '+WAPos.plc(o):'';}
   function money0(v){return window.WAPos?WAPos.usd(v):'$'+Math.round(v).toLocaleString();}
-  function posOut(){var W=window.WAPos;if(!W)return '';var q=posSrc(),o=W.calc(q.e,q.s,q.side);if(!o)return '<span class="neg">NO ENTRY — NO POSITION</span>';
+  function posOut(){var W=window.WAPos;if(!W)return '';var q=posSrc(),o=W.calc(q.e,q.s,q.side,null,q.last);if(!o)return '<span class="neg">NO ENTRY — NO POSITION</span>';
     var bs=o.side==='short'?'SELL STOP ':'BUY STOP ';
-    return '<div>'+bs+o.entry.toFixed(2)+' → <b>'+o.shares.toLocaleString('en-US')+' SH</b> ('+money0(o.cost)+')</div>'+
+    return (o.pl!=null?'<div class="tc-now '+(o.pl>=0?'pos':'neg')+'" title="active trade: shares × (last close − entry)'+(o.side==='short'?', inverted for a short':'')+'"><b>'+esc(W.now(o))+'</b></div>':'')+'<div>'+bs+o.entry.toFixed(2)+' → <b>'+o.shares.toLocaleString('en-US')+' SH</b> ('+money0(o.cost)+')</div>'+
       (o.risk!=null?'<div>STOP '+o.stop.toFixed(2)+' → RISK <b class="neg">'+money0(o.risk)+'</b> ('+o.risk_pct.toFixed(1)+'%)</div>'+
         '<div>2R '+o.r2.toFixed(2)+' → <b class="pos">+'+money0(o.p2)+'</b> · 3R '+o.r3.toFixed(2)+' → <b class="pos">+'+money0(o.p3)+'</b></div>':
         '<div class="neg">NO STOP ON THIS PLAN — NO $ RISK / 2R / 3R</div>');}
@@ -317,9 +327,9 @@
     return '<div class="tc-pos" id="tc-pos"><label class="pz">POSITION $<input id="tc-psz" inputmode="decimal" value="'+v.toLocaleString('en-US')+'" aria-label="Position size in dollars per trade (not account size); one value for every chart, saved in this browser"></label>'+
       '<span class="pzn">$ PER TRADE · NOT ACCOUNT SIZE · ONE VALUE FOR EVERY CHART</span><div id="tc-pos-out" class="out">'+posOut()+'</div></div>';}
   function wirePos(){var inp=document.getElementById('tc-psz'),out=document.getElementById('tc-pos-out');if(!inp||!window.WAPos)return;
-    inp.addEventListener('input',function(){if(WAPos.set(inp.value))out.innerHTML=posOut();});
+    inp.addEventListener('input',function(){if(WAPos.set(inp.value)){out.innerHTML=posOut();document.querySelectorAll('#tc-hud .tc-pgd').forEach(function(e){if(e.textContent)e.textContent=pgUsd();});}});
     inp.addEventListener('blur',function(){inp.value=WAPos.get().toLocaleString('en-US');});
-    WAPos.on(function(v){if(document.activeElement!==inp)inp.value=v.toLocaleString('en-US');out.innerHTML=posOut();var lg=document.getElementById('tc-legend');if(lg&&window._tcLegend)lg.innerHTML=window._tcLegend();});}
+    WAPos.on(function(v){if(document.activeElement!==inp)inp.value=v.toLocaleString('en-US');out.innerHTML=posOut();document.querySelectorAll('#tc-hud .tc-pgd').forEach(function(e){if(e.textContent)e.textContent=pgUsd();});var lg=document.getElementById('tc-legend');if(lg&&window._tcLegend)lg.innerHTML=window._tcLegend();});}
   function plPos(x){var W=window.WAPos,p=x.pnl;if(!W||p.stop==null)return '';var o=W.calc(p.entry,p.stop,p.side);if(!o||o.risk==null)return '';
     return ' · '+money0(o.size)+': '+o.shares.toLocaleString('en-US')+' SH · RISK '+money0(o.risk)+' · 2R +'+money0(o.p2)+' · 3R +'+money0(o.p3);}
   function riskBox(){
@@ -375,8 +385,8 @@
     '<div class="tc-blk"><div class="l">PRICE</div><div class="v">'+money(D.last)+'</div><div class="tc-sub">'+esc(D.last_date)+'</div></div>'+
     '<div class="tc-blk"><div class="l">LEVEL</div><div class="v tc-lvl '+lvlCls+'">'+lvlHtml+'</div></div>'+
     '<div class="tc-blk"><div class="l">R-MULT</div><div class="v tc-rm '+(rm==null?'':rm>=0?'pos':'neg')+'">'+rmTxt+'</div>'+
-      (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'</div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):
-       PL0?'<div class="tc-pg '+plCls(PL0)+'" title="'+esc(PL0.label+(PL0.pnl.basis?' · '+PL0.pnl.basis:''))+'">'+esc(PL0.pnl.state==='open'?pgf(PL0.pnl.pct)+' FROM ENTRY':plTxt(PL0,true))+'</div>'+
+      (pgTxt?'<div class="tc-pg '+pgCls+'" title="'+esc(pgTip)+'">'+esc(pgTxt)+'<span class="tc-pgd">'+(PGO?pgUsd():'')+'</span></div>'+(pgSub?'<div class="tc-sub tc-pgs">'+esc(pgSub)+'</div>':''):
+       PL0?'<div class="tc-pg '+plCls(PL0)+'" title="'+esc(PL0.label+(PL0.pnl.basis?' · '+PL0.pnl.basis:''))+'">'+esc(PL0.pnl.state==='open'?pgf(PL0.pnl.pct)+' FROM ENTRY':plTxt(PL0,true))+'<span class="tc-pgd">'+(PL0.pnl.state==='open'?pgUsd():'')+'</span></div>'+
          '<div class="tc-sub tc-pgs">'+esc([PL0.pnl.state==='open'&&PL0.pnl.r!=null?(PL0.pnl.r>=0?'+':'')+PL0.pnl.r.toFixed(1)+'R':'',PL0.pnl.state==='open'&&PL0.pnl.days!=null?PL0.pnl.days+'D':'',String(PL0.label).toUpperCase()].filter(Boolean).join(' · '))+(PLS.length>1?' · +'+(PLS.length-1)+' MORE IN KEY':'')+'</div>':'')+
       (D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
     riskBox()+
@@ -426,7 +436,7 @@
 
   function levels(){
     var L=[];
-    if(D.entry!=null) L.push({k:'entry',v:D.entry,c:C.entry,w:2,t:['▶ ENTRY '+money(D.entry)],short:['▶ ENTRY '+D.entry.toFixed(2)],nt:'▶ '+D.entry.toFixed(2)});
+    if(D.entry!=null) L.push({k:'entry',v:D.entry,c:C.entry,w:2,t:['▶ BUY '+money(D.entry)],short:['▶ BUY '+D.entry.toFixed(2)],nt:'▶ BUY '+D.entry.toFixed(2)});
     if(D.stop!=null) L.push({k:'stop',v:D.stop,c:C.stop,t:['STOP '+money(D.stop)+' (-0.75%)','— GAME OVER'],short:['STOP '+D.stop.toFixed(2)+' (-.75%)'],nt:'STOP '+D.stop.toFixed(2),w:2,skull:1});
     if(RP.m05!=null) L.push({k:'a05',v:RP.m05,c:C.a05,t:['-0.5% ACCT '+money(RP.m05)],short:['-0.5% '+RP.m05.toFixed(2)],nt:'-.5% '+RP.m05.toFixed(2),w:1.5,dash:[5,3],thin:1,bg:'#170a26'});
     if(RP.m10!=null) L.push({k:'a10',v:RP.m10,c:C.a10,t:['⚠ -1.0% ACCT '+money(RP.m10)+' MAX'],short:['-1.0% '+RP.m10.toFixed(2)+' MAX'],nt:'-1% '+RP.m10.toFixed(2),w:2,dash:[6,3],warn:1,bg:'#2a0626'});
@@ -436,6 +446,28 @@
     return L;
   }
 
+  // BUY lines (4 Oct 2026, Chris: "Does power play and all other setups have a horizontal buy line for where to enter? I'm seeing a stop but no
+  // buy line" + "It just needs to project forward for 5 bars and that's all"). Every plan with an entry draws a short solid line at the buy-stop
+  // entry: from the trigger bar (open trade) or the last bar (pending), 5 bars forward, labelled '▶ BUY 59.31 · SETUP'. Sources: the chart's own
+  // levels (D.entry; its right-edge tag reads '▶ BUY'), every other plan with an entry + stop (D.plans: flat base, SEPA, MA Stack GUD, Spring →
+  // Bull, Setup Master, springs) and overlay ENTRY hlines (springs, Wyckoff tickets). Entries within 0.4% share one line + one label. Layer 'entry'.
+  var SETN={powerplay:'POWER PLAY',vcp:'VCP',sepa:'SEPA',flatbase:'FLAT BASE',htf:'HIGH TIGHT FLAG',spring_tr:'SPRING (TR)',spring_up:'SPRING (UP)',mastack:'MA STACK GUD',
+    mastack_sb:'SPRING → BULL',setup_master:'SETUP MASTER',ema_pullback:'EMA PULLBACK'};
+  function setupName(){var s=String(D.setup||'').split('→')[0].replace(/\bscanner\b/i,'').replace(/\s+/g,' ').trim();if(SETN[s.toLowerCase()])s=SETN[s.toLowerCase()];if(!s&&D.scanner)s=SETN[D.scanner]||D.scanner;return s.toUpperCase().slice(0,28);}
+  function planName(p){var l=String(p.label||'').split('·')[0].replace(/\(since[^)]*\)/i,'').trim();return (l||SETN[p.src]||p.src||'PLAN').toUpperCase().slice(0,28);}
+  function buyWant(){var w=[],P0=D.pnl||{};
+    if(D.entry!=null&&!D.no_levels)w.push({v:+D.entry,nm:setupName(),src:'levels',main:1,side:D.side==='short'?'short':'long',d:P0.state==='open'?(P0.since||D.trade_since||null):null});
+    (D.plans||[]).forEach(function(p){var q=p&&p.pnl;if(!q||q.entry==null||q.stop==null)return;w.push({v:+q.entry,nm:planName(p),src:p.src||'plan',side:q.side==='short'?'short':'long',d:q.state==='open'?(q.since||null):null});});
+    OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.t==='hline'&&it.buy)w.push({v:+it.p,nm:it.bnm,src:'ovl:'+o.id,side:it.side||'long',d:null});});});
+    return w.filter(function(a){return isFinite(a.v)&&a.v>0;});}
+  function buyGroups(w){var G=[];w.forEach(function(a){var g=null;G.forEach(function(b){if(!g&&b.side===a.side&&Math.abs(b.v-a.v)/b.v<0.004)g=b;});
+    if(g){g.src.push(a.src);if(a.nm&&!g.nms.some(function(q){return q.indexOf(a.nm)===0;})){g.nms=g.nms.filter(function(q){return a.nm.indexOf(q)!==0;});g.nms.push(a.nm);}if(!g.d&&a.d)g.d=a.d;}else G.push({v:a.v,src:[a.src],nms:a.nm?[a.nm]:[],main:a.main||0,side:a.side,d:a.d});});return G;}
+  var OVR=[],OVB={l:0,r:1e9};   // placed overlay / BUY label boxes this frame (labels shift instead of covering each other, e.g. 'POWER PLAY BUY' vs 'STOP 24.06')
+  function freeBox(x0,y0,w,h,dxs){var tries=[],best=null,bo=Infinity;dxs=dxs||[0];for(var q=0;q<=6;q++)(q?[-q,q]:[0]).forEach(function(r){dxs.forEach(function(dx){tries.push([dx,r*(h+1)]);});});
+    for(var k=0;k<tries.length;k++){var xx=Math.max(OVB.l,Math.min(OVB.r-w,x0+tries[k][0])),yy=y0+tries[k][1],ov=0;
+      OVR.forEach(function(r){var ox=Math.min(xx+w,r[0]+r[2])-Math.max(xx,r[0]),oy=Math.min(yy+h,r[1]+r[3])-Math.max(yy,r[1]);if(ox>0&&oy>0)ov+=ox*oy;});
+      if(!ov){OVR.push([xx,yy,w,h]);return [xx,yy];}if(ov<bo){bo=ov;best=[xx,yy];}}
+    OVR.push([best[0],best[1],w,h]);return best;}   // nowhere free: the least-covered spot
   // Layout (left→right): HLC bars | level strip (short glowing segments + zone bands, right of the last bar) | tag flags | price axis
   var DRT={n:0,ms:0,max:0};window.TC_DRAW=DRT;   // draw cost (ms, EMA + max) for phone performance QA
   function draw(now){var _t0=performance.now();draw0(now);var dt=performance.now()-_t0;DRT.n++;DRT.ms=DRT.n<2?dt:DRT.ms*.9+dt*.1;if(dt>DRT.max)DRT.max=dt;}
@@ -449,6 +481,7 @@
     var axisW=(AX||(!narrow&&TX&&LY.last))?(narrow?46:56):8, L=levels().filter(function(l){return l.v!=null&&LY[LK[l.k]];});
     // far-off targets (2R / 3R well above the visible bars) go in the key at the top instead of stretching the price scale
     var _blo=Infinity,_bhi=-Infinity;if(PVR){_blo=PVR[0];_bhi=PVR[1];}else bars.slice(-(narrow?60:130)).forEach(function(b){_blo=Math.min(_blo,b.l);_bhi=Math.max(_bhi,b.h);});   // previous frame's visible bars
+    var BG=LY.entry?buyGroups(buyWant()):[];
     var OFF=[];L=L.filter(function(l){if((l.k==='r2'||l.k==='r3')&&l.v>_bhi+(_bhi-_blo)*(H<420?.15:.45)){OFF.push(l);return false;}return true;});
     // phones: level tags double as the price axis (one merged right column) and the last price joins the tag stack, so the bars get the width
     if(narrow&&TX&&LY.last) L.push({k:'last',v:last.c,c:'#ffffff',nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
@@ -461,14 +494,17 @@
     if(narrow) axisW=0;
     var avail=W-pl-axisW-tagW-NOTCH-(narrow?2:6);
     // visible window (density / pan) from chart_zoom.js; without it fall back to the newest ~130 bars
-    var ZV=window.TCZoom?TCZoom.view(avail-GAP-STUB,narrow):{start:Math.max(0,bars.length-(narrow?60:130)),n:Math.min(bars.length,narrow?60:130)};
+    var ZV=window.TCZoom?TCZoom.view(avail-GAP-STUB,narrow):{start:Math.max(0,bars.length-(narrow?60:130)),n:Math.min(bars.length,narrow?60:130),fut:7};
     var V=bars.slice(ZV.start,ZV.start+ZV.n), off=ZV.start, n=V.length, atLatest=off+n>=bars.length;
-    var bw=(avail-GAP-STUB)/(n-1+0.5+0.62); if(!narrow) bw=Math.min(bw,(avail-GAP-STUB)/(n-1+1.12));
+    // future space: chart_zoom.js blank slots right of the newest bar (default 7, drag left for more, ▶| resets); no zoom module -> 7 when at the latest
+    var FWD=ZV.fut!=null?ZV.fut:(atLatest?7:0);
+    var bw=(avail-GAP-STUB)/(n-1+0.5+0.62+FWD); if(!narrow) bw=Math.min(bw,(avail-GAP-STUB)/(n-1+1.12+FWD));
     function X(i){return pl+i*bw+bw/2;}
-    var lastEdge=X(n-1)+Math.max(1.5,Math.min(bw*.5,9)), barsEnd=lastEdge, sx0=Math.round(lastEdge+GAP), sx1=sx0+STUB, tagX=sx1, axX=narrow?W-3:W-axisW+6;
+    var lastEdge=X(n-1)+Math.max(1.5,Math.min(bw*.5,9)), barsEnd=lastEdge, sx0=Math.round(lastEdge+GAP+FWD*bw), sx1=sx0+STUB, tagX=sx1, axX=narrow?W-3:W-axisW+6;
     var lo=Infinity,hi=-Infinity;
     V.forEach(function(b){lo=Math.min(lo,b.l);hi=Math.max(hi,b.h);});var _pv=PVR;PVR=[lo,hi];if(!_pv||_pv[0]!==lo||_pv[1]!==hi){if(true)setTimeout(function(){draw(performance.now());},0);}
     L.forEach(function(l){if(l.k!=='last'){lo=Math.min(lo,l.v);hi=Math.max(hi,l.v);}});   // shown levels only (off-scale targets excluded)
+    BG.forEach(function(b){lo=Math.min(lo,b.v);hi=Math.max(hi,b.v);});   // every plan's BUY line stays on the scale
     if(LY.zones&&D.buy_zone&&D.buy_zone[1]!=null){lo=Math.min(lo,D.buy_zone[1]);hi=Math.max(hi,D.buy_zone[1]);}
     if(LY.ovl)ovlPrices(off,n).forEach(function(v){lo=Math.min(lo,v);hi=Math.max(hi,v);});   // keep visible detector drawings in range
     var pad=(hi-lo)*.04; lo-=pad; hi+=pad;
@@ -497,7 +533,8 @@
       function vlab(t,y0,y1,c){if(Math.abs(y1-y0)<t.length*7+6)return;x.save();x.translate((sx0+sx1)/2,(y0+y1)/2);x.rotate(-Math.PI/2);x.fillStyle=c;x.fillText(t,0,3);x.restore();}
 
       x.restore();}
-    if(narrow||!TX){tags.forEach(function(t){var l=t.l;if(l.k==='last')return;var y=Y(l.v);x.save();x.strokeStyle=l.c;x.globalAlpha=l.thin?.35:.45;x.lineWidth=1;x.setLineDash(l.dash||[4,3]);
+    var FULLW=[];   // levels drawn across the bars this frame (audit: never entry / 2R / 3R)
+    if(narrow||!TX){tags.forEach(function(t){var l=t.l;if(l.k==='last'||l.k==='entry'||l.k==='r2'||l.k==='r3')return;FULLW.push(l.k);var y=Y(l.v);x.save();x.strokeStyle=l.c;x.globalAlpha=l.thin?.35:.45;x.lineWidth=1;x.setLineDash(l.dash||[4,3]);
       x.beginPath();x.moveTo(pl,y);x.lineTo(sx0,y);x.stroke();x.restore();});}
     // volume
     var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb, VSAV=!!LY.vol&&VM==='vsa';
@@ -573,7 +610,29 @@
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
     if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
       x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
-    if(LY.ovl&&OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow,notext:!TX,novol:!LY.vol,vsav:VSAV});
+    OVR=[];OVB={l:pl+2,r:barsEnd+2};
+    // BUY lines: 5 bars from the trigger bar (open) / the last bar (pending); a trigger bar out of view -> from the newest visible bar
+    var BUYD=[],BUYL=[],BFS=narrow?6:7;
+    if(LY.oneup&&LY.bars&&atLatest&&TX){var _sy=Y(V[n-1].h)-8;OVR.push([X(n-1)-14,_sy-(narrow?32:40),28,(narrow?32:40)]);}   // keep BUY labels off the 1UP sprite
+    BG.forEach(function(b){var y=Math.round(Y(b.v))+.5;if(y<pt-3||y>pt+ph+3)return;var ai=b.d?dix(b.d):bars.length-1,j=ai-off,fb=0;
+      if(ai<0||j+5<0||j>n-1){j=n-1;fb=1;}
+      var bx0=Math.max(pl,X(j)-bw/2),bx1=Math.min(tagX-1,X(j+5)+bw/2);if(bx1-bx0<6)bx1=Math.min(tagX-1,bx0+6);
+      BUYL.push((function(bx0,bx1,y,lw0){return function(){x.save();x.strokeStyle=C.entry;x.shadowColor=C.entry;x.shadowBlur=narrow?3:6;x.lineWidth=lw0;x.lineCap='butt';x.setLineDash([]);
+        x.beginPath();x.moveTo(bx0,y);x.lineTo(bx1,y);x.stroke();x.restore();};})(bx0,bx1,y,b.main?(narrow?2:2.5):(narrow?1.6:2)));
+      var lab=(b.side==='short'?'▼ SELL ':'▶ BUY ')+b.v.toFixed(2),L2='',full=lab+(b.nms.length?' · '+b.nms.join(' / '):'');
+      if(TX){x.font=BFS+'px '+FONT;var room=Math.max(80,sx0-pl-10),fit=function(t){return x.measureText(t).width+8<=room;};
+        if(fit(full))lab=full;else if(b.nms.length){lab=lab+' · '+b.nms[0];var rest=b.nms.slice(1);   // 2nd line: the other setups on this entry
+          while(rest.length>1&&!fit(rest.join(' / ')+' +'+(b.nms.length-1-rest.length+1)))rest.pop();L2=rest.join(' / ')+(rest.length<b.nms.length-1?' +'+(b.nms.length-1-rest.length):'');}}
+      var lx=bx0,lw=0,ly=y,hh=BFS+6;
+      var dl=null;if(TX){x.font=BFS+'px '+FONT;lw=Math.max(x.measureText(lab).width,L2?x.measureText(L2).width:0)+8;var bh=L2?hh*2-2:hh,_r=OVB.r;OVB.r=Math.max(_r,sx0);var lfx=bx0-2-lw,lfy=y-bh/2,ldx=[0,-34,-68];if(lfx<pl+2){if(bx1+2+lw<=sx0){lfx=bx1+2;ldx=[0,34];}else{lfx=bx0;lfy=y-bh-2;ldx=[0];}}   // left of the segment; no room -> right of it; else above it
+        var pp=freeBox(lfx,lfy,lw,bh,ldx);OVB.r=_r;lx=pp[0];ly=pp[1];
+        dl=(function(lx,ly,lw,bh,lab,L2){return function(){x.save();x.font=BFS+'px '+FONT;x.fillStyle='rgba(0,10,16,.9)';x.fillRect(lx,ly,lw,bh);x.strokeStyle=C.entry;x.lineWidth=1;x.strokeRect(lx+.5,ly+.5,lw-1,bh-1);
+          x.fillStyle=C.entry;x.textAlign='left';x.fillText(lab,lx+4,ly+hh-3.5);if(L2)x.fillText(L2,lx+4,ly+2*hh-5.5);x.restore();};})(lx,ly,lw,bh,lab,L2);BUYL.push(dl);}
+      b.full=full;if(L2)lab+=' | '+L2;
+      BUYD.push({v:b.v,y:Math.round(y),x0:Math.round(bx0),x1:Math.round(bx1),bars:5,bw:+bw.toFixed(2),fb:fb,anchor:b.d||'last',lab:TX?lab:'',full:b.full||lab,src:b.src,main:b.main,
+        lbox:TX?[Math.round(lx),Math.round(ly),Math.round(lw)]:null});});
+    window.TC_BUY={tf:TF,text:TX?1:0,layer:LY.entry?1:0,groups:BG.length,lines:BUYD,miss:BG.filter(function(b){return !BUYD.some(function(d){return d.v===b.v;});}).map(function(b){return b.v;}),full:FULLW,plot:[pl,Math.round(barsEnd),pt,pt+ph]};
+    if(LY.ovl&&OVL.length) drawOverlays(x,{buyon:!!LY.entry,X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow,notext:!TX,novol:!LY.vol,vsav:VSAV});
     // % gain from entry (+10 / +20 / +30 ...): faint dotted lines across the bars, only inside the visible range (never stretch the scale);
     // +10..+30 above the range go in the far-target key. Opt-in layer 'pctl' (the trade strip ticks are layer 'pct').
     if(LY.pctl&&D.entry>0){x.save();x.setLineDash([1,4]);x.lineWidth=1;x.font=(narrow?5:6)+'px '+FONT;x.textAlign='right';
@@ -581,6 +640,7 @@
         var py=Y(pv);x.globalAlpha=.3;x.strokeStyle='#b8b2e8';x.beginPath();x.moveTo(pl,py);x.lineTo(barsEnd,py);x.stroke();
         if(TX){x.globalAlpha=.65;x.fillStyle='#9a93d8';x.fillText('+'+pk*10+'%',barsEnd-2,py-2);}}
       x.restore();}
+    BUYL.forEach(function(f){f();});   // BUY labels on top of the detector drawings (positions were reserved first)
     // short, thick, glowing level segments in the strip
     var pulse=RM?1:(0.75+0.25*Math.sin((now-t0)/420));
     tags.forEach(function(t){var l=t.l,y=Y(l.v);t.y=y;if(l.inv)return;x.save();x.strokeStyle=l.c;x.shadowColor=l.c;x.shadowBlur=5;x.globalAlpha=.95;x.lineWidth=l.w;x.lineCap='butt';x.setLineDash(l.dash||[]);
@@ -686,7 +746,7 @@
     row('c-r2','★ 2R',D.r2,D.r2!=null?D.r_src.split(' / ')[0]+' = '+D.entry.toFixed(2)+' + 2×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+2R')+
     (D.buy_zone?row('c-zone','BUY ZONE TOP',D.buy_zone[1],D.zone_src,''):'')+
     row('c-last','◆ LAST',D.last,(D.last_src||D.price_src)+' · bar '+D.last_date+(pgTxt?' · '+pgTxt.toLowerCase()+(pgSub?' · '+pgSub.toLowerCase():''):''),rmTxt+(PGO?' · <span class="tc-pg '+pgCls+'">'+pgf(PG.pct)+'</span>':''))+
-    row('c-entry','▶ ENTRY',D.entry,D.entry_src,'0R')+
+    row('c-entry','▶ BUY (ENTRY)',D.entry,D.entry_src,'0R')+
     (D.cuts||[]).map(function(ct){return row('c-cut','✂ '+esc(ct.label),ct.price,ct.src,D.risk?((ct.price-D.entry)/D.risk).toFixed(2)+'R':'');}).join('')+
     (RP.m05!=null?row('c-a05','-0.5% ACCT',RP.m05,'computed: entry - (0.5/0.75)·R = '+D.entry.toFixed(2)+' - 0.667×'+D.risk.toFixed(2)+' (loss -0.5% of account for a position sized at 0.75% risk)',(-0.5/0.75).toFixed(2)+'R'):'')+
     row('c-stop','✖ STOP',D.stop,D.stop!=null?D.stop_src:'STOP NOT SET — the desk has not documented a stop for this setup','-1R')+
@@ -805,7 +865,7 @@
     else setTimeout(flab,0);
     setTimeout(function(){if(!FOLD)flab();},600);}
   if(!document.getElementById('tc-tf-css')){var tcs=document.createElement('style');tcs.id='tc-tf-css';   // 1D / 1W / 1M segmented switch (cyan, next to the gold presets)
-    tcs.textContent='.tc-legend span.tc-vsak,.tc-legend span.tc-vsal,.tc-legend span.tc-pgk,.tc-legend .tc-warnline{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}'+   // the module never widens the page, with or without desk.css (raw generator output)
+    tcs.textContent='.tc-now{font-size:11px;line-height:1.5;margin:2px 0 7px;padding:5px 7px;border:2px solid currentColor;box-shadow:0 0 8px currentColor inset}.tc-now.pos{color:#39ff88}.tc-now.neg{color:#ff3d7f}.tc-now b{font-weight:400;color:inherit}.tc-pgd{white-space:nowrap}'+'.tc-legend span.tc-vsak,.tc-legend span.tc-vsal,.tc-legend span.tc-pgk,.tc-legend .tc-warnline{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}'+   // the module never widens the page, with or without desk.css (raw generator output)
       '.tc-legend{min-width:0;max-width:100%}.tc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}.tc-tbl td.tc-src{overflow-wrap:anywhere}.tc-stage,.tc-panel,.tc-foot{min-width:0;max-width:100%}'+
       '.tcz .tcg .tctf{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #00e5ff;box-shadow:2px 2px 0 #000}'+
       '.tcz .tcg .tctf button{min-width:38px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(0,229,255,.45)!important;box-shadow:none!important;color:#00e5ff!important;background:#07061a!important;padding:4px 6px;flex:0 0 auto}'+
