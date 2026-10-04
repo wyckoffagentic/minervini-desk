@@ -32,8 +32,8 @@
   // ---------------------------------------------------------------- layers (LAYERS panel + TEXT switch + FULL / LEVELS / CLEAN presets)
   // One shared state for every chart (full chart pages, stock.html, inline dropdown charts): localStorage wa.desk.chartlayers.v1 =
   // {L:{layer:0|1}, text:0|1, axis:0|1}. Presets just set the toggles; any other mix shows CUSTOM. Changes redraw from memory (no refetch).
-  var LAYK=['bars','vol','sma','entry','stop','targets','pct','pctl','acct','cuts','zones','last','rsp','rsl','ovl','oneup'];
-  var LPRE={full:{on:LAYK.filter(function(k){return k!=='pctl';}),text:1,axis:1},   // faint % lines on the chart body: opt-in
+  var LAYK=['bars','vol','weis','sma','entry','stop','targets','pct','pctl','acct','cuts','zones','last','rsp','rsl','ovl','oneup'];
+  var LPRE={full:{on:LAYK.filter(function(k){return k!=='pctl'&&k!=='weis';}),text:1,axis:1},   // faint % lines on the chart body + Weis waves: opt-in
     levels:{on:['bars','entry','stop','last'],text:1,axis:1},clean:{on:['bars','vol','sma','rsp'],text:0,axis:1}};
   var LKEY='wa.desk.chartlayers.v1',MKEY='wa.desk.chartmode.v1';
   function preState(p){var P=LPRE[p],o={L:{},text:P.text,axis:P.axis};LAYK.forEach(function(k){o.L[k]=P.on.indexOf(k)>=0?1:0;});return o;}
@@ -65,6 +65,55 @@
     band:{S:'rgba(24,170,80,.36)',F:'rgba(18,96,58,.48)',N:'rgba(130,118,28,.40)',W:'rgba(150,22,34,.48)'},
     bandName:{S:'STRONG',F:'FIRM',N:'NEUTRAL',W:'WEAK'}};
   function sday(d){return d?(d.slice(8,10)+' '+MON[+d.slice(5,7)-1]):'?';}
+
+  // ---------------------------------------------------------------- VSA volume panel (4 Oct 2026, Chris; approved mockup) · VOL: PLAIN | VSA
+  // One shared choice for every chart: localStorage wa.desk.chartvol.v1 = 'vsa' (default) | 'plain'; other open charts / dropdowns follow
+  // live via 'storage'.  VSA mode, computed here from the chart's own bars on whichever timeframe is shown (D / W / M):
+  //   colour = RV = volume ÷ the average volume of the 20 bars BEFORE it (needs 10+):  < 0.7× dim grey-blue (no supply / no demand
+  //            candidates) · 0.7–1.5× cyan (normal) · 1.5–2× bright cyan · 2–3× orange · ≥ 3× white-hot + glow (climactic)
+  //   fill   = close position in the bar's high-low range: top third solid · middle third half-filled · bottom third hollow outline
+  //            (volume bars under 3px wide: opacity 100 / 60 / 30% instead)
+  //   glyphs = effort vs result, spread = high - low vs the 20 bars before it:  ▲ absorption = RV > 1.5 and spread < 0.7× ·
+  //            ○ no effort = RV < 0.7 and spread > 1.3×
+  //   tags   = the VSA engine's own key bars only (research-tools/vsa.py -> vsa_ui.overlay_for, overlay id 'vsa'): in VSA mode they
+  //            MOVE from the price pane to neon tags in the volume panel (glow = high significance in its context; tap a bar for why)
+  //   line   = glowing 20-bar average volume + a faint band up to the dashed 2× average line
+  //   Weis   = layer 'weis' (LAYERS, off by default): cumulative volume of each price wave behind the bars; a wave reverses when the
+  //            close moves against the wave's extreme close by ≥ 1×ATR(14) (simple mean true range, same timeframe); green up, magenta down
+  //   The newest provisional W / M period uses its pro-rated volume for RV.  TEXT off (CLEAN) hides tags, glyphs and wave totals.
+  //   PLAIN = the old green / red volume bars, with the VSA engine markers back on the price bars.
+  var VKEY='wa.desk.chartvol.v1',VM='vsa';try{if(localStorage.getItem(VKEY)==='plain')VM='plain';}catch(e){}
+  if(document.body)document.body.classList.toggle('tc-volvsa',VM==='vsa');
+  var VSA_T={dim:0.7,cy2:1.5,hot:2,climax:3,absV:1.5,absS:0.7,neV:0.7,neS:1.3,n:20,min:10,atr:14,rev:1.0};
+  var VCOL={dim:'#56658c',cy:'#19b4d4',cy2:'#72f6ff',hot:'#ff9f1c',cl:'#ffffff'};
+  function rvCol(r){return r==null||r<VSA_T.dim?VCOL.dim:r<VSA_T.cy2?VCOL.cy:r<VSA_T.hot?VCOL.cy2:r<VSA_T.climax?VCOL.hot:VCOL.cl;}
+  function fmtV(v){v=Math.abs(v);return v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(2)+'M':v>=1e3?Math.round(v/1e3)+'K':String(Math.round(v));}
+  var VSC=null;
+  function vsaPre(B){   // once per bar set (timeframe), never per frame
+    var n=B.length,N=VSA_T.n,rv=new Array(n),sr=new Array(n),cp=new Array(n),av=new Array(n),gl=new Array(n),atr=new Array(n),sv=0,ss=0,cnt=0,i,b;
+    for(i=0;i<n;i++){b=B[i];var sp=b.h-b.l,as=cnt>=VSA_T.min?ss/cnt:null;av[i]=cnt>=VSA_T.min?sv/cnt:null;
+      rv[i]=av[i]?(b.vx||b.v)/av[i]:null;sr[i]=as?sp/as:null;cp[i]=sp>0?(b.c-b.l)/sp:0.5;
+      gl[i]=(rv[i]==null||sr[i]==null)?null:(rv[i]>VSA_T.absV&&sr[i]<VSA_T.absS)?'abs':(rv[i]<VSA_T.neV&&sr[i]>VSA_T.neS)?'ne':null;
+      sv+=b.v;ss+=sp;cnt++;if(cnt>N){sv-=B[i-N].v;ss-=B[i-N].h-B[i-N].l;cnt--;}}
+    var tq=[],tr=0;for(i=0;i<n;i++){b=B[i];var pc=i?B[i-1].c:b.c,t=Math.max(b.h-b.l,Math.abs(b.h-pc),Math.abs(b.l-pc));tq.push(t);tr+=t;if(tq.length>VSA_T.atr)tr-=tq.shift();atr[i]=tr/tq.length;}
+    var wv=[],wid=new Array(n),cum=new Array(n),dir=0,ext=0,ws=0;
+    function wave(s0,e0,d){var t=0;for(var k=s0;k<=e0;k++){t+=B[k].v;cum[k]=t;wid[k]=wv.length;}wv.push({s:s0,e:e0,d:d,v:t});}
+    for(i=1;i<n;i++){var th=VSA_T.rev*atr[i],c=B[i].c;
+      if(!dir){if(c-B[0].c>=th){dir=1;ext=i;}else if(B[0].c-c>=th){dir=-1;ext=i;}continue;}
+      if(dir>0){if(c>=B[ext].c)ext=i;else if(B[ext].c-c>=th){wave(ws,ext,1);ws=ext+1;dir=-1;ext=i;}}
+      else{if(c<=B[ext].c)ext=i;else if(c-B[ext].c>=th){wave(ws,ext,-1);ws=ext+1;dir=1;ext=i;}}}
+    if(n){wave(ws,n-1,dir||1);wv[wv.length-1].open=1;}
+    return {B:B,rv:rv,sr:sr,cp:cp,av:av,gl:gl,wv:wv,wid:wid,cum:cum};}
+  function vsaGet(){if(!VSC||VSC.B!==bars)VSC=vsaPre(bars);return VSC;}
+  // the VSA engine's key bars (overlay 'vsa'): sign code / tag text / significance from the item (k, tier, pol) or its tip text
+  var VSAN={SC:'SELL CLIMAX',SV:'STOP VOL',BAG:'BAG HOLD',SO:'SHAKEOUT',T:'TEST',TR:'TEST',NS:'NO SUPPLY',ETR:'EFFORT UP',BC:'BUY CLIMAX',UT:'UPTHRUST',
+    PUT:'PSEUDO UT',ND:'NO DEMAND',EORM:'END OF RISE',ETF:'EFFORT DOWN',FT:'FAILED TEST?',SQ:'SQUAT'};
+  var VSAK={'selling climax':'SC','stopping volume':'SV','bag holding':'BAG','shakeout':'SO','test':'T','test in a rising market':'TR','no supply':'NS',
+    'effort to rise':'ETR','buying climax':'BC','upthrust':'UT','pseudo-upthrust':'PUT','no demand':'ND','end of a rising market':'EORM','effort to fall':'ETF',
+    'possible failed test':'FT','squat':'SQ'};
+  function vsaMeta(it){if(it._vk)return it._vk;var m=/^(.+?) \d{4}-\d\d-\d\d - (\w+) significance/.exec(it.tip||''),sh=String(it.label||'').replace(/!$/,''),
+    k=it.k||(m&&VSAK[m[1].toLowerCase()])||sh,tier=it.tier||(m&&m[2])||(/!$/.test(it.label||'')?'high':'');
+    it._vk={k:k,full:VSAN[k]||sh.toUpperCase(),sh:sh||k,hi:tier==='high',pol:it.pol!=null?it.pol:(it.pos==='below'?1:-1)};return it._vk;}
 
   // ---------------------------------------------------------------- detector overlays (format: research-tools/chart_overlays.py docstring)
   // D.overlays = [{id,label,color,asof,legend:[[colour,text]],items:[{t:'box'|'seg'|'hline'|'point'|'span', dates d0/d1/d, prices ...}]}]
@@ -168,7 +217,7 @@
   function drawOverlays(x,g){
     var fs=g.narrow?6:7;
     OVL.forEach(function(o){if(!o.on)return;var col=o.color||'#ffd23f';
-      o.items.forEach(function(it){if(it.t==='point'&&!ptShow(o,it))return;var c=it.c||col,sp=ovlSpan(it);if(sp[1]<g.off-1||sp[0]>g.off+g.n)return;if(it.pane==='vol'&&g.novol)return;
+      o.items.forEach(function(it){if(it.t==='point'&&!ptShow(o,it))return;if(g.vsav&&o.id==='vsa'&&it.t==='point')return;var c=it.c||col,sp=ovlSpan(it);if(sp[1]<g.off-1||sp[0]>g.off+g.n)return;if(it.pane==='vol'&&g.novol)return;
         var x0=g.X(sp[0]-g.off),x1=g.X(sp[1]-g.off);x.save();x.beginPath();
         if(it.pane==='vol')x.rect(g.pl,g.vb-g.vh-18,g.barsEnd-g.pl+4,g.vh+20);else x.rect(g.pl,g.pt-2,g.barsEnd-g.pl+4,g.ph+4);x.clip();
         x.lineCap='round';x.setLineDash(it.dash||[]);x.lineWidth=it.w||1.5;x.strokeStyle=c;
@@ -185,6 +234,70 @@
           if(!g.notext&&it.label){x.font=fs+'px '+FONT;var tw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(g.barsEnd-tw,x1+g.bw/2-tw)),yb-fs+1,c,'left',fs);}}
         x.restore();});});
   }
+  // VSA volume panel renderer (see the VSA notes at the top). g: visible bars + geometry from draw()
+  var VSTAT={},VSTS='';
+  function drawVSA(x,g){
+    var S=vsaGet(),V=g.V,off=g.off,n=g.n,top=g.vb-g.vh,TX=g.TX,nw=g.narrow,LY=g.LY,i,k,q;
+    var ov=null;OVL.forEach(function(o){if(o.id==='vsa')ov=o;});
+    var tg=[];if(TX&&ov&&ov.on&&LY.ovl)ov.items.forEach(function(it){if(it.t!=='point'||!ptShow(ov,it))return;var bi=dix(it.d);if(TF===NATIVE&&(!bars[bi]||bars[bi].d!==it.d))return;
+      var j=bi-off;if(j<0||j>=n)return;var m=vsaMeta(it);tg.push({i:j,m:m,c:m.pol>0?'#39ff88':'#ff3d7f'});});
+    var fsT=nw?6:7,RH=fsT+6,TRH=TX?RH:0,GRH=TX?(nw?8:9):0,bt=top+TRH+GRH,bh=Math.max(10,g.vb-bt-1);
+    var smax=1;V.forEach(function(b,j){smax=Math.max(smax,b.vx||b.v,(S.av[j+off]||0)*2.1);});
+    function VY(v){return g.vb-Math.min(bh,v/smax*bh);}
+    var bwv=Math.max(1,g.bw*.72),thin=bwv<3,nWv=0,nG=0,nT=0;
+    x.save();x.beginPath();x.rect(g.pl-2,top,g.barsEnd-g.pl+6,g.vh+1);x.clip();
+    // Weis waves: translucent cumulative wave-volume columns behind everything, own scale (the biggest visible wave = the panel height)
+    var wmax=1,WH=g.vh-TRH-2,lab=[];
+    if(LY.weis){V.forEach(function(b,j){var c=S.cum[j+off];if(c>wmax)wmax=c;});
+      V.forEach(function(b,j){var q=j+off,w=S.wv[S.wid[q]];if(!w)return;var h=S.cum[q]/wmax*WH,up=w.d>0;
+        x.fillStyle=up?'rgba(57,255,136,.16)':'rgba(255,43,214,.17)';x.fillRect(g.X(j)-g.bw/2,g.vb-h,g.bw+.6,h);
+        x.fillStyle=up?'rgba(57,255,136,.55)':'rgba(255,43,214,.58)';x.fillRect(g.X(j)-g.bw/2,g.vb-h,g.bw+.6,1);});
+      var seen={};V.forEach(function(b,j){var w=S.wv[S.wid[j+off]];if(w&&!seen[S.wid[j+off]]){seen[S.wid[j+off]]=1;nWv++;
+        var a=Math.max(w.s,off)-off,e=Math.min(w.e,off+n-1)-off;lab.push({a:a,e:e,w:w,v:S.cum[e+off]});}});
+}
+    // 1×–2× average band + dashed 2× line
+    var pts=[];V.forEach(function(b,j){var a=S.av[j+off];if(a!=null)pts.push([g.X(j),a]);});
+    function path(mul){x.beginPath();pts.forEach(function(p,q){var y=VY(p[1]*mul);q?x.lineTo(p[0],y):x.moveTo(p[0],y);});}
+    if(pts.length>1){x.beginPath();pts.forEach(function(p,q){var y=VY(p[1]);q?x.lineTo(p[0],y):x.moveTo(p[0],y);});
+      for(q=pts.length-1;q>=0;q--)x.lineTo(pts[q][0],VY(pts[q][1]*2));x.closePath();x.fillStyle='rgba(0,229,255,.055)';x.fill();
+      x.setLineDash([3,3]);x.strokeStyle='rgba(200,205,255,.34)';x.lineWidth=1;path(2);x.stroke();x.setLineDash([]);}
+    // the bars: colour = RV, fill = close position, white-hot glow at >= 3x
+    V.forEach(function(b,j){var q=j+off,r=S.rv[q],c=rvCol(r),f=S.cp[q],x0=g.X(j)-bwv/2,y=VY(b.v),h=g.vb-y;if(h<1){h=1;y=g.vb-1;}
+      var cl=r!=null&&r>=VSA_T.climax;if(cl){x.shadowColor='#fff2c0';x.shadowBlur=nw?6:9;}
+      x.fillStyle=c;x.strokeStyle=c;
+      if(thin){x.globalAlpha=f>=2/3?1:f>=1/3?.6:.3;x.fillRect(x0,y,bwv,h);x.globalAlpha=1;}
+      else{var lw=bwv<5?1:1.3;if(f>=2/3)x.fillRect(x0,y,bwv,h);else{x.lineWidth=lw;x.strokeRect(x0+lw/2,y+lw/2,bwv-lw,Math.max(.5,h-lw));if(f>=1/3)x.fillRect(x0,y+h/2,bwv,h/2);}}
+      if(cl)x.shadowBlur=0;
+      if(b.vx){var yx=VY(b.vx);x.save();x.setLineDash([2,2]);x.lineWidth=1;x.globalAlpha=.8;x.strokeRect(x0,yx,bwv,g.vb-yx);x.restore();}});   // provisional period: pro-rated outline
+    // glowing 20-bar average line
+    if(pts.length>1){x.save();x.strokeStyle='#4de8ff';x.lineWidth=nw?1.1:1.3;x.shadowColor='#00e5ff';x.shadowBlur=nw?4:6;path(1);x.stroke();x.restore();}
+    // Weis wave totals (on top of the bars, dark backing)
+    if(LY.weis&&TX){x.font=(nw?6:7)+'px '+FONT;x.textAlign='center';var placed=[];
+      lab.slice().sort(function(a,b){return b.v-a.v;}).forEach(function(L){if(L.e-L.a+1<(nw?3:2))return;var t=(L.w.d>0?'+':'−')+fmtV(L.v),tw=x.measureText(t).width,cx=(g.X(L.a)+g.X(L.e))/2;   // biggest waves first
+        cx=Math.max(g.pl+tw/2+1,Math.min(g.barsEnd-tw/2,cx));if(placed.some(function(r){return cx-tw/2<r[1]+3&&cx+tw/2>r[0]-3;}))return;placed.push([cx-tw/2,cx+tw/2]);
+        var y=Math.max(top+TRH+fsT+2,g.vb-L.v/wmax*WH-3);x.fillStyle='rgba(7,6,26,.72)';x.fillRect(cx-tw/2-2,y-fsT-1,tw+4,fsT+3);
+        x.fillStyle=L.w.d>0?'#8cffb9':'#ff8ceb';x.fillText(t,cx,y);});}
+    // effort vs result glyphs just above the bar
+    if(TX)V.forEach(function(b,j){var gg=S.gl[j+off];if(!gg)return;nG++;var cx=g.X(j),y=Math.max(bt-1,VY(b.v)-3);
+      if(gg==='abs'){var z=nw?3:3.6;x.fillStyle='#72f6ff';x.beginPath();x.moveTo(cx,y-z*1.7);x.lineTo(cx-z,y);x.lineTo(cx+z,y);x.closePath();x.fill();}
+      else{x.strokeStyle='#d9ccff';x.lineWidth=1.2;x.beginPath();x.arc(cx,y-(nw?2.8:3.2),nw?2.4:2.8,0,Math.PI*2);x.stroke();}});
+    x.restore();
+    // header + neon tags (tag row on top of the panel; full name, else the short code, else a second row, else just a tick)
+    if(TX){var occ=[],la=null;for(k=off+n-1;k>=off;k--){if(S.av[k]!=null){la=S.av[k];break;}}
+      x.font=fsT+'px '+FONT;x.textAlign='left';var ht='VSA VOL'+(la?' · AVG20 '+fmtV(la):''),hw=x.measureText(ht).width;
+      x.fillStyle='#8fe9ff';x.fillText(ht,g.pl+4,top+fsT+2);occ.push([g.pl,g.pl+4+hw+4,0]);
+      tg.sort(function(a,b){return (b.m.hi-a.m.hi)||(b.i-a.i);});   // high significance first, then newest
+      tg.forEach(function(t){var cx=g.X(t.i),C2=[[t.m.full,0],[t.m.sh,0],[t.m.full,1],[t.m.sh,1]],pl=null;
+        for(var q=0;q<C2.length&&!pl;q++){var tw=x.measureText(C2[q][0]).width+6,x0=Math.max(g.pl,Math.min(g.barsEnd-tw,cx-tw/2)),x1=x0+tw,row=C2[q][1];
+          if(!occ.some(function(o){return o[2]===row&&x0<o[1]+2&&x1>o[0]-2;})){occ.push([x0,x1,row]);pl={s:C2[q][0],x0:x0,w:tw,row:row};}}
+        var by=VY(V[t.i].v);
+        x.save();
+        if(pl){nT++;var y0=top+1+pl.row*RH,h0=RH-1;x.strokeStyle=t.c;x.globalAlpha=.5;x.lineWidth=1;x.beginPath();x.moveTo(cx+.5,y0+h0);x.lineTo(cx+.5,Math.max(y0+h0,by-2));x.stroke();x.globalAlpha=1;
+          x.fillStyle='rgba(7,6,26,.9)';x.fillRect(pl.x0,y0,pl.w,h0);if(t.m.hi){x.shadowColor=t.c;x.shadowBlur=nw?6:9;}x.lineWidth=t.m.hi?1.6:1;x.strokeRect(pl.x0+.5,y0+.5,pl.w-1,h0-1);
+          x.shadowBlur=t.m.hi?(nw?4:6):0;x.fillStyle=t.c;x.textAlign='left';x.fillText(pl.s,pl.x0+3,y0+h0-3);}
+        else{x.fillStyle=t.c;x.fillRect(cx-1.5,top+2,3,3);}
+        x.restore();});}
+    VSTAT={mode:'vsa',tags:nT,signs:tg.length,glyphs:nG,waves:nWv,weis:LY.weis?1:0};}
   var state=(D.alert_state||D.status||'SETUP').toUpperCase(), lvlCls='lvl-'+state.toLowerCase().replace(/[^a-z]+/g,'-');
 
   // ---------------------------------------------------------------- RISK box (fixed desk rules; computed in charts.py)
@@ -324,12 +437,14 @@
   }
 
   // Layout (left→right): HLC bars | level strip (short glowing segments + zone bands, right of the last bar) | tag flags | price axis
-  function draw(now){
+  var DRT={n:0,ms:0,max:0};window.TC_DRAW=DRT;   // draw cost (ms, EMA + max) for phone performance QA
+  function draw(now){var _t0=performance.now();draw0(now);var dt=performance.now()-_t0;DRT.n++;DRT.ms=DRT.n<2?dt:DRT.ms*.9+dt*.1;if(dt>DRT.max)DRT.max=dt;}
+  function draw0(now){
     var W=Math.round(host.getBoundingClientRect().width), H=Math.round(host.getBoundingClientRect().height);
     if(W<50||H<50) return;
     var x=setup(cv,W,H), narrow=W<700, LY=LS.L, TX=!!LS.text, AX=!!LS.axis, RSP=hasRT&&!!LY.rsp;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
-    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=(narrow?26:22)+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(narrow?.13:.14)):0, ph=H-pt-pb-vh-10;
+    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=(narrow?26:22)+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
     var LK={entry:'entry',stop:'stop',a05:'acct',a10:'acct',cut:'cuts',r2:'targets',r3:'targets'};
     var axisW=(AX||(!narrow&&TX&&LY.last))?(narrow?46:56):8, L=levels().filter(function(l){return l.v!=null&&LY[LK[l.k]];});
     // far-off targets (2R / 3R well above the visible bars) go in the key at the top instead of stretching the price scale
@@ -385,10 +500,12 @@
     if(narrow||!TX){tags.forEach(function(t){var l=t.l;if(l.k==='last')return;var y=Y(l.v);x.save();x.strokeStyle=l.c;x.globalAlpha=l.thin?.35:.45;x.lineWidth=1;x.setLineDash(l.dash||[4,3]);
       x.beginPath();x.moveTo(pl,y);x.lineTo(sx0,y);x.stroke();x.restore();});}
     // volume
-    var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb;
-    if(LY.vol)V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);
+    var vmax=Math.max.apply(null,V.map(function(b){return b.v;}))||1, vb=H-pb, VSAV=!!LY.vol&&VM==='vsa';
+    if(VSAV)drawVSA(x,{V:V,off:off,n:n,X:X,bw:bw,pl:pl,barsEnd:barsEnd,vb:vb,vh:vh,narrow:narrow,TX:TX,LY:LY});else VSTAT={mode:VM,vol:LY.vol?1:0};
+    var _vs=JSON.stringify(VSTAT);if(_vs!==VSTS){VSTS=_vs;host.setAttribute('data-vol',VM);host.setAttribute('data-vsa',_vs);}
+    if(LY.vol&&!VSAV)V.forEach(function(b,i){x.fillStyle=(b.up?C.up:C.dn)+'55';var hh=b.v/vmax*vh;x.fillRect(X(i)-bw*.35,vb-hh,Math.max(1,bw*.7),hh);
       if(b.vx){var hx=Math.min(vh,b.vx/vmax*vh);x.save();x.strokeStyle=(b.up?C.up:C.dn)+'bb';x.setLineDash([2,2]);x.lineWidth=1;x.strokeRect(X(i)-bw*.35,vb-hx,Math.max(1,bw*.7),hx);x.restore();}});   // provisional period: dotted outline = volume pro-rated to a full period
-    x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;if(LY.vol&&TX)x.fillText('VOL',pl+6,vb-vh+4);
+    x.fillStyle=C.axis;x.textAlign='left';x.font=fs+'px '+FONT;if(LY.vol&&TX&&!VSAV)x.fillText('VOL',pl+6,vb-vh+4);
     // RS RATING panel (top): area fill, smooth rating-vs-MA21 fill, crossover dots, 0-100 scale + value tags on the right
     // (no per-bar regime band columns: on phones they rendered as dozens of thin vertical stripes; band names stay in the tooltip)
     if(RSP){var RH=rh, rw=barsEnd-pl, vis=V.map(function(b){return RTM[b.d]||null;}), mn=100, any=false;
@@ -455,7 +572,7 @@
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
     if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
       x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
-    if(LY.ovl&&OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow,notext:!TX,novol:!LY.vol});
+    if(LY.ovl&&OVL.length) drawOverlays(x,{X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,barsEnd:barsEnd,pt:pt,ph:ph,vb:vb,vh:vh,narrow:narrow,notext:!TX,novol:!LY.vol,vsav:VSAV});
     // % gain from entry (+10 / +20 / +30 ...): faint dotted lines across the bars, only inside the visible range (never stretch the scale);
     // +10..+30 above the range go in the far-target key. Opt-in layer 'pctl' (the trade strip ticks are layer 'pct').
     if(LY.pctl&&D.entry>0){x.save();x.setLineDash([1,4]);x.lineWidth=1;x.font=(narrow?5:6)+'px '+FONT;x.textAlign='right';
@@ -510,11 +627,15 @@
   }
 
   function ovlTips(bi){var t='',d=bars[bi]&&bars[bi].d;OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.t==='point'&&(TF===NATIVE?it.d===d:(ptShow(o,it)&&dix(it.d)===bi))&&it.tip)t+='<br><span class="tc-otip" style="color:'+esc(it.c||o.color)+'">'+esc(it.tip)+'</span>';});});return t;}   // overlay point notes (e.g. VSA why)
+  function vsaTip(i){if(VM!=='vsa'||!LS.L.vol)return '';var S=vsaGet(),r=S.rv[i],sp=S.sr[i],f=S.cp[i],w=S.wv[S.wid[i]];
+    return (r==null?'':' <span style="color:'+rvCol(r)+'">'+r.toFixed(2)+'× AVG20</span>')+'<br>SPREAD '+(sp==null?'n/a':sp.toFixed(2)+'× AVG')+' · CLOSE '+(f>=2/3?'TOP':f>=1/3?'MID':'LOW')+' ⅓'+
+      (S.gl[i]==='abs'?'<br><span style="color:#72f6ff">▲ ABSORPTION: HIGH VOLUME, NARROW SPREAD</span>':S.gl[i]==='ne'?'<br><span style="color:#d9ccff">○ NO EFFORT: LOW VOLUME, WIDE SPREAD</span>':'')+
+      (LS.L.weis&&w?'<br>WEIS '+(w.d>0?'UP':'DOWN')+' WAVE '+fmtV(S.cum[i])+(i<w.e?' SO FAR':w.open?' (OPEN)':' TOTAL'):'');}
   function showTip(i,px,py){
     if(i<0){tip.hidden=true;return;}
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
     tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+'<br>H '+b.h.toFixed(2)+'<br>L '+b.l.toFixed(2)+'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>')+
-      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+(S50[b.d]?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
+      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
       (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i);
     tip.hidden=false;var w=host.clientWidth;tip.style.left=(px>w/2?Math.max(4,px-tip.offsetWidth-14):px+14)+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,py-40))+'px';
   }
@@ -528,9 +649,11 @@
   var OBAR=null,OBTN=null;
   if(OVL.length){var ob=document.createElement('div');ob.className='tc-ovl';ob.setAttribute('role','group');ob.setAttribute('aria-label','Detector overlays');
     function obtn(o){return (o.on?'◉ ':'○ ')+esc(o.label)+(o.on?' · ON':' · OFF');}
-    ob.innerHTML=OVL.map(function(o,k){return '<div class="ovr"><button type="button" data-o="'+k+'" aria-pressed="'+o.on+'" title="Show / hide the detector drawing">'+obtn(o)+'</button>'+
-      '<span class="ol">'+(o.legend||[]).map(function(l){return '<span><i style="background:'+esc(l[0])+'"></i>'+esc(l[1])+'</span>';}).join('')+
-      (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span>'+(o.note?'<details class="onote"><summary>STORY</summary><p>'+esc(o.note)+'</p></details>':'')+'</div>';}).join('');
+    function oleg(o){return (o.id==='vsa'&&VM==='vsa'&&LS.L.vol)?[['#39ff88','STRENGTH TAG'],['#ff3d7f','WEAKNESS TAG'],['#ffffff','SHOWN AS TAGS IN THE VSA VOLUME PANEL · GLOW = HIGH SIGNIFICANCE · TAP A BAR FOR WHY']]:(o.legend||[]);}
+    window._tcObHTML=function(){return OVL.map(function(o,k){return '<div class="ovr"><button type="button" data-o="'+k+'" aria-pressed="'+o.on+'" title="Show / hide the detector drawing">'+obtn(o)+'</button>'+
+      '<span class="ol">'+oleg(o).map(function(l){return '<span><i style="background:'+esc(l[0])+'"></i>'+esc(l[1])+'</span>';}).join('')+
+      (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span>'+(o.note?'<details class="onote"><summary>STORY</summary><p>'+esc(o.note)+'</p></details>':'')+'</div>';}).join('');};
+    ob.innerHTML=window._tcObHTML();
     host.parentNode.insertBefore(ob,host);OBAR=ob;OBTN=obtn;
     ob.addEventListener('click',function(e){var b=e.target.closest('button[data-o]');if(!b)return;var o=OVL[+b.getAttribute('data-o')];o.on=!o.on;
       OLS.set('tc_ovl_'+o.id,o.on?'1':'0');b.setAttribute('aria-pressed',String(o.on));b.innerHTML=obtn(o);draw(performance.now());if(window._tcLaySync)_tcLaySync();});
@@ -538,6 +661,14 @@
   cv.addEventListener('mouseleave',function(){hover=-1;showTip(-1);if(RM)draw(performance.now());});
 
   // ---------------------------------------------------------------- legend, levels table, footer
+  function volKey(){if(!LS.L.vol)return '';if(VM!=='vsa')return '<span>VOL: PLAIN · GREEN UP / RED DOWN</span>';
+    var hasV=OVL.some(function(o){return o.id==='vsa';}),mini=document.body.classList.contains('tc-mini');
+    function sw(c,t,gl){return '<i style="background:'+c+';width:9px;height:7px;margin:0 3px 0 6px'+(gl?';box-shadow:0 0 6px #fff2c0':'')+'"></i>'+t;}
+    var how='SOLID = CLOSE IN TOP ⅓ · HALF = MIDDLE ⅓ · HOLLOW = BOTTOM ⅓ · ▲ VOL >1.5× + SPREAD <0.7× · ○ VOL <0.7× + SPREAD >1.3× (VS THE 20 BARS BEFORE) · LINE = 20-BAR AVG VOLUME, DASHED = 2×';
+    return '<span class="tc-vsak" title="'+how+'">color = rel volume · fill = close position · ▲ absorption · ○ no effort</span>'+
+      '<span class="tc-vsal">REL VOL'+sw(VCOL.dim,'&lt;0.7×')+sw(VCOL.cy,'0.7–1.5')+sw(VCOL.cy2,'1.5–2')+sw(VCOL.hot,'2–3')+sw('#fff','≥3× CLIMAX',1)+'</span>'+
+      (mini?'':'<span class="tc-vsal">'+how+'</span>')+
+      (LS.L.weis?'<span class="tc-vsal"><i style="background:rgba(57,255,136,.5)"></i>/<i style="background:rgba(255,43,214,.5);margin-left:4px"></i>WEIS WAVES UP / DOWN · NEW WAVE WHEN THE CLOSE REVERSES ≥1×ATR14</span>':'');}
   function legendHTML(){return '<span><i style="background:'+C.up+'"></i>HLC BAR UP (CLOSE ≥ PRIOR CLOSE)</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+
     (NOMA?'<span class="tc-warnline">NO MOVING AVERAGES ON THIS CHART (STRUCTURE + VOLUME ONLY)</span>':smaLeg())+
     (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
@@ -545,7 +676,7 @@
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
-    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
+    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+volKey()+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
     PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+esc(plPos(x))+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
   $('tc-legend').innerHTML=legendHTML();window._tcLegend=legendHTML;
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
@@ -589,15 +720,18 @@
   function redraw(){drawGauge();draw(performance.now());}
   var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load("10px 'Press Start 2P'"),document.fonts.ready]).catch(function(){}):Promise.resolve();
   function layersUI(){
-    var NAMES={bars:'Bars (HLC)',vol:'Volume',sma:'Moving averages (SMA 50/150/200 · 1W 10/30/40 · 1M 3/7/10)',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
+    var NAMES={bars:'Bars (HLC)',vol:'Volume',weis:'Weis waves (VOL: VSA panel)',sma:'Moving averages (SMA 50/150/200 · 1W 10/30/40 · 1M 3/7/10)',entry:'Entry / pivot line',stop:'Stop line',targets:'Targets 2R / 3R',pct:'% gain ticks (trade strip)',pctl:'% gain lines (chart, faint)',
       acct:'−0.5% / −1% acct loss',cuts:'Cut levels ✂',zones:'Risk / reward / buy-zone bands',last:'Price tag (last)',rsp:'RS rating panel',
       rsl:'RS line dots (new high first)',ovl:'Pattern overlays',oneup:'1UP marker (latest bar)'};
-    var HAS={bars:1,vol:1,sma:NOMA?0:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
+    var HAS={bars:1,vol:1,weis:1,sma:NOMA?0:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
       zones:!!D.buy_zone||(D.entry!=null&&D.stop!=null),last:1,rsp:hasRT,rsl:Object.keys(RSM).some(function(k){return RSM[k]==='L';}),ovl:OVL.length>0,oneup:1};
     var zb=host.parentNode.querySelector('.tcz'),own=!zb;
     if(own){zb=document.createElement('div');zb.className='tcz tcz-m';host.parentNode.insertBefore(zb,host);}
     var g=document.createElement('div');g.className='tcg';g.setAttribute('role','group');g.setAttribute('aria-label','Chart layers');
-    g.innerHTML='<span class="tctf" role="radiogroup" aria-label="Timeframe">'+['D','W','M'].map(function(k){return '<button type="button" role="radio" data-tf="'+k+'" aria-checked="false" title="'+(NATIVE!=='D'&&k!==NATIVE?'This chart is drawn on '+TFW[NATIVE]+' bars only':TFW[k].charAt(0).toUpperCase()+TFW[k].slice(1)+' bars (saved for every chart)')+'">'+TFN[k]+'</button>';}).join('')+'</span><button type="button" class="tcm"></button><button type="button" class="tcl" aria-haspopup="dialog" aria-expanded="false">☰ LAYERS</button><button type="button" class="tct"></button>';
+    g.innerHTML='<span class="tctf" role="radiogroup" aria-label="Timeframe">'+['D','W','M'].map(function(k){return '<button type="button" role="radio" data-tf="'+k+'" aria-checked="false" title="'+(NATIVE!=='D'&&k!==NATIVE?'This chart is drawn on '+TFW[NATIVE]+' bars only':TFW[k].charAt(0).toUpperCase()+TFW[k].slice(1)+' bars (saved for every chart)')+'">'+TFN[k]+'</button>';}).join('')+'</span>'+
+      '<span class="tcvol" role="radiogroup" aria-label="Volume panel"><b>VOL:</b><button type="button" role="radio" data-vm="plain" aria-checked="false" title="Plain green / red volume bars (saved for every chart)">PLAIN</button>'+
+      '<button type="button" role="radio" data-vm="vsa" aria-checked="false" title="VSA volume: colour = relative volume, fill = close position, absorption / no-effort glyphs, VSA engine tags (saved for every chart)">VSA</button></span>'+
+      '<button type="button" class="tcm"></button><button type="button" class="tcl" aria-haspopup="dialog" aria-expanded="false">☰ LAYERS</button><button type="button" class="tct"></button>';
     zb.appendChild(g);
     var pn=document.createElement('div');pn.className='tclp';pn.hidden=true;pn.setAttribute('role','dialog');pn.setAttribute('aria-label','Chart layers');
     function tb(k,lab,on,extra){return '<button type="button" class="tg'+(extra||'')+'" data-k="'+k+'" aria-pressed="'+(on?'true':'false')+'"><i></i><span>'+esc(lab)+'</span></button>';}
@@ -615,7 +749,16 @@
       bt.textContent=LS.text?'Aa TEXT':'Aa TEXT OFF';bt.setAttribute('aria-pressed',LS.text?'true':'false');bt.setAttribute('aria-label','All chart text '+(LS.text?'on':'off'));
       var B=document.body.classList;B.toggle('tc-notext',!LS.text);B.toggle('tc-noovl',!LS.L.ovl);B.remove('tc-clean','tc-lvonly');
       if(!pn.hidden)render();}
-    function save(){try{localStorage.setItem(LKEY,JSON.stringify(LS));var p=presetOf(LS);if(p!=='custom')localStorage.setItem(MKEY,p);}catch(e){}lab();redraw();}
+    function legRe(){if($('tc-legend'))$('tc-legend').innerHTML=legendHTML();if(OBAR&&window._tcObHTML)OBAR.innerHTML=window._tcObHTML();}
+    function save(){try{localStorage.setItem(LKEY,JSON.stringify(LS));var p=presetOf(LS);if(p!=='custom')localStorage.setItem(MKEY,p);}catch(e){}lab();legRe();redraw();}
+    // VOL: PLAIN | VSA (one shared choice, localStorage wa.desk.chartvol.v1, default VSA; other open charts follow live)
+    var vg=g.querySelector('.tcvol');
+    function vmLab(){vg.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-checked',String(b.getAttribute('data-vm')===VM));});}
+    window._tcSetVM=function(m,nosave){VM=m==='plain'?'plain':'vsa';if(!nosave){try{localStorage.setItem(VKEY,VM);}catch(e){}}
+      document.body.classList.toggle('tc-volvsa',VM==='vsa');vmLab();legRe();if(!pn.hidden)render();setTimeout(redraw,0);};
+    vg.addEventListener('click',function(e){var b=e.target.closest('button[data-vm]');if(b&&b.getAttribute('data-vm')!==VM)window._tcSetVM(b.getAttribute('data-vm'));});
+    window.addEventListener('storage',function(e){if(e.key===VKEY&&(e.newValue||'vsa')!==VM)window._tcSetVM(e.newValue||'vsa',1);});
+    vmLab();
     function syncOvl(){if(OBAR)OBAR.querySelectorAll('button[data-o]').forEach(function(b){var o=OVL[+b.getAttribute('data-o')];b.setAttribute('aria-pressed',String(o.on));b.innerHTML=OBTN(o);});}
     window._tcLaySync=function(){if(!pn.hidden)render();};
     function open(v){pn.hidden=!v;bl.setAttribute('aria-expanded',String(v));if(v)render();}
@@ -642,7 +785,7 @@
       save();render();});
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pn.hidden){open(false);bl.focus();}});
-    window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();draw(performance.now());}});   // other open charts / tabs
+    window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();legRe();draw(performance.now());}});   // other open charts / tabs
     zb.appendChild(pn);lab();
     // ---- notes fold row
     var fr=document.createElement('button');fr.type='button';fr.className='tcf';fr.setAttribute('aria-controls','tc-chart');
@@ -665,8 +808,13 @@
       '.tcz .tcg .tctf button{min-width:38px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(0,229,255,.45)!important;box-shadow:none!important;color:#00e5ff!important;background:#07061a!important;padding:4px 6px;flex:0 0 auto}'+
       '.tcz .tcg .tctf button:last-child{border-right:0!important}.tcz .tcg .tctf button[aria-checked=true]{background:#00e5ff!important;color:#07061a!important}'+
       '.tcz .tcg .tctf button:disabled{opacity:.3;cursor:not-allowed}.tcz .tcg .tctf button:focus-visible{outline:2px solid #ffd23f;outline-offset:-2px}'+
-      '@media (max-width:760px){.tcz .tcg{flex-wrap:wrap}.tcz .tcg .tctf{flex:1 1 100%}.tcz .tcg .tctf button{flex:1 1 0!important}}'+
-      'body.tc-mini .tcz .tcg .tctf{flex:1 1 100%}body.tc-mini .tcz .tcg .tctf button{flex:1 1 0!important}';
+      '.tcz .tcg .tcvol{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #ff2bd6;box-shadow:2px 2px 0 #000}'+
+      '.tcz .tcg .tcvol b{display:flex;align-items:center;padding:0 5px;font-size:8px;font-weight:400;color:#ff7be8;background:#07061a;border-right:1px solid rgba(255,43,214,.45)}'+
+      '.tcz .tcg .tcvol button{min-width:46px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(255,43,214,.45)!important;box-shadow:none!important;color:#ff7be8!important;background:#07061a!important;padding:4px 5px;flex:0 0 auto}'+
+      '.tcz .tcg .tcvol button:last-child{border-right:0!important}.tcz .tcg .tcvol button[aria-checked=true]{background:#ff2bd6!important;color:#07061a!important}'+
+      '.tcz .tcg .tcvol button:focus-visible{outline:2px solid #ffd23f;outline-offset:-2px}'+
+      '@media (max-width:760px){.tcz .tcg{flex-wrap:wrap}.tcz .tcg .tctf{flex:1 1 44%;min-width:0}.tcz .tcg .tctf button{flex:1 1 0!important;min-width:0!important}.tcz .tcg .tcvol{flex:1 1 50%;min-width:0}.tcz .tcg .tcvol button{flex:1 1 0!important;min-width:0!important}}'+
+      'body.tc-mini .tcz .tcg .tctf{flex:1 1 44%;min-width:0}body.tc-mini .tcz .tcg .tctf button{flex:1 1 0!important;min-width:0!important}body.tc-mini .tcz .tcg .tcvol{flex:1 1 50%;min-width:0}body.tc-mini .tcz .tcg .tcvol button{flex:1 1 0!important;min-width:0!important}';
     document.head.appendChild(tcs);}
   var tfReady=TF!==NATIVE?Promise.race([tfFetch(),new Promise(function(r){setTimeout(r,1500);})]):null;
   Promise.all([ready,tfReady]).then(function(){

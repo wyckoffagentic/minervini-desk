@@ -1,0 +1,12 @@
+/* rs_page.css - readability overrides for rs.html (4 Oct 2026). Linked as a file so unify.py's colour re-skin never rewrites it.
+   Source colours are the light-theme ones from fund_ui.py (.up #0a7a2a / .dn #b3261e) and highs_badges.js (.hb inherits link cyan),
+   which fall below WCAG AA on the dark desk theme. Scoped to the RS page; #rso has its own palette. */
+body.dk .up,body.dk span.up,body.dk td .up{color:#7dffb0}
+body.dk .dn,body.dk span.dn,body.dk td .dn{color:#ff8fa3}
+body.dk .arw.up{color:#7dffb0;background:rgba(57,255,136,.10);border-color:rgba(125,255,176,.55)}
+body.dk .arw.dn{color:#ff8fa3;background:rgba(255,61,127,.10);border-color:rgba(255,143,163,.55)}
+body.dk .arw.eq{color:#d6d2f5}
+body.dk .idx .c{color:#cfc9ff}
+body.dk .idx.up .c{color:#7dffb0}
+body.dk a.hb,body.dk .hb{color:#120f22!important;border-color:rgba(0,0,0,.35)!important;text-shadow:none}
+body.dk .hb.ath{background:#ffd23f}body.dk .hb.h52{background:#7dff8a}
