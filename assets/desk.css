@@ -170,15 +170,13 @@ body.dk.tc-arcade .tc-panel{border:1px solid var(--edge2);border-radius:var(--r-
 body.dk.tc-arcade .tc-tk,body.dk.tc-arcade .tc-title,body.dk.tc-arcade .tc-panel h2,body.dk.tc-arcade .tc-level,body.dk.tc-arcade .tc-press,body.dk.tc-arcade .tc-rsb .r1{font-family:var(--f-px)}
 body.tc-embed .dk-head,body.tc-embed .dk-nav,body.tc-embed .dk-sub,body.tc-embed .dk-actions{display:none!important}
 /* mini embed (VSA dropdown charts): chart + legend only */
-body.tc-mini .tc-top,body.tc-mini .tc-hud,body.tc-mini #tc-levels,body.tc-mini .tc-foot,body.tc-mini .tc-scan,body.tc-mini .dk-rundown,body.tc-mini #rc-tag,body.tc-mini .rc-tag{display:none!important}
+/* inline dropdown charts (stock.html?embed=1&mini=1): the SAME chart module as charts/<T>.html (4 Oct 2026) - only page chrome is dropped */
+body.tc-mini .tc-scan,body.tc-mini .dk-rundown,body.tc-mini #rc-tag,body.tc-mini .rc-tag{display:none!important}
 body.tc-mini .tc-wrap{padding:0}
-body.tc-mini .tc-chart{height:330px}
-body.tc-mini .tc-ovl,body.tc-mini .tc-legend,body.tc-mini .tcz .zg,body.tc-mini .tcz .rd,body.tc-mini .tcz .pr,body.tc-mini #stk-lv,body.tc-mini .tc-warn{display:none!important}
-body.tc-mini .stk-vkey{display:flex}
+body.tc-mini .tc-chart{height:560px}@media (max-width:760px){body.tc-mini .tc-chart{height:540px}}   /* = the chart page at iPhone height (64vh of 844); fixed px: the iframe is sized to its content */
 body.tc-mini.dk,body.tc-embed.dk{min-height:0}body.tc-embed.dk:before,body.tc-embed.dk:after{display:none}
 body.tc-embed .wrap,body.tc-embed main{padding:0 0 4px!important}body.tc-embed .stk-foot{display:none}
 body.tc-mini .stk-chart{margin:0;padding:6px 4px 2px;border:0;box-shadow:none;background:transparent}
-body.tc-mini .tc-legend{font-size:10.5px}
 /* ------------------------------------------------------------------ page actions bar (stock/chart pages) */
 .dk-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:1180px;margin:0 auto;padding:0 12px 6px}
 /* ------------------------------------------------------------------ responsive */
@@ -229,7 +227,6 @@ body.dk h1.stk-tk{font-size:24px;margin:2px 0;color:#fff}
 .stk-toc a:hover{border-color:var(--cy)}
 .stk-sec{scroll-margin-top:46px}
 .stk-chart{background:linear-gradient(180deg,rgba(16,12,46,.94),rgba(10,8,30,.96));border:1px solid var(--edge2);border-radius:var(--r-lg);box-shadow:var(--glow);padding:8px 8px 4px;margin:0 0 6px}
-body.dk.dk-stock .tc-top{padding:0 0 6px;margin:0}
 body.dk-nolv #tc-hud,body.dk-nolv #tc-level{display:none!important}
 .stk-lv summary{cursor:pointer;color:var(--dim);font-size:12px;padding:6px 2px}
 .stk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
@@ -314,7 +311,6 @@ body.dk tr.dk-vopen details.vsan[open]>p{display:none}
 .dk-vstory{padding:8px 10px 10px;border-top:1px solid var(--edge);font-size:12.5px;line-height:1.5;color:var(--tx2)}.dk-vstory b{font-family:var(--f-px);font-size:9px;font-weight:400;color:var(--gold);margin-right:4px}
 body.dk .wl-tbl td.tk .ph{display:none;margin-top:4px;gap:4px;flex-wrap:wrap}body.dk .wl-tbl td.tk .ph .dk-chip,body.dk .wl-tbl td.tk .ph .dk-state{font-size:10.5px;padding:1px 6px}
 @media (max-width:420px){body.dk .wl-tbl td.tk .ph{display:flex}}
-body.dk-stock .tc-hud{display:none!important}
 /* ================================================================== expandable ticker rows (desk.js: every per-ticker row -> inline chart) */
 .dk-xrow{cursor:pointer}
 .dk-xb{display:inline-grid;place-items:center;width:22px;height:22px;margin:0 0 0 6px;padding:0;vertical-align:middle;cursor:pointer;flex:0 0 auto;
@@ -374,8 +370,6 @@ body.dk tr.dk-tfempty td{color:var(--dim);font-style:italic;padding:12px 10px}
 @media (max-width:420px){.tclp{right:0;left:0;width:auto;margin:0 2px}.tclp .tg{font-size:12px!important;padding:6px 8px!important}}
 body.tc-notext .tc-ovl,body.tc-notext .tc-legend,body.tc-notext #tc-levels,body.tc-notext .stk-vkey,body.tc-noovl .tc-ovl{display:none!important}   /* text off / overlays off: no key text above or below the chart */
 body.tc-mini .tclp{position:static;width:auto;max-height:none;margin-top:6px}   /* inline charts: in flow so the iframe grows to fit it */
-body.tc-mini .tcz .tcg{flex-basis:100%;margin-left:0}body.tc-mini .tcz .tcg button{flex:1}
-body.tc-mini .tcz{border:0;background:transparent;padding:2px 0 6px}
 .tcz .tcg .tct[aria-pressed=true]{background:#07061a!important;color:var(--gold)!important;border-color:var(--gold)!important}
 /* ================================================================== chart: pure black plot area + notes fold row (charts.js) */
 body.dk .tc-stage{background:#000}
@@ -385,7 +379,6 @@ body.dk .tc-stage{background:#000}
 .tcf[hidden]{display:none}.tcf:focus-visible{outline:2px solid var(--cy,#00e5ff);outline-offset:1px}
 section.tc-stage>.tcf{border-radius:0;border-width:0 2px;border-color:#3a2f8a}
 body.tc-fold .tc-ovl,body.tc-fold .tc-legend,body.tc-fold .stk-vkey{display:none!important}
-body.tc-mini .tcf{margin:0 0 6px}
 /* ================================================================== desk team (unify.py team_html: index.html bottom + team.html) */
 .dk-team{margin:26px 0 14px;padding:14px 14px 16px;background:var(--panel);border:1px solid var(--edge2);border-radius:var(--r-lg,14px)}
 .dk-team-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:12px}.dk-team-hd h2{margin:0;font-size:17px}
@@ -459,20 +452,33 @@ body.tc-embed .dk-credit,body.tc-mini .dk-credit{display:none!important}
 .tp{white-space:nowrap;font-weight:700}.tp b{font-weight:800}.tp-pos{color:#1fd16a}.tp-neg{color:#ff4d6d}.tp-pend{color:#8f9bb3;font-weight:600}.tp-r{white-space:nowrap;font-weight:700;font-size:.92em}.tp-m{white-space:nowrap;opacity:.75;font-size:.85em}
 .tp b,.tp-r b{color:inherit!important}
 .tc-legend span.tc-pgk{white-space:normal!important;overflow-wrap:anywhere}.tc-pgs{white-space:normal}
-/* springs grouped by Wyckoff phase -> bars ago (setups.html #springs-phases; research-tools/setups_page.py + spring_phase.py) */
-.sp-phbar{margin:4px 0 6px}.sp-phbar .dk-tfc,.sp-tfbar .dk-tfc{min-height:34px}
-.sp-tfbar{margin:0 0 8px}
-.sp-intro{margin:2px 0 10px}
-details.sp-ph{border:1px solid var(--line,rgba(255,255,255,.14));border-radius:12px;margin:10px 0;padding:0 8px 6px;background:rgba(255,255,255,.02)}
-details.sp-ph>summary{cursor:pointer;padding:9px 2px 7px;font:700 17px/1.35 var(--f-head,inherit);list-style-position:inside}
-details.sp-ph>summary .cnt{font-size:13px;vertical-align:1px}
-.sp-mix{font:500 12px/1.4 var(--f-mono,inherit);color:var(--dim);display:inline-block}
-.sp-phs{font-weight:500;font-size:12.5px;color:var(--dim)}
-details.sp-ba{margin:4px 0 8px 2px;border-left:2px solid var(--cy,#0ef);padding-left:8px}
-details.sp-ba>summary{cursor:pointer;padding:5px 0;font:600 15px/1.35 var(--f-head,inherit)}
-details.sp-ba>summary .cnt{font-size:12px}
-details.sp-ph[data-ph=C]>summary .sp-pht{color:var(--cy,#0ef)}details.sp-ph[data-ph=D]>summary .sp-pht,details.sp-ph[data-ph=E]>summary .sp-pht{color:var(--gr,#7dff8a)}
-details.sp-ph[data-ph=F]>summary .sp-pht{color:var(--rd,#ff6b6b)}
-.sp-basis{color:var(--dim)}
-details.sp-how{margin:-4px 0 10px}details.sp-how>summary{cursor:pointer;font-size:13px;color:var(--cy,#0ef)}
-@media (max-width:760px){.sp-pw{display:none}details.sp-ph{padding:0 4px 4px}details.sp-ph>summary{font-size:15px}details.sp-ba{margin-left:0;padding-left:5px}details.sp-ba>summary{font-size:14px}.sp-phbar .dk-tfc,.sp-tfbar .dk-tfc{font-size:12.5px;padding:4px 9px}}
+
+/* ================================================================== one chart module (4 Oct 2026): $ position block in the RISK box + wrapping keys */
+body.dk .tc-risk .tc-pos{border-bottom:1px dashed rgba(199,125,255,.45);padding-bottom:6px;margin-bottom:6px}
+body.dk .tc-risk .pz{display:inline-flex;align-items:center;gap:4px;color:#ffd23f;font-weight:700}
+body.dk .tc-risk #tc-psz{width:118px;font-size:16px;padding:4px 6px}   /* 16px: no iOS focus zoom */
+body.dk .tc-risk .pzn{display:block;font-size:10px;color:#a99ad8;margin:2px 0 3px}
+body.dk .tc-risk .tc-pos .out b{font-family:var(--f-mono)}
+body.dk .tc-risk .tc-acr{color:#cfc4f0;font-size:10.5px}body.dk .tc-risk .tc-acr .acr{color:#a99ad8}
+body.dk .tc-legend .tc-warnline,body.dk .tc-legend .tc-pgk{white-space:normal!important;max-width:100%;overflow-wrap:anywhere}
+.dk-wapos,[data-wapos]{font:600 11px/1.4 var(--f-mono);color:var(--tx2)}
+/* setups.html families grouped by Wyckoff phase -> bars ago (research-tools/phase_groups.py; desk.js section.pg-fam) */
+.pg-jump{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}.pg-jump a{font-size:13px;padding:5px 10px;border:1px solid var(--line,rgba(255,255,255,.18));border-radius:999px;text-decoration:none}
+section.pg-fam{margin:0 0 6px}h2.pg-famh{scroll-margin-top:12px}
+.pg-phbar{margin:2px 0 6px}.pg-phbar .dk-tfc,.pg-tfbar .dk-tfc{min-height:34px}.pg-tfbar{margin:0 0 8px}
+details.pg-how{margin:0 0 10px}details.pg-how>summary{cursor:pointer;font-size:13px;color:var(--cy,#0ef)}
+details.pg-sec{margin:12px 0;scroll-margin-top:12px}
+details.pg-sec>summary.pg-ssum{cursor:pointer;font:700 18px/1.35 var(--f-head,inherit);padding:6px 0;border-bottom:1px solid var(--line,rgba(255,255,255,.14))}
+details.pg-sec>summary.pg-ssum small{font-size:12.5px;font-weight:500;color:var(--dim)}details.pg-sec>summary .cnt{font-size:13px}
+details.pg-ph{border:1px solid var(--line,rgba(255,255,255,.14));border-radius:12px;margin:10px 0;padding:0 8px 6px;background:rgba(255,255,255,.02)}
+details.pg-ph>summary{cursor:pointer;padding:9px 2px 7px;font:700 16px/1.35 var(--f-head,inherit)}
+details.pg-ph>summary .cnt{font-size:13px;vertical-align:1px}
+.pg-mix{font:500 12px/1.4 var(--f-mono,inherit);color:var(--dim);display:inline-block}
+.pg-phs{font-weight:500;font-size:12.5px;color:var(--dim)}
+details.pg-ba{margin:4px 0 8px 2px;border-left:2px solid var(--cy,#0ef);padding-left:8px}
+details.pg-ba>summary{cursor:pointer;padding:5px 0;font:600 15px/1.35 var(--f-head,inherit)}details.pg-ba>summary .cnt{font-size:12px}
+details.pg-ph[data-ph=C]>summary .pg-pht{color:var(--cy,#0ef)}details.pg-ph[data-ph=D]>summary .pg-pht,details.pg-ph[data-ph=E]>summary .pg-pht{color:var(--gr,#7dff8a)}
+details.pg-ph[data-ph=F]>summary .pg-pht{color:var(--rd,#ff6b6b)}details.pg-ph[data-ph=N]>summary .pg-pht{color:var(--gold,#ffd23f)}
+.pg-note{color:var(--dim);font-size:10.5px;white-space:normal}.pg-evh{font-weight:500;text-transform:none;letter-spacing:0}.pg-bac small{white-space:nowrap}
+@media (max-width:760px){.pg-pw{display:none}details.pg-ph{padding:0 4px 4px}details.pg-ph>summary{font-size:15px}details.pg-ba{margin-left:0;padding-left:5px}
+  details.pg-ba>summary{font-size:14px}details.pg-sec>summary.pg-ssum{font-size:16px}.pg-phbar .dk-tfc,.pg-tfbar .dk-tfc{font-size:12.5px;padding:4px 9px}.pg-bac small{white-space:normal}}

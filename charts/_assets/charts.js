@@ -6,6 +6,27 @@
   var D=window.TC_DATA; if(!D||!D.bars) return;
   var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(/[?&]embed=1/.test(location.search)) document.body.classList.add('tc-embed');
+  // ---------------------------------------------------------------- ONE chart module (added 4 Oct 2026): every surface that shows a chart
+  // (charts/<T>.html, its ?embed=1 modal, stock.html?t=T, the inline dropdown iframes stock.html?embed=1&mini=1, D/W/M) gets exactly this
+  // DOM, built here, in this order: LEVEL chip + RS box | trade panel (price, level, R-mult, % from / to entry, days, MFE, 1R) + RISK box
+  // (shares calc) + HP/XP meter | zoom / ranges / 1D 1W 1M / FULL LAYERS TEXT (chart_zoom.js + layersUI) | notes row | overlays (+ story) |
+  // chart | legend | levels & sources + notes | footer.  Pages only provide <div id="tc-mount"> (an RS box inside it, or window.TC_RSB, is kept).
+  // Older chart pages that still carry the static markup are re-ordered into the same sequence.
+  (function mount(){
+    var host=document.getElementById('tc-mount')||document.querySelector('main.tc-wrap');if(!host)return;
+    var rsb=document.getElementById('tc-rsb');
+    if(!document.getElementById('tc-hud')){
+      var tk=esc0(D.ticker||'');
+      host.insertAdjacentHTML('beforeend','<header class="tc-top"><div class="tc-level" id="tc-level"></div></header>'+
+        '<section class="tc-hud" id="tc-hud" aria-label="Trade HUD"></section>'+
+        '<section class="tc-stage"><div class="tc-chart" id="tc-chart" role="img" aria-label="'+tk+' high-low-close bars with entry, stop and R-target levels, volume and RS"></div>'+
+        '<div class="tc-legend" id="tc-legend"></div></section><section class="tc-panel" id="tc-levels"></section><footer class="tc-foot" id="tc-foot"></footer>');}
+    var top=host.querySelector('.tc-top');
+    if(!rsb&&window.TC_RSB&&top){top.insertAdjacentHTML('beforeend',window.TC_RSB);rsb=document.getElementById('tc-rsb');}
+    if(rsb&&top&&rsb.parentNode!==top)top.appendChild(rsb);
+    ['tc-hud','tc-stage','tc-levels','tc-foot'].forEach(function(id){var e=document.getElementById(id)||host.querySelector('.'+id);if(e&&e.parentNode===host)host.appendChild(e);});
+    function esc0(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  })();
   var FONT="'Press Start 2P','DejaVu Sans',monospace", SYM="'Press Start 2P','DejaVu Sans','Noto Sans Symbols 2','Segoe UI Symbol',monospace";
   var C={up:'#39ff88',dn:'#ff3d7f',entry:'#00e5ff',stop:'#ff2a2a',cut:'#ff9f1c',a05:'#c77dff',a10:'#ff2bd6',r2:'#39ff14',r3:'#ffd700',zone:'#00e5ff',grid:'rgba(107,92,255,.13)',axis:'#6f6a9c',frame:'#3a2f8a',bg:'#000000'};
   // ---------------------------------------------------------------- layers (LAYERS panel + TEXT switch + FULL / LEVELS / CLEAN presets)
@@ -32,6 +53,9 @@
   function mapS(a){var m={};(a||[]).forEach(function(p){m[p[0]]=p[1];});return m;}
   var NOMA=!!D.no_ma;   // per-chart flag (Wyckoff Structure page, stock.js ov=wyckoff): no moving averages at all - SMA lines, legend and layer hidden; shared layer state untouched
   var S50=mapS(NOMA?null:D.sma50),S150=mapS(NOMA?null:D.sma150),S200=mapS(NOMA?null:D.sma200);
+  if(D.entry>0&&D.stop!=null&&D.entry>D.stop&&(!D.risk_plan||D.risk_plan.default==null)){   // same numbers as charts.py risk_plan() for an unscored plan
+    var _rp=(D.entry-D.stop)/D.entry*100;D.risk_plan={default:0.75,min:0.5,max:1,tier:0.75,short:'UNSCORED',reasons:['default 0.75%: unscored'],stop_pct:Math.round(_rp*100)/100,
+      size_pct:{'0.5':Math.round(0.5/_rp*1000)/10,'0.75':Math.round(0.75/_rp*1000)/10,'1':Math.round(1/_rp*1000)/10},m05:Math.round((D.entry-(0.5/0.75)*(D.entry-D.stop))*100)/100,m10:Math.round((D.entry-(1/0.75)*(D.entry-D.stop))*100)/100};}
   var last=bars[bars.length-1], hasR=D.r3!=null, RP=D.risk_plan||{};
   // RS line (research-tools/charts.py rs_payload): close ÷ SPY close on the chart's own bars; marks: L = new 52w RS high before price (blue dot), P = with price
   var RSD=D.rs||{}, RSL=mapS(RSD.line), RSM=RSD.marks||{}, RSC={lead:'#2f7bff',hi:'#9fc4ff'};
@@ -165,17 +189,37 @@
 
   // ---------------------------------------------------------------- RISK box (fixed desk rules; computed in charts.py)
   function pct(v){return v==null?'—':(+v).toFixed(1)+'%';}
+  // $ POSITION SIZE block (4 Oct 2026, Chris): a $10,000 default position per trade (changeable, one value for every page: wa_pos.js WAPos),
+  // assumed bought at the plan's buy-stop entry -> shares, $ / % risk to the stop, 2R / 3R prices and $ profit. Shorts mirrored (stop above).
+  function posSrc(){var P0=D.entry==null&&PLS.length?PLS[0].pnl:null,e=D.entry!=null?D.entry:P0&&P0.entry,st=D.entry!=null?D.stop:P0&&P0.stop;
+    var side=(P0&&P0.side)||(st!=null&&e!=null&&st>e?'short':'long');return {e:e,s:st,side:side};}
+  function money0(v){return window.WAPos?WAPos.usd(v):'$'+Math.round(v).toLocaleString();}
+  function posOut(){var W=window.WAPos;if(!W)return '';var q=posSrc(),o=W.calc(q.e,q.s,q.side);if(!o)return '<span class="neg">NO ENTRY — NO POSITION</span>';
+    var bs=o.side==='short'?'SELL STOP ':'BUY STOP ';
+    return '<div>'+bs+o.entry.toFixed(2)+' → <b>'+o.shares.toLocaleString('en-US')+' SH</b> ('+money0(o.cost)+')</div>'+
+      (o.risk!=null?'<div>STOP '+o.stop.toFixed(2)+' → RISK <b class="neg">'+money0(o.risk)+'</b> ('+o.risk_pct.toFixed(1)+'%)</div>'+
+        '<div>2R '+o.r2.toFixed(2)+' → <b class="pos">+'+money0(o.p2)+'</b> · 3R '+o.r3.toFixed(2)+' → <b class="pos">+'+money0(o.p3)+'</b></div>':
+        '<div class="neg">NO STOP ON THIS PLAN — NO $ RISK / 2R / 3R</div>');}
+  function posBox(){if(!window.WAPos)return '';var v=WAPos.get();
+    return '<div class="tc-pos" id="tc-pos"><label class="pz">POSITION $<input id="tc-psz" inputmode="decimal" value="'+v.toLocaleString('en-US')+'" aria-label="Position size in dollars per trade (not account size); one value for every chart, saved in this browser"></label>'+
+      '<span class="pzn">$ PER TRADE · NOT ACCOUNT SIZE · ONE VALUE FOR EVERY CHART</span><div id="tc-pos-out" class="out">'+posOut()+'</div></div>';}
+  function wirePos(){var inp=document.getElementById('tc-psz'),out=document.getElementById('tc-pos-out');if(!inp||!window.WAPos)return;
+    inp.addEventListener('input',function(){if(WAPos.set(inp.value))out.innerHTML=posOut();});
+    inp.addEventListener('blur',function(){inp.value=WAPos.get().toLocaleString('en-US');});
+    WAPos.on(function(v){if(document.activeElement!==inp)inp.value=v.toLocaleString('en-US');out.innerHTML=posOut();var lg=document.getElementById('tc-legend');if(lg&&window._tcLegend)lg.innerHTML=window._tcLegend();});}
+  function plPos(x){var W=window.WAPos,p=x.pnl;if(!W||p.stop==null)return '';var o=W.calc(p.entry,p.stop,p.side);if(!o||o.risk==null)return '';
+    return ' · '+money0(o.size)+': '+o.shares.toLocaleString('en-US')+' SH · RISK '+money0(o.risk)+' · 2R +'+money0(o.p2)+' · 3R +'+money0(o.p3);}
   function riskBox(){
-    var RP=D.risk_plan||{}, sz=RP.size_pct||{}, t=RP.tier, skip=t==='SKIP';
+    var RP=D.risk_plan||{}, sz=RP.size_pct||{}, t=RP.tier==null?0.75:RP.tier, skip=t==='SKIP';
+    if(RP.default==null)RP={default:0.75,min:0.5,max:1,tier:t,short:'PLAN HAS NO STOP',reasons:['desk default 0.75% risk; no stop on this plan, so no position size'],size_pct:{}};   // same fixed rules as charts.py RISK_RULES
     var tierTxt=skip?'SKIP':(t+'%'), tcls=skip?'neg':t>=1?'pos':t<=0.5?'warn':'';
-    return '<div class="tc-risk" id="tc-risk"><div class="rh">RISK</div>'+
-      '<div>'+RP.default+'% (DEFAULT) · RANGE '+RP.min+'–'+RP.max+'%</div>'+
+    return '<div class="tc-risk" id="tc-risk"><div class="rh">RISK</div>'+posBox()+
+      '<div class="tc-acr"><div class="acr">% OF ACCOUNT RULE · '+RP.default+'% DEFAULT · RANGE '+RP.min+'–'+RP.max+'%</div>'+
       '<div class="tier '+tcls+'" title="'+esc((RP.reasons||[]).join(' | '))+'">TIER: '+tierTxt+' — '+esc(RP.short||'')+'</div>'+
-      (RP.stop_pct!=null?'<div>SIZE = RISK ÷ '+RP.stop_pct.toFixed(2)+'% STOP</div>'+
-      '<div>0.5% → '+pct(sz['0.5'])+' · 0.75% → <b>'+pct(sz['0.75'])+'</b> · 1% → '+pct(sz['1'])+' OF ACCT</div>':'<div class="neg">STOP NOT SET — NO SIZE</div>')+
-      (RP.stop_pct!=null?'<details class="calcd"><summary>SHARES CALC ▸</summary><div class="calc"><label>ACCT $<input id="tc-acct" inputmode="decimal" placeholder="e.g. 100000" aria-label="Account size in dollars (saved in this browser only)"></label>'+
+      (RP.stop_pct!=null?'<div>SIZE = RISK ÷ '+RP.stop_pct.toFixed(2)+'% STOP: 0.5% → '+pct(sz['0.5'])+' · 0.75% → <b>'+pct(sz['0.75'])+'</b> · 1% → '+pct(sz['1'])+' OF ACCT</div>':'<div class="neg">STOP NOT SET — NO % SIZE</div>')+'</div>'+
+      (RP.stop_pct!=null?'<details class="calcd"><summary>ACCOUNT SHARES CALC ▸</summary><div class="calc"><label>ACCT $<input id="tc-acct" inputmode="decimal" placeholder="e.g. 100000" aria-label="Account size in dollars (saved in this browser only)"></label>'+
       '<span class="sel" role="radiogroup" aria-label="Risk per trade">'+[0.5,0.75,1].map(function(r){return '<button type="button" data-r="'+r+'">'+r+'%</button>';}).join('')+'</span>'+
-      '<div id="tc-calc-out" class="out">ENTER ACCOUNT SIZE FOR SHARES / $ RISK</div></div></details>':'')+'</div>';
+      '<div id="tc-calc-out" class="out">ENTER ACCOUNT SIZE (NOT POSITION) FOR SHARES / $ RISK AT THE % RULE</div></div></details>':'')+'</div>';
   }
   function wireRisk(){
     var RP=D.risk_plan||{}, inp=document.getElementById('tc-acct'), out=document.getElementById('tc-calc-out'); if(!inp) return;
@@ -224,8 +268,12 @@
       (D.risk?'<div class="tc-sub">1R = $'+D.risk.toFixed(2)+'</div>':'')+'</div>'+
     riskBox()+
     '<div class="tc-gwrap">'+(hasR?'<canvas id="tc-gauge" aria-label="HP bar: price position between stop and 3R"></canvas>':'<div class="tc-warn">☠ STOP NOT SET — no R targets (desk has no documented stop)</div>')+'</div>';
-  wireRisk();
-  $('tc-level').innerHTML='<span class="'+lvlCls+'">LEVEL: <b>'+esc(state)+'</b>'+(D.status?' · '+esc(D.status.toUpperCase()):'')+'</span>';
+  wireRisk();wirePos();
+  var stTxt=D.status?String(D.status).toUpperCase():'';
+  $('tc-level').innerHTML='<span class="'+lvlCls+'">LEVEL: <b>'+esc(state)+'</b>'+(stTxt&&stTxt!==state?' · '+esc(stTxt):'')+'</span>';
+  // no plan at all (no chart levels and no plan_index plan): no trade panel / RISK / meter / LEVEL chip, on every surface alike
+  var NOPLAN=D.entry==null&&!PLS.length;document.body.classList.toggle('tc-noplan',NOPLAN);
+  if(NOPLAN){$('tc-hud').hidden=true;$('tc-hud').style.display='none';$('tc-level').hidden=true;$('tc-level').style.display='none';}
 
   function setup(cv,w,h){var d=Math.max(2,window.devicePixelRatio||1);cv.width=Math.round(w*d);cv.height=Math.round(h*d);cv.style.width=w+'px';cv.style.height=h+'px';var x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);return x;}
 
@@ -498,8 +546,8 @@
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
       '<span>'+(RTH.from?'RS HISTORY FROM '+esc(sday(RTH.from))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>':'')+
     ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
-    PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
-  $('tc-legend').innerHTML=legendHTML();
+    PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+esc(plPos(x))+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
+  $('tc-legend').innerHTML=legendHTML();window._tcLegend=legendHTML;
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
   var tbl='<h2>LEVELS &amp; SOURCES</h2><div class="tc-scroll"><table class="tc-tbl"><thead><tr><th>LEVEL</th><th>PRICE</th><th>R</th><th>SOURCE</th></tr></thead><tbody>'+
     row('c-r3','★★ 3R BOSS',D.r3,D.r3!=null?D.r_src+' = '+D.entry.toFixed(2)+' + 3×'+D.risk.toFixed(2):'not computed: '+(D.problem||''),'+3R')+
@@ -525,7 +573,7 @@
   if(RSD.src) notes.push(['RS LINE',RSD.src]);
   var RT=RSD.rating||{}; if(RT.src) notes.push(['RS RATING',(RT.status==='ranked'?'RS '+RT.rs+' · rank #'+RT.rank+' of '+RT.universe+' · 1w rank change '+(RT.chg_1w==null?'n/a':RT.chg_1w)+' (vs '+RT.week_ago+') · 4w '+(RT.chg_4w==null?'n/a':RT.chg_4w)+' (vs '+RT.four_week_ago+'); positive = moved up':
     RT.status==='unranked'?'not ranked: '+(RT.reason||'')+(RT.provisional?' · provisional RS '+RT.provisional+' (unverified, short history)':''):'no ranking feed')+' · '+(RT.label||'')+' · session '+(RT.asof||'?')+', file generated '+(RT.generated||'?')+' · '+RT.src]);
-  $('tc-levels').innerHTML=tbl+'<ul class="tc-notes">'+notes.map(function(n){return '<li><b>'+n[0]+'</b>'+esc(n[1])+'</li>';}).join('')+'</ul>';
+  $('tc-levels').innerHTML=(D.entry!=null?tbl:'<h2>LEVELS &amp; SOURCES</h2><p class="tc-src">'+(PLS.length?'NO CHART LEVELS · THE OPEN / PENDING PLANS ARE LISTED IN THE KEY':'NO DESK LEVELS OR PLANS FOR THIS NAME')+'</p>')+'<ul class="tc-notes">'+notes.map(function(n){return '<li><b>'+n[0]+'</b>'+esc(n[1])+'</li>';}).join('')+'</ul>';
   $('tc-foot').innerHTML='<p><b>RESEARCH, NOT ADVICE.</b> Entry/stop are the desk\'s planning levels (watchlist.md, daily report, alert state), not orders; 2R/3R are arithmetic targets. Verify before trading.</p>'+
     '<p>Prices: '+esc(D.price_src)+' · fetched '+esc(D.fetched_at||'?')+' · page generated '+esc(D.generated||'')+' (Sydney).</p><p>Font: Press Start 2P (SIL OFL 1.1). Chart drawn on canvas, no third-party code.</p>';
 

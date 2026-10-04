@@ -91,44 +91,24 @@ function chartFrom(kind){
   else return Promise.resolve(null);
   return Promise.all([p,msx(),wyx()]).then(function(pa){var c=pa[0],ms=pa[1],wy=pa[2];
     if(!c||!c.tc||!c.tc.bars)return null;
-    if(MINI){c.tc._pnl0=c.tc.pnl||null;}   // the chart's own plan P/L before a mode swaps / hides its levels (miniKey still lists it)
-    if(MINI){   // expandable-row chart: overlays for the page's context (ov=vsa|spring|ema|setup|desk), levels unless ov=vsa
-      var all=(c.tc.overlays||[]).filter(Boolean),keep;
-      if(OVM==='vsa')keep=all.filter(function(o){return o.id==='vsa';});
-      else if(OVM==='spring')keep=all.filter(function(o){return /^spring/.test(o.id);});
-      else if(OVM==='ema')keep=all.filter(function(o){return /^ema/.test(o.id);});
-      else{keep=all.filter(function(o){return o.id!=='vsa';});
-        var KR={vcp:/^vcp/,spring:/^spring/,ema:/^ema/}[OVK];if(KR){var kk=keep.filter(function(o){return KR.test(o.id);});if(kk.length)keep=kk;}}   // the row's own pattern when it has one
-      if(!keep.length&&OVM!=='vsa'&&OVM!=='setup'&&OVM!=='desk')keep=all.filter(function(o){return o.id!=='vsa';});   // nothing of that kind: show the detector drawings there are
-      c.tc.overlays=keep;
-      if(OVM==='vsa'||c.tc.no_levels){['entry','stop','zone_top','buy_zone','r2','r3','cuts','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.no_levels=true;c.tc.risk_plan={};}
-      if(OVM==='mastack'){['entry','stop','zone_top','buy_zone','r2','r3','risk','risk_pct'].forEach(function(k){c.tc[k]=null;});c.tc.cuts=[];c.tc.no_levels=true;c.tc.risk_plan={};keep=msApply(c.tc,ms);c.tc.overlays=keep;}   // MA Stack: own EMA lines + GUD plan only
-      if(OVM==='wyckoff'){['entry','stop','zone_top','buy_zone','r2','r3','risk','risk_pct','sma50','sma150','sma200'].forEach(function(k){c.tc[k]=null;});c.tc.cuts=[];c.tc.no_levels=true;c.tc.risk_plan={};c.tc.no_ma=true;if(c.tc.rs)c.tc.rs.hist=null;if(WYV==='w'&&wy&&wy.wb&&wy.wb.bars&&wy.wb.bars.length){c.tc.bars=wy.wb.bars;c.tc.vol=wy.wb.vol;c.tc.wk=true;}keep=wyApply(c.tc,wy);c.tc.overlays=keep;}   // Wyckoff Structure: range box + events + C&E (+ ticket lines); no MAs
-      c.tc._r2=c.tc.r2;c.tc._r3=c.tc.r3;   // 2R / 3R also listed in the key; charts.js moves far-off targets out of the price scale (Targets layer)
-      miniKey(c.tc,keep);
-    }
+    // ONE chart module (4 Oct 2026, Chris: "every ticker dropdown opens the full chart setup"): the stock page and every inline dropdown draw the
+    // chart page's own payload unchanged - same levels, plans, R-mult / % from entry, RISK box, HP/XP meter, overlays, legend, notes, RS box.
+    // A page's context only ADDS: MA Stack rows their EMA 10/20/50 lines + signal bars (and the GUD plan as the levels when the chart has none);
+    // Wyckoff Structure rows the range box / events / C&E / ticket lines, drawn without moving averages (that page's rule).
+    var tc=c.tc,ctxo=[];
+    if(OVM==='mastack'&&ms){var hadLv=tc.entry!=null&&!tc.no_levels,keepD={};if(hadLv)['entry','stop','pnl','risk','risk_pct','r2','r3','no_levels','entry_src','stop_src','r_src','risk_plan'].forEach(function(k){keepD[k]=tc[k];});
+      ctxo=msApply(tc,ms);if(hadLv)Object.keys(keepD).forEach(function(k){tc[k]=keepD[k];});}
+    if(OVM==='wyckoff'&&wy){['sma50','sma150','sma200'].forEach(function(k){tc[k]=null;});tc.no_ma=true;if(tc.rs)tc.rs.hist=null;
+      if(WYV==='w'&&wy.wb&&wy.wb.bars&&wy.wb.bars.length){tc.bars=wy.wb.bars;tc.vol=wy.wb.vol;tc.wk=true;}ctxo=wyApply(tc,wy);
+      var w=tc._wy;if(w&&ctxo.length)ctxo[0].note='Range '+w.bottom.toFixed(2)+' – '+w.top.toFixed(2)+' · '+(w.sub||'')+' · phase '+w.phase+(w.ce&&w.ce.cons!=null?' · C&E '+w.ce.cons.toFixed(2)+' / '+w.ce.agg.toFixed(2):'')+
+        (tc._wyt?' · ticket '+tc._wyt.side+' entry '+tc._wyt.entry.toFixed(2)+' stop '+tc._wyt.stop.toFixed(2)+' ('+tc._wyt.status+')':'')+(tc._wyfar&&tc._wyfar.length?' · off-scale: '+tc._wyfar.join(' · '):'');}
+    if(ctxo.length)tc.overlays=ctxo.concat((tc.overlays||[]).filter(Boolean));
     var NEON={'#1f9d3a':'#39ff88','#d62828':'#ff3d7f'};   // VSA sign colours -> desk neon (dark background)
     (c.tc.overlays||[]).forEach(function(o){if(o.id!=='vsa')return;o.color=NEON[o.color]||o.color;(o.items||[]).forEach(function(it){if(NEON[it.c])it.c=NEON[it.c];});(o.legend||[]).forEach(function(l){if(NEON[l[0]])l[0]=NEON[l[0]];});});
-    window.TC_DATA=c.tc;var box=$('stk-chart');box.hidden=false;
-    if(c.tc.no_levels){document.body.classList.add('dk-nolv');}
-    $('stk-rsb').innerHTML=c.rsb||'';
-    return loadScript('charts/_assets/chart_zoom.js?v=5a89f349').then(function(){return loadScript('charts/_assets/charts.js?v=5a89f349');}).then(function(){postH();return c;});
+    window.TC_DATA=c.tc;window.TC_RSB=c.rsb||'';var box=$('stk-chart');box.hidden=false;   // charts.js builds the module in #tc-mount (RS box included)
+    return loadScript('charts/_assets/chart_zoom.js?v=b94364ad').then(function(){return loadScript('charts/_assets/charts.js?v=b94364ad');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
-function miniKey(D,ovs){var k=document.querySelector('.stk-vkey');if(!k)return;var h=[];
-  if(OVM==='wyckoff'){var w=D._wy,t=D._wyt;if(w)h.push('<span>range <b>'+w.bottom.toFixed(2)+' – '+w.top.toFixed(2)+'</b> · '+esc(w.sub||'')+' · phase <b>'+esc(w.phase)+'</b>'+(w.ce&&w.ce.cons!=null?' · C&amp;E '+w.ce.cons.toFixed(2)+' / '+w.ce.agg.toFixed(2):'')+'</span>');else h.push('<span class="mut">no Wyckoff structure for this name</span>');
-    if(t)h.push('<span>ticket: '+esc(t.side)+' · entry <b>'+t.entry.toFixed(2)+'</b> · stop <b>'+t.stop.toFixed(2)+'</b> · 2R '+t.r2.toFixed(2)+' / 3R '+t.r3.toFixed(2)+' · '+esc(t.status)+pgChip(t.pnl)+'</span>');
-    h=h.concat(deskPlan(D),plansKey(D,'wyckoff'));
-    if(D._wyfar&&D._wyfar.length)h.push('<span class="mut">off-scale: '+esc(D._wyfar.join(' · '))+'</span>');
-    h.push('<span class="mut">no moving averages · price structure + volume only · tap a bar for details</span>');k.innerHTML=h.join('');return;}
-  if(OVM==='vsa'){h.push('<span><i class="dk-up">●</i> strength sign (under the bar)</span><span><i class="dk-dn">●</i> weakness sign (over the bar)</span><span><i>!</i> high significance in context</span>');
-    h=h.concat(deskPlan(D),plansKey(D,OVM));}
-  else{if(!D.no_levels&&D.entry!=null)h.push('<span>levels: entry <b>'+(+D.entry).toFixed(2)+'</b>'+(D.stop!=null?' · stop <b>'+(+D.stop).toFixed(2)+'</b>':'')+(D._r2!=null?' · targets 2R '+(+D._r2).toFixed(2)+' / 3R '+(+D._r3).toFixed(2):'')+'</span>');
-    else h.push('<span class="mut">no desk levels for this name</span>');
-    if(!D.no_levels&&D.entry!=null&&pgOk(D.pnl,+D.entry))h[h.length-1]=h[h.length-1].replace(/<\/span>$/,pgChip(D.pnl)+'</span>');
-    h=h.concat(deskPlan(D),plansKey(D,OVM));
-    ovs.forEach(function(o){h.push('<span><i style="color:'+esc(o.color||'#fff')+'">■</i> '+esc(String(o.label||o.id).toLowerCase())+'</span>');});}
-  h.push('<span class="mut">RS panel on top · SMA 50/150/200 · tap a bar for details</span>');k.innerHTML=h.join('');}
 function noChart(msg){var b=$('stk-chart');b.hidden=false;b.innerHTML='<div class="dk-note">'+msg+'</div>';postH();}
 var roH=false;
 function postH(){if(EMB&&parent!==window){var f=function(){try{parent.postMessage({dkh:document.getElementById('stk').scrollHeight+4,t:T},'*');}catch(e){}};f();setTimeout(f,400);setTimeout(f,1500);
@@ -195,14 +175,6 @@ function pgChip(p){if(!p)return '';var f=function(v){return (v>=0?'+':'')+v.toFi
   return ' · <span class="tp '+c+'" title="entry '+p.entry+' → last close '+p.last+' ('+esc(p.last_date||'')+')'+(p.since?'; triggered '+esc(p.since):'')+'"><b>'+f(p.pct)+'</b> from entry</span>'+
     (p.r!=null?' <span class="tp-r '+c+'">'+(p.r>=0?'+':'')+p.r.toFixed(1)+'R</span>':'')+(sub?' <small class="tp-m">'+esc(sub)+'</small>':'');}
 function pgOk(p,e){return !!(p&&e>0&&p.entry>0&&Math.abs(p.entry-e)/e<0.005);}
-// the chart's other plans (charts.py plans_for -> D.plans), filtered to the dropdown's context; the plan already on the levels line is skipped
-function plansKey(D,mode){var own={mastack:/^mastack/,wyckoff:/^wyckoff/,spring:/^spring/}[mode],e=D.no_levels?null:D.entry,ps=D.pnl&&pgOk(D.pnl,e)?D.pnl.state:null;
-  var L=(D.plans||[]).filter(function(x){if(!x||!x.pnl)return false;return !(e&&ps&&pgOk(x.pnl,e)&&x.pnl.state===ps);});
-  if(own)L.sort(function(a,b){return (own.test(b.src||'')?1:0)-(own.test(a.src||'')?1:0);});   // the dropdown's own context first
-  return L.slice(0,4).map(function(x){return '<span>◇ '+esc(x.label)+': entry <b>'+(+x.pnl.entry).toFixed(2)+'</b>'+pgChip(x.pnl)+'</span>';});}
-// the chart's own (desk / scanner) plan when this dropdown's mode hides or replaces its levels (VSA, Wyckoff, MA Stack plan)
-function deskPlan(D){var p=D._pnl0;if(!p||!(p.entry>0))return [];if(!D.no_levels&&D.entry!=null&&pgOk(p,+D.entry))return [];
-  return ['<span>◇ chart plan'+(D.setup?' ('+esc(String(D.setup).slice(0,28))+')':'')+': entry <b>'+(+p.entry).toFixed(2)+'</b>'+pgChip(p)+'</span>'];}
 function deskSec(d){
   var k=d.desk||{},h=[];
   if(k.watch){var w=k.watch;h.push('<div class="stk-dk"><h4>Desk watchlist</h4><p><b>'+esc(w.status||'')+'</b> · '+esc(w.setup||'')+' · pivot <b>'+esc(w.pivot_raw||'—')+'</b> · stop <b>'+(num(w.stop)?w.stop.toFixed(2):'—')+'</b>'+(w.first_flagged?' · on list since '+esc(w.first_flagged):'')+'</p>'+(w.note?'<p class="mut">Note: '+esc(w.note)+'</p>':'')+'</div>');}
