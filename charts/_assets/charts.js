@@ -402,31 +402,51 @@
 
   function drawGauge(){
     var cv=$('tc-gauge'); if(!cv) return;
-    // trade strip: stop → 3R, plus % gain ticks from entry (+10 / +20 / +30 ... in 10s; layer 'pct'). The scale stretches past 3R only as
-    // far as +30% (at most 1.5 stop→3R spans more); % levels beyond the end are listed at the right of the % row.
-    var PCT=!!LS.L.pct&&D.entry>0, TXg=!!LS.text;
-    var gw=Math.max(200,cv.parentNode.getBoundingClientRect().width), gh=PCT?98:84, g=setup(cv,gw,gh);cv.parentNode.style.minHeight=gh+'px';
-    var gx0=10,gx1=gw-14,gy=30,seg=gw<420?16:24,sh=22, top=D.r3;
-    if(PCT)top=Math.max(D.r3,Math.min(D.entry*1.3,D.r3+(D.r3-D.stop)*1.5));
-    function gxp(v){return gx0+(v-D.stop)/(top-D.stop)*(gx1-gx0);}
-    var mx0=gxp(D.last);g.font='8px '+FONT;g.fillStyle='#9a93d8';var gtit=gw>420?'HP / XP  ·  STOP → 3R':'HP / XP',gtw=g.measureText(gtit).width;if(mx0<gx0+gtw+30){g.textAlign='right';g.fillText(gtit,gx1,12);}else{g.textAlign='left';g.fillText(gtit,gx0,12);}
-    var sw=(gx1-gx0)/seg, fill=Math.max(0,Math.min(1,(D.last-D.stop)/(top-D.stop)));
-    for(var i=0;i<seg;i++){var v=D.stop+(i+.5)/seg*(top-D.stop),on=(i+.5)/seg<=fill,col=v<D.entry?C.stop:v<D.r2?'#ff9f1c':v<D.r3?C.r2:C.r3;
+    // trade strip in R (Chris 4 Oct: "that white stick in the meter tracker should always have the current percentage of the trade on it"):
+    // STOP (-1R) → ENTRY (0) → 2R → 3R linear; past 3R the scale extends (compressed, log) to the next of 5R / 10R / 20R / 50R / 100R with
+    // room above the current R, so the stick keeps moving as the trade runs and never parks at the end. The stick carries its own callout
+    // (open: % from entry · R, green / red; pending: distance to the entry), clamped inside the strip. % ticks (+10 / +20 ...; layer 'pct')
+    // map onto the same scale; % levels beyond the end are listed at the right of the % row.
+    var PCT=!!LS.L.pct&&D.entry>0, TXg=!!LS.text, R1=D.entry-D.stop, SH=R1<0?-1:1;
+    var gw=Math.max(200,cv.parentNode.getBoundingClientRect().width), gh=PCT?108:94, g=setup(cv,gw,gh);cv.parentNode.style.minHeight=gh+'px';
+    var gx0=10,gx1=gw-14,gy=40,seg=gw<420?16:24,sh=22;
+    function rOf(v){return (v-D.entry)/R1;}
+    var cr=rOf(D.last), TOPS=[3,5,10,20,50,100], topR=3;TOPS.some(function(t){topR=t;return cr*1.15+0.25<=t;});
+    var F3=topR===3?1:(gw<420?0.62:0.66);   // share of the strip for STOP → 3R
+    function xr(r){var f=r<=3?(r+1)/4*F3:F3+(1-F3)*Math.log(r/3)/Math.log(topR/3);return gx0+Math.max(0,Math.min(1,f))*(gx1-gx0);}
+    function gxp(v){return xr(rOf(v));}
+    function rAt(f){return f<=F3?f/F3*4-1:3*Math.pow(topR/3,(f-F3)/(1-F3));}   // segment centre -> R
+    var mx=Math.max(gx0,Math.min(gx1,xr(cr)));
+    var sw=(gx1-gx0)/seg;
+    for(var i=0;i<seg;i++){var rv=rAt((i+.5)/seg),on=gx0+(i+.5)*sw<=mx,col=rv<0?C.stop:rv<2?'#ff9f1c':rv<3?C.r2:C.r3;
       g.fillStyle=on?col:'#241f4a';g.shadowColor=col;g.shadowBlur=on?8:0;g.fillRect(gx0+i*sw+1,gy,sw-3,sh);}
     g.shadowBlur=0;g.strokeStyle='#6b5cff';g.lineWidth=2;g.strokeRect(gx0-2,gy-3,gx1-gx0+3,sh+6);
-    var rEndL=-1e9;g.font='7px '+FONT;   // R labels left→right; a label that would overlap the previous one slides right (its tick stays put)
-    [['STOP',D.stop,C.stop],['ENTRY',D.entry,C.entry],['2R',D.r2,C.r2],['3R',D.r3,C.r3]].forEach(function(a){var x=gxp(a[1]),w=g.measureText(a[0]).width,x0=Math.max(gx0-2,Math.min(gx1+2-w,x-w/2));
-      if(x0<rEndL+5)x0=rEndL+5;g.fillStyle=a[2];g.fillRect(x-1,gy+sh+3,3,8);g.textAlign='left';g.fillText(a[0],x0,gy+sh+22);rEndL=x0+w;});
+    if(topR>3){var x3=xr(3);g.save();g.strokeStyle='rgba(255,215,0,.55)';g.setLineDash([2,2]);g.lineWidth=1;g.beginPath();g.moveTo(x3,gy-3);g.lineTo(x3,gy+sh+3);g.stroke();g.restore();}   // compressed beyond here
+    var rEndL=-1e9;g.font='7px '+FONT;   // R labels left→right; a label that would overlap the previous one is skipped (its tick stays)
+    var TK=[['STOP',-1,C.stop],['ENTRY',0,C.entry],['2R',2,C.r2],['3R',3,C.r3]];[5,10,20,50,100].forEach(function(t){if(t<=topR)TK.push([t+'R',t,'#ffe680']);});
+    TK.forEach(function(a){var x=xr(a[1]),w=g.measureText(a[0]).width,x0=Math.max(gx0-2,Math.min(gx1+2-w,x-w/2));
+      g.fillStyle=a[2];g.fillRect(x-1,gy+sh+3,3,8);if(x0<rEndL+5){if(a[1]>3)return;x0=rEndL+5;}g.textAlign='left';g.fillText(a[0],x0,gy+sh+22);rEndL=x0+w;});
+    var top=D.entry+topR*R1;
     if(PCT){   // % ticks: thin dim notch under the bar + a dim label on their own row below the R labels (no collisions with 2R / 3R)
-      g.font='6px '+FONT;var lastX=-1e9,far=[],ry=gy+sh+35,rEnd=gx1;
-      for(var k=1;k<=20;k++){var pv=D.entry*(1+k/10);if(pv>top+1e-9){if(k<=3)far.push(k);continue;}var px=gxp(pv);
-        g.fillStyle='rgba(185,178,232,.55)';g.fillRect(Math.round(px)-0.5,gy+sh+3,1,5);g.fillRect(Math.round(px)-0.5,gy-3,1,3);}
-      if(far.length&&TXg){var ft=far.map(function(k){return '+'+k*10+'% '+(D.entry*(1+k/10)).toFixed(2);}).join(' · ')+' →';g.textAlign='right';g.fillStyle='#6f6a9c';g.fillText(ft,gx1,ry);rEnd=gx1-g.measureText(ft).width-10;}
-      if(TXg)for(var k2=1;k2<=20;k2++){var pv2=D.entry*(1+k2/10);if(pv2>top+1e-9)break;var px2=gxp(pv2),lt='+'+k2*10+'%',lw=g.measureText(lt).width;
-        var lx=Math.max(gx0,Math.min(gx1+2-lw,px2-lw/2));if(lx<lastX+6||lx+lw>rEnd+2)continue;g.textAlign='left';g.fillStyle='#8f88c4';g.fillText(lt,lx,ry);lastX=lx+lw;}}
-    var mx=Math.max(gx0,Math.min(gx1,gxp(D.last)));g.fillStyle='#fff';g.shadowColor='#fff';g.shadowBlur=10;g.beginPath();g.moveTo(mx,gy-2);g.lineTo(mx-7,gy-12);g.lineTo(mx+7,gy-12);g.fill();g.fillRect(mx-1,gy-2,3,sh+4);g.shadowBlur=0;
-    g.font='7px '+FONT;var ylab=(D.last<D.stop?'KO':'YOU')+(PGO?' '+pgf(PG.pct):''),ylw=g.measureText(ylab).width,ylx=Math.max(gx0+ylw/2,Math.min(gw-2-ylw/2,mx));
-    g.textAlign='center';if(PGO)g.fillStyle=PG.pct>=0?'#39ff88':'#ff3d7f';g.fillText(ylab,ylx,gy-15);g.fillStyle='#fff';
+      g.font='6px '+FONT;var lastX=-1e9,far=[],ry=gy+sh+35,rEnd=gx1,KS=[];for(var k=1;k<=20;k++)KS.push(k*10);[300,500,1000].forEach(function(q){KS.push(q);});
+      KS.forEach(function(q){var pv=D.entry*(1+q/100);if(SH*(pv-top)>1e-9){if(q<=30)far.push(q);return;}var px=gxp(pv);
+        g.fillStyle='rgba(185,178,232,.55)';g.fillRect(Math.round(px)-0.5,gy+sh+3,1,5);g.fillRect(Math.round(px)-0.5,gy-3,1,3);});
+      if(far.length&&TXg){var ft=far.map(function(q){return '+'+q+'% '+(D.entry*(1+q/100)).toFixed(2);}).join(' · ')+' →';g.textAlign='right';g.fillStyle='#6f6a9c';g.fillText(ft,gx1,ry);rEnd=gx1-g.measureText(ft).width-10;}
+      if(TXg)KS.forEach(function(q){var pv2=D.entry*(1+q/100);if(SH*(pv2-top)>1e-9)return;var px2=gxp(pv2),lt='+'+q+'%',lw=g.measureText(lt).width;
+        var lx=Math.max(gx0,Math.min(gx1+2-lw,px2-lw/2));if(lx<lastX+6||lx+lw>rEnd+2)return;g.textAlign='left';g.fillStyle='#8f88c4';g.fillText(lt,lx,ry);lastX=lx+lw;});}
+    // the stick + its callout (always attached: the box is centred on the stick, clamped inside the strip, joined by the stick's pointer)
+    var ko=D.last<=D.stop&&SH>0||D.last>=D.stop&&SH<0, pend=!!(PG&&!PGO&&PG.to_entry_pct!=null), st=PGO?'open':pend?'pending':'level';
+    var pctNow=PGO?PG.pct:(D.last/D.entry-1)*100*SH, rTxt=(cr>=0?'+':'')+cr.toFixed(1)+'R';
+    var lab=pend?'ENTRY '+Math.abs(PG.to_entry_pct).toFixed(1)+'% '+(PG.to_entry_pct>=0?'ABOVE':'BELOW'):(ko?'KO ':'')+pgf(pctNow)+' · '+rTxt;
+    var lc=pend?C.entry:pctNow>=0?'#39ff88':'#ff3d7f';
+    g.font='8px '+FONT;var lw2=g.measureText(lab).width+10,lh=13,lx2=Math.max(1,Math.min(gw-1-lw2,mx-lw2/2)),ly2=gy-26;
+    g.fillStyle='#fff';g.shadowColor='#fff';g.shadowBlur=10;g.beginPath();g.moveTo(mx,gy-2);g.lineTo(mx-6,gy-11);g.lineTo(mx+6,gy-11);g.fill();g.fillRect(mx-1,gy-2,3,sh+4);g.shadowBlur=0;
+    g.fillStyle='#07061a';g.fillRect(lx2,ly2-lh+3,lw2,lh);g.strokeStyle=lc;g.lineWidth=1.5;g.strokeRect(lx2+.5,ly2-lh+3.5,lw2-1,lh-1);
+    g.fillStyle=lc;g.fillRect(mx-1,ly2+3,3,gy-11-(ly2+3));   // stem: callout -> stick
+    g.textAlign='left';g.fillText(lab,lx2+5,ly2);
+    var gtit=gw>420?'HP / XP  ·  STOP → '+topR+'R':'HP / XP',gtw;g.font='7px '+FONT;gtw=g.measureText(gtit).width;g.fillStyle='#9a93d8';
+    if(lx2>gx0+gtw+8){g.textAlign='left';g.fillText(gtit,gx0,ly2);}else if(lx2+lw2<gx1-gtw-8){g.textAlign='right';g.fillText(gtit,gx1,ly2);}
+    window.TC_METER={state:st,r:+cr.toFixed(3),topR:topR,x:Math.round(mx),x0:gx0,x1:gx1,w:gw,lab:lab,lbox:[Math.round(lx2),Math.round(lx2+lw2)],ko:ko?1:0};
   }
 
   // ---------------------------------------------------------------- chart
