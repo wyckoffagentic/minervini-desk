@@ -493,7 +493,9 @@
     OVR.push([best[0],best[1],w,h]);return best;}   // nowhere free: the least-covered spot
   // ---------------------------------------------------------------- bar style + volume profile (4 Oct 2026, Chris: "make our charting package
   // more professional" + "detailed volume profiles", Deepvue as the reference, the desk's dark-neon look kept)
-  var BSK='wa.desk.chartstyle.v1',BST='candle';try{if(localStorage.getItem(BSK)==='hlc')BST='hlc';}catch(e){}
+  // HLC is the default (Chris 4 Oct 21:43 "HLC is to be the default"); only an explicit CANDLES pick in LAYERS (saved under the v2 key) switches.
+  // The v1 key (candles era) is dropped so nobody keeps candles just because they were the default for a few hours.
+  var BSK='wa.desk.chartstyle.v2',BST='hlc';try{if(localStorage.getItem(BSK)==='candle')BST='candle';localStorage.removeItem('wa.desk.chartstyle.v1');}catch(e){}
   // VOLUME PROFILE - method. A horizontal histogram of traded volume by price on the right of the price pane, always built from DAILY
   // sessions (also on 1W / 1M: finer than the period bars; where the daily history does not reach - older 1W / 1M bars - those period bars
   // are used the same way). Range: VISIBLE = every session inside the bars on screen (recomputed on pan / zoom / timeframe), 20 / 50 / 100 =
@@ -735,11 +737,14 @@
         x.beginPath();if(hol){x.moveTo(cx,yh);x.lineTo(cx,t);x.moveTo(cx,bb);x.lineTo(cx,yl);}else{x.moveTo(cx,yh);x.lineTo(cx,yl);}x.stroke();
         if(hol){x.fillStyle=C.bg;x.fillRect(bx,t,bodyW,bb-t);x.strokeRect(bx+.5,t+.5,bodyW-1,bb-t-1);}else if(bodyW>1)x.fillRect(bx,t,bodyW,bb-t);
         if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});}
-    // HLC bars: low→high bar + right close tick, no open tick
-    var bLW=Math.max(1,Math.min(bw*.38,narrow?5:6)), tLW=Math.max(1,Math.min(bw*.3,2.4)), tLen=Math.max(1.5,Math.min(bw*.5,9));
-    if(LY.bars&&BST==='hlc')V.forEach(function(b,i){var c=b.up?C.up:C.dn;x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
-      x.beginPath();x.moveTo(X(i),Y(b.h));x.lineTo(X(i),Y(b.l)+(Y(b.l)-Y(b.h)<1?1:0));x.stroke();
-      x.lineWidth=tLW;x.beginPath();x.moveTo(X(i),Y(b.c));x.lineTo(X(i)+bLW/2+tLen,Y(b.c));x.stroke();
+    // HLC bars (default): low→high bar + right close tick, no open tick. The close tick has exactly the bar's line width (Chris 4 Oct 21:43),
+    // a whole number of CSS px, and both are snapped to the pixel grid (odd width -> centre on a half pixel, even -> on a whole pixel).
+    var bLW=Math.max(1,Math.round(Math.min(bw*.38,narrow?5:6))), tLW=bLW, tLen=Math.max(1,Math.round(Math.min(bw*.5,9))), hlcC=function(v){return bLW%2?Math.floor(v)+.5:Math.round(v);};
+    window.TC_HLC={style:BST,bar:bLW,tick:tLW,tick_len:tLen};
+    if(LY.bars&&BST==='hlc')V.forEach(function(b,i){var c=b.up?C.up:C.dn,cx=hlcC(X(i)),yh=Math.round(Y(b.h)),yl=Math.max(yh+1,Math.round(Y(b.l))),yc=hlcC(Y(b.c));
+      x.strokeStyle=c;x.lineWidth=bLW;x.lineCap='butt';if(b.prov){x.globalAlpha=.6;x.setLineDash([2,2]);}
+      x.beginPath();x.moveTo(cx,yh);x.lineTo(cx,yl);x.stroke();
+      x.lineWidth=tLW;x.beginPath();x.moveTo(cx-bLW/2,yc);x.lineTo(cx+bLW/2+tLen,yc);x.stroke();
       if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
     if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
@@ -993,7 +998,7 @@
       if(b.classList.contains('x')){open(false);return;}
       var vpa=b.getAttribute('data-vp'),vpm=b.getAttribute('data-vpm'),vpb=b.getAttribute('data-vpb'),bst=b.getAttribute('data-bst');
       if(vpa||vpm||vpb){if(vpa)VP.on=VP.on?0:1;if(vpm){VP.m=vpm;VP.on=1;}if(vpb){VP.b=+vpb;VP.on=1;}vpSave();legRe();redraw();render();return;}
-      if(bst){BST=bst==='hlc'?'hlc':'candle';try{localStorage.setItem(BSK,BST);}catch(e){}legRe();redraw();render();return;}
+      if(bst){BST=bst==='candle'?'candle':'hlc';try{localStorage.setItem(BSK,BST);}catch(e){}legRe();redraw();render();return;}
       var k=b.getAttribute('data-k'),o=b.getAttribute('data-o'),p=b.getAttribute('data-p'),a=b.getAttribute('data-a');
       if(k==='text'||k==='axis')LS[k]=LS[k]?0:1;else if(k)LS.L[k]=LS.L[k]?0:1;
       else if(o!=null){var ov=OVL[+o];ov.on=!ov.on;OLS.set('tc_ovl_'+ov.id,ov.on?'1':'0');if(ov.on)LS.L.ovl=1;syncOvl();}
@@ -1004,7 +1009,7 @@
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pn.hidden){open(false);bl.focus();}});
     window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();legRe();draw(performance.now());}});   // other open charts / tabs
-    window.addEventListener('storage',function(e){if(e.key===VPK){vpLoad();legRe();if(!pn.hidden)render();draw(performance.now());}else if(e.key===BSK){BST=e.newValue==='hlc'?'hlc':'candle';legRe();if(!pn.hidden)render();draw(performance.now());}});
+    window.addEventListener('storage',function(e){if(e.key===VPK){vpLoad();legRe();if(!pn.hidden)render();draw(performance.now());}else if(e.key===BSK){BST=e.newValue==='candle'?'candle':'hlc';legRe();if(!pn.hidden)render();draw(performance.now());}});
     zb.appendChild(pn);lab();
     // ---- notes fold row
     var fr=document.createElement('button');fr.type='button';fr.className='tcf';fr.setAttribute('aria-controls','tc-chart');
