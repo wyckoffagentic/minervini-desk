@@ -424,7 +424,7 @@ body.tc-fold .tc-ovl,body.tc-fold .tc-legend,body.tc-fold .stk-vkey{display:none
 .dk-sm .sm-b{font-size:10.5px;padding:0 6px;border-radius:999px;border:1px solid var(--edge2);color:#ddd}
 .dk-sm .sm-b.base{border-color:rgba(0,229,255,.5);color:#9ff3ff}.dk-sm .sm-b.spring{border-color:rgba(57,255,20,.45);color:#b6ffa8}
 .dk-sm .sm-b.mastack{border-color:rgba(255,159,28,.5);color:#ffc98a}.dk-sm .sm-b.ema{border-color:rgba(189,147,249,.55);color:#dcc8ff}
-.dk-sm .sm-b.highs{border-color:rgba(255,209,102,.5);color:#ffe3a3}.dk-sm .sm-b.desk{border-color:rgba(255,121,198,.55);color:#ffc2e6}
+.dk-sm .sm-b.highs{border-color:rgba(255,209,102,.5);color:#ffe3a3}.dk-sm .sm-b.dsk{border-color:rgba(255,121,198,.55);color:#ffc2e6}
 .dk-sm-more{display:inline-block;margin-top:8px;color:var(--cy);font-weight:700;font-size:13px}
 .dk-sm .sm-none{color:var(--mut);padding:6px 0}
 .dk-sm .dk-sm-hd h2{margin:0!important;padding:0}

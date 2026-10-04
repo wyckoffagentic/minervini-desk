@@ -3,7 +3,10 @@
            research-tools/rs_orbital.py on every rs / daily / refresh run.  Desk RS calc, not IBD's official rating.
    Engine: Three.js r186, tree-shaken + vendored at assets/vendor/three-r186.orbital.min.js (MIT, no CDN).
    Encoding: ring = RS tier, sphere size = rank, orbit speed + trail length = rank change over 1D/1W/4W, radius in ring = rank inside the tier.
-   HUD drawer: colours, presets, X/Y/Z stretch, tilt, sizes, trails, speed, glow, camera; saved in localStorage ('rso.cfg.v1').
+   HUD drawer: colours, presets, X/Y/Z stretch, tilt, sizes, speed, glow, TAILS (on/off, length, width, opacity, fade, glow, colour mode,
+           style), camera; saved in localStorage ('rso.cfg.v1').  SIM SPEED bar under the stage: 0.25-4x + FREEZE (scales everything).
+   Replay glides: each day step is an eased Hermite glide (TRANSITION slider, default 2.0 s/day at 1x) with a slight arc; glides
+           overlap 20% and carry velocity on retarget, so nothing snaps; spheres keep orbiting while they drift.
    Replay: real sessions only (whatever rating_history.json covers at build time), scrub / play / step, Top-50 entry/exit flashes,
            path trails, end-of-window summary.  Touch: drag = rotate, pinch = zoom, tap = select.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
@@ -29,13 +32,16 @@ function sstep(x){x=clamp(x,0,1);return x*x*(3-2*x);}
 
 // ------------------------------------------------------------------ config (HUD drawer), presets, persistence
 var PRESETS={
-  neon:   {name:'NEON',            c:['#ffd23f','#a8ff3e','#00e5ff','#b06bff','#ff2bd6'],beam:'#00e5ff',bg:'#03030d',trailTier:true, trailCol:'#ffffff'},
-  mission:{name:'MISSION CONTROL', c:['#ffffff','#d6e6ff','#9cc2ff','#5b8cff','#3a5fc8'],beam:'#bfe0ff',bg:'#01040c',trailTier:false,trailCol:'#7fb2ff'},
-  mars:   {name:'MARS',            c:['#ffe2b0','#ffb066','#ff7a3d','#e04a2a','#b8392a'],beam:'#ff9a5a',bg:'#0c0302',trailTier:true, trailCol:'#ff8a4c'}};
-var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailTier:true,trailCol:'#ffffff',
-  sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false};
+  neon:   {name:'NEON',            c:['#ffd23f','#a8ff3e','#00e5ff','#b06bff','#ff2bd6'],beam:'#00e5ff',bg:'#03030d',tMode:'ring',  trailCol:'#ffffff'},
+  mission:{name:'MISSION CONTROL', c:['#ffffff','#d6e6ff','#9cc2ff','#5b8cff','#3a5fc8'],beam:'#bfe0ff',bg:'#01040c',tMode:'custom',trailCol:'#7fb2ff'},
+  mars:   {name:'MARS',            c:['#ffe2b0','#ffb066','#ff7a3d','#e04a2a','#b8392a'],beam:'#ff9a5a',bg:'#0c0302',tMode:'ring',  trailCol:'#ff8a4c'}};
+var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
+  sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
+  tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2};
 var KEY='rso.cfg.v1';
-function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice();}}catch(e){}return c;}
+function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';}}catch(e){}
+  if(['ring','custom','delta'].indexOf(c.tMode)<0) c.tMode='ring'; if(['solid','dotted','sparkle'].indexOf(c.tStyle)<0) c.tStyle='solid';
+  c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4); return c;}
 var saveT=0; function saveCfg(cfg){clearTimeout(saveT);saveT=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}},250);}
 
 // ------------------------------------------------------------------ subtle UI sounds (WebAudio, off by default)
@@ -166,7 +172,7 @@ function init(D,THREE){
     TIERS.forEach(function(_,t){tierG[t].position.y=tierY(t); tierG[t].scale.set(cfg.sx,1,cfg.sz); tiltG[t].rotation.z=cfg.tilt*Math.PI/180;});}
 
   // ---------------------------------------------------------------- spheres (live roster + replay extras), trails, paths, bursts
-  var S=D.s, N=S.length, XC=200, M=N+XC, K=16, PK=64, lnU=Math.log(Math.max(D.universe,2));
+  var S=D.s, N=S.length, XC=200, M=N+XC, K=24, PK=64, lnU=Math.log(Math.max(D.universe,2));
   var ang=new Float32Array(M),rf=new Float32Array(M),ty=new Float32Array(M),om=new Float32Array(M),omT=new Float32Array(M),jit=new Float32Array(M);
   var dia=new Float32Array(M),al=new Float32Array(M),alT=new Float32Array(M),sm=new Float32Array(M),smT=new Float32Array(M),fl=new Float32Array(M),flS=new Float32Array(M),grp=new Int8Array(M);
   var info=[], byT={}, Mact=N;
@@ -188,14 +194,29 @@ function init(D,THREE){
      'float h=pow(1.0-smoothstep(rc*0.75,1.0,r),2.8)*0.28*uGlow;c+=hue*lum*h*(1.0+vF*2.0);gl_FragColor=vec4(c,1.0);}'].join('\n'));
   var sPts=new THREE.Points(sg,sMat); sPts.frustumCulled=false;
   var tg=new THREE.BufferGeometry(); tg.setAttribute('position',buf(M*K,3)); tg.setAttribute('aS',buf(M*K,1)); tg.setAttribute('aC',buf(M*K,3));
+  (function(){var F=new Float32Array(M*K),J=new Float32Array(M*K*3),Ph=new Float32Array(M*K);
+    for(var j=0;j<M*K;j++){F[j]=(j%K)/(K-1); var u=Math.random()*2-1,th=Math.random()*6.2832,q=Math.sqrt(1-u*u); J[j*3]=Math.cos(th)*q;J[j*3+1]=u;J[j*3+2]=Math.sin(th)*q; Ph[j]=Math.random();}
+    tg.setAttribute('aF',new THREE.BufferAttribute(F,1)); tg.setAttribute('aJ',new THREE.BufferAttribute(J,3)); tg.setAttribute('aPh',new THREE.BufferAttribute(Ph,1));})();
   var tP=tg.attributes.position.array,tS=tg.attributes.aS.array,tC=tg.attributes.aC.array;
-  var tMat=mat('attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=max(1.0,aS*uScale/(-mv.z));vC=aC;gl_Position=projectionMatrix*mv;}',
-    'uniform float uGlow;varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*3.2)*(0.5+0.5*uGlow),1.0);}');
+  // TAILS: uMode 1 = dotted (crisp beads), 2 = particle sparkle (jittered, twinkling star points); solid = ribbon below
+  var TU={uMode:{value:1},uTG:{value:cfg.tGlow}};
+  var tMat=mat('attribute float aS;attribute vec3 aC;attribute float aF;attribute vec3 aJ;attribute float aPh;uniform float uScale;uniform float uTime;uniform float uMode;varying vec3 vC;varying float vM;'+
+    'void main(){vec3 p=position;float sp=step(1.5,uMode);float w=uTime*(1.2+aPh*2.0)+aPh*40.0;p+=(aJ*cos(w)+aJ.zxy*sin(w))*aS*(0.25+1.6*aF)*sp;'+
+    'vec4 mv=modelViewMatrix*vec4(p,1.0);float s=mix(1.0,0.35+1.1*fract(aPh*13.7),sp);gl_PointSize=max(1.0,aS*s*uScale/(-mv.z));'+
+    'float tw=mix(1.0,0.25+0.95*pow(0.5+0.5*sin(uTime*(5.0+aPh*6.0)+aPh*30.0),3.0),sp);vC=aC*tw;vM=sp;gl_Position=projectionMatrix*mv;}',
+    'uniform float uTG;varying vec3 vC;varying float vM;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r2=dot(p,p);if(r2>1.0)discard;'+
+    'float bd=(1.0-smoothstep(0.30,0.48,r2))*0.95+exp(-r2*3.0)*0.45*uTG;'+
+    'float st=exp(-r2*16.0)*1.3+(exp(-abs(p.x)*16.0)*exp(-abs(p.y)*2.2)+exp(-abs(p.y)*16.0)*exp(-abs(p.x)*2.2))*0.55*(0.4+0.6*uTG)+exp(-r2*4.0)*0.25*uTG;'+
+    'float I=mix(bd,st,vM);vec3 c=mix(vC,vec3(max(vC.r,max(vC.g,vC.b))),0.3*vM);gl_FragColor=vec4(c*I,1.0);}',TU);
   var tPts=new THREE.Points(tg,tMat); tPts.frustumCulled=false;
-  var LS=K*2-2, lg=new THREE.BufferGeometry(); lg.setAttribute('position',buf(M*LS,3)); lg.setAttribute('aC',buf(M*LS,3));
-  var lP=lg.attributes.position.array,lC=lg.attributes.aC.array;
+  var RV=M*K*2, rg=new THREE.BufferGeometry(); rg.setAttribute('position',buf(RV,3)); rg.setAttribute('aC',buf(RV,3));
+  (function(){var V=new Float32Array(RV),I=new Uint16Array(M*(K-1)*6),n=0; for(var j=0;j<RV;j++) V[j]=(j%2)?-1:1;
+    for(var i=0;i<M;i++){for(var k=0;k<K-1;k++){var a=(i*K+k)*2; I[n++]=a;I[n++]=a+1;I[n++]=a+2;I[n++]=a+1;I[n++]=a+3;I[n++]=a+2;}}
+    rg.setAttribute('aV',new THREE.BufferAttribute(V,1)); rg.setIndex(new THREE.BufferAttribute(I,1));})();
+  var rP=rg.attributes.position.array, rC=rg.attributes.aC.array;
+  var rMesh=new THREE.Mesh(rg,mat('attribute vec3 aC;attribute float aV;varying vec3 vC;varying float vV;void main(){vC=aC;vV=aV;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    'uniform float uTG;varying vec3 vC;varying float vV;void main(){float v=vV*vV;float I=exp(-v*7.0)*(0.75+0.2*uTG)+exp(-v*2.2)*0.5*uTG;gl_FragColor=vec4(vC*I,1.0);}',TU)); rMesh.frustumCulled=false;
   var LINE_VS='attribute vec3 aC;varying vec3 vC;void main(){vC=aC;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', LINE_FS='varying vec3 vC;void main(){gl_FragColor=vec4(vC,1.0);}';
-  var lSeg=new THREE.LineSegments(lg,mat(LINE_VS,LINE_FS)); lSeg.frustumCulled=false;
   var PS=PK*2, pg=new THREE.BufferGeometry(); pg.setAttribute('position',buf(M*PS,3)); pg.setAttribute('aC',buf(M*PS,3));
   var pP=pg.attributes.position.array,pC=pg.attributes.aC.array;
   var pSeg=new THREE.LineSegments(pg,mat(LINE_VS,LINE_FS)); pSeg.frustumCulled=false; pSeg.visible=false;
@@ -204,7 +225,7 @@ function init(D,THREE){
   var bPts=new THREE.Points(bg2,mat('attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*uScale/(-mv.z);vC=aC;gl_Position=projectionMatrix*mv;}',
     'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=length(p);if(r>1.0)discard;float ring=exp(-pow((r-0.8)/0.07,2.0))+exp(-pow((r-0.55)/0.04,2.0))*0.4;gl_FragColor=vec4(vC*ring,1.0);}'));
   bPts.frustumCulled=false;
-  scene.add(pSeg); scene.add(lSeg); scene.add(tPts); scene.add(sPts); scene.add(bPts);
+  scene.add(pSeg); scene.add(rMesh); scene.add(tPts); scene.add(sPts); scene.add(bPts);
   var sel=-1, yaw=0.5, pitch=0.34, zoom=1;
   // opened tier: op.t = tier (-1 none), op.k = 0..1 animation, op.E = ring stretch (slider / pinch)
   var op={t:-1,k:0,target:0,E:1.35}, PITCH_O=0.8, ea=new Float32Array(M);
@@ -215,36 +236,73 @@ function init(D,THREE){
   var trailRGB=hex(cfg.trailCol);
 
   // ---------------------------------------------------------------- replay state
-  var RP=null, rp={on:false,d0:0,d1:0,p:0,play:false,spd:1,paths:false,win:'1m',lastDay:-1,events:[],done:false};
+  var RP=null, rp={on:false,d0:0,d1:0,p:0,play:false,spd:1,paths:false,win:'1m',lastDay:-1,events:[],done:false,gu:5,gm:'jump',gday:-1,sumP:false};
+  var frozen=false;
   var RW=[['1w','1W',5],['1m','1M',21],['3m','3M',63],['6m','6M',126],['max','MAX',1e9]];
   function rpState(i,d){var v=RP.v[i*RP.nd+d]; if(v<0) return null; var rk=Math.floor(v/100), rs=v%100;
     var vis=i<N||rk<=50; return vis?{rk:rk,rs:rs,g:tierOf(rs),N:RP.N[d]}:null;}
   function rpPose(i,p,out){var a=Math.floor(p),b=Math.min(a+1,rp.d1),f=sstep(p-a),A=rpState(i,a),B=b===a?A:rpState(i,b);
     if(!A&&!B){out.a=0;return out;}
     var X=A||B, Y=B||A, rfA=rfrac(X.rk,X.N,X.g)+jit[i], rfB=rfrac(Y.rk,Y.N,Y.g)+jit[i];
-    out.ty=X.g+(Y.g-X.g)*f; out.rf=rfA+(rfB-rfA)*f; var lk=Math.log(X.rk)+(Math.log(Y.rk)-Math.log(X.rk))*f; out.dia=0.1+0.29*Math.max(0,1-lk/lnU);
+    out.ty=X.g+(Y.g-X.g)*f; out.rf=rfA+(rfB-rfA)*f; var lk=Math.log(X.rk)+(Math.log(Y.rk)-Math.log(X.rk))*f; out.lk=lk; out.dia=0.1+0.29*Math.max(0,1-lk/lnU);
     out.a=A&&B?1:A?1-f:f; out.g=f<0.5?X.g:Y.g; return out;}
-  var pose={a:0,ty:0,rf:0,dia:0,g:0}, pose2={a:0,ty:0,rf:0,dia:0,g:0};
+  var pose={a:0,ty:0,rf:0,dia:0,g:0,lk:0};
+  function curDay(){return clamp(Math.floor(rp.p+1e-6),rp.d0,rp.d1);}
+  // ---- glide engine: every sphere holds a cubic Hermite (p0, tangent m0 -> p1, zero end velocity) over [rf, ty, ln rank] + an arc
+  //      bump sin^2(pi u). All spheres share progress rp.gu (0..1; keeps counting past 1 so tails can settle). Retargeting mid-glide
+  //      starts from the displayed pose with the displayed velocity, so steps that overlap (or a fast scrub) never snap.
+  var G0=new Float32Array(M*3),GM=new Float32Array(M*3),G1=new Float32Array(M*3),GA=new Float32Array(M*2),rpChg=new Float32Array(M),rpFirst=new Float32Array(M);
+  var gq={rf:0,ty:0,lk:0},gq2={rf:0,ty:0,lk:0},gc_={rf:0,ty:0,lk:0},gd_={rf:0,ty:0,lk:0},gt_={rf:0,ty:0,lk:0};
+  function gEval(i,u,o){u=u<0?0:u>1?1:u; var u2=u*u,u3=u2*u,h0=2*u3-3*u2+1,h1=u3-2*u2+u,h2=3*u2-2*u3,b=i*3,sn=Math.sin(Math.PI*u),bp=sn*sn;
+    o.rf=h0*G0[b]+h1*GM[b]+h2*G1[b]+GA[i*2]*bp; o.ty=h0*G0[b+1]+h1*GM[b+1]+h2*G1[b+1]+GA[i*2+1]*bp; o.lk=h0*G0[b+2]+h1*GM[b+2]+h2*G1[b+2]; return o;}
+  function gDer(i,u,o){u=u<0?0:u>1?1:u; var d0=6*u*u-6*u,d1=3*u*u-4*u+1,b=i*3,db=Math.PI*Math.sin(2*Math.PI*u);
+    o.rf=d0*(G0[b]-G1[b])+d1*GM[b]+GA[i*2]*db; o.ty=d0*(G0[b+1]-G1[b+1])+d1*GM[b+1]+GA[i*2+1]*db; o.lk=d0*(G0[b+2]-G1[b+2])+d1*GM[b+2]; return o;}
+  // glide progress per real second. Day glides last 1.2 x the day period (20% overlap); 'step' ignores FREEZE so a manual step still moves.
+  function effRate(m){m=m||rp.gm; if(m==='scrub') return 1/0.22; if(m==='jump') return 1; var g=(m==='step'?cfg.gspd:(frozen?0:cfg.gspd))*rp.spd; return g/(cfg.glide*1.2);}
+  function gRetarget(mode,fn){var u=Math.min(rp.gu,1), moving=rp.gu<1, r0=effRate(rp.gm), r1=effRate(mode), ratio=moving&&r1>0?r0/r1:0;
+    for(var i=0;i<Mact;i++){var b=i*3; gEval(i,u,gc_); if(moving) gDer(i,u,gd_); else {gd_.rf=gd_.ty=gd_.lk=0;}
+      var A=fn(i,gt_); if(A<=0){gt_.rf=gc_.rf;gt_.ty=gc_.ty;gt_.lk=gc_.lk;}
+      var fresh=al[i]<0.03&&A>0;
+      if(fresh){G0[b]=gt_.rf;G0[b+1]=gt_.ty;G0[b+2]=gt_.lk;GM[b]=GM[b+1]=GM[b+2]=0;}
+      else{G0[b]=gc_.rf;G0[b+1]=gc_.ty;G0[b+2]=gc_.lk; GM[b]=clamp(gd_.rf*ratio,-1,1);GM[b+1]=clamp(gd_.ty*ratio,-2,2);GM[b+2]=clamp(gd_.lk*ratio,-3,3);}
+      G1[b]=gt_.rf;G1[b+1]=gt_.ty;G1[b+2]=gt_.lk;
+      var dT=Math.abs(G1[b+1]-G0[b+1]), dR=Math.abs(G1[b]-G0[b]);
+      GA[i*2]=fresh||mode==='scrub'?0:Math.min(0.22,0.09*dT); GA[i*2+1]=fresh||mode==='scrub'?0:-Math.min(0.14,0.35*dR)*(dT<0.5?1:0.3);
+      alT[i]=Math.max(0,A); if(RM) al[i]=alT[i];}
+    rp.gm=mode; rp.gu=RM?1:0;}
+  function rkChg(i,rk){if(rpFirst[i]>0) rpChg[i]=Math.tanh(Math.log(rpFirst[i]/rk)/0.7);}
+  function dayFn(d){return function(i,o){var st=rpState(i,d); if(!st) return 0; o.rf=rfrac(st.rk,st.N,st.g)+jit[i]; o.ty=st.g; o.lk=Math.log(st.rk); rkChg(i,st.rk); return 1;};}
+  function fracFn(p){return function(i,o){rpPose(i,p,pose); if(pose.a<=0) return 0; o.rf=pose.rf;o.ty=pose.ty;o.lk=pose.lk; var st=rpState(i,Math.floor(p+1e-6)); if(st) rkChg(i,st.rk); return pose.a;};}
+  function gJump(d){var fn=dayFn(d); for(var i=0;i<Mact;i++){var b=i*3,A=fn(i,gt_); if(A<=0){gt_.rf=rf[i];gt_.ty=ty[i];gt_.lk=Math.log(Math.max(1,info[i].k||1));}
+      G0[b]=G1[b]=gt_.rf;G0[b+1]=G1[b+1]=gt_.ty;G0[b+2]=G1[b+2]=gt_.lk;GM[b]=GM[b+1]=GM[b+2]=0;GA[i*2]=GA[i*2+1]=0; alT[i]=al[i]=A;}
+    rp.gm='jump'; rp.gu=5; rp.gday=d;}
+  function firstRanks(){for(var i=0;i<Mact;i++){rpFirst[i]=0; rpChg[i]=0; for(var d=rp.d0;d<=rp.d1;d++){var st=rpState(i,d); if(st){rpFirst[i]=st.rk;break;}}}}
 
+  var TMC=[hex('#ff3d5a'),hex('#8a7432'),hex('#3dff8a')], ccol=[0,0,0], dcl=[0,0,0], camP=new THREE.Vector3();
+  function dcol(m,o){m=clamp(m,-1,1); var e=m<0?TMC[0]:TMC[2], b=TMC[1], f=Math.pow(Math.abs(m),0.6); for(var j=0;j<3;j++) o[j]=b[j]+(e[j]-b[j])*f; return o;}
+  function tierCol(v,o){var t0=clamp(Math.floor(v),0,4),t1=Math.min(4,t0+1),f=clamp(v-t0,0,1),A=TC[t0],B=TC[t1]; for(var j=0;j<3;j++) o[j]=A[j]+(B[j]-A[j])*f; return o;}
   function upd(dt){
-    var cl=climb&&!rp.on?D.climbers[WIN[wi]]||[]:null, TL=cfg.trail, SZ=cfg.size;
-    cY=Math.cos(yaw);sY=Math.sin(yaw);cT=Math.cos(cfg.tilt*Math.PI/180);sT=Math.sin(cfg.tilt*Math.PI/180);
+    var TL=cfg.trail, SZ=cfg.size, tOn=cfg.tOn&&TL>0.001&&cfg.tOp>0.001, sty=cfg.tStyle, solid=sty==='solid', tw=cfg.tW, tfd=cfg.tFade, tamp=cfg.tOp*Math.min(1,TL*1.5), gu=Math.min(rp.gu,1), tm=cfg.tMode;
+    cY=Math.cos(yaw);sY=Math.sin(yaw);cT=Math.cos(cfg.tilt*Math.PI/180);sT=Math.sin(cfg.tilt*Math.PI/180); camP.copy(cam.position);
     for(var i=0;i<Mact;i++){
-      if(rp.on){rpPose(i,rp.p,pose); if(pose.a>0){ty[i]=pose.ty;rf[i]=pose.rf;dia[i]=pose.dia;grp[i]=pose.g;} alT[i]=pose.a; if(RM) al[i]=alT[i];}
-      var tI=clamp(Math.round(ty[i]),0,4),c=colOf(i),dm=TDIM[tI],a=al[i]*dm*(op.t<0||tI===op.t?1:1-0.93*op.k),sz=dia[i]*sm[i]*SZ*(i===sel?1.25:1)*(1+fl[i]*0.5);
+      if(rp.on){gEval(i,gu,gq); rf[i]=gq.rf; ty[i]=gq.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=clamp(Math.round(gq.ty),0,4);}
+      var tI=clamp(Math.round(ty[i]),0,4),c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI],a=al[i]*dm*(op.t<0||tI===op.t?1:1-0.93*op.k),sz=dia[i]*sm[i]*SZ*(i===sel?1.25:1)*(1+fl[i]*0.5);
       ea[i]=a/dm; W3(rf[i],ty[i],ang[i],i*3,sP); sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=fl[i];
-      var tcol=cfg.trailTier?c:trailRGB;
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
-      // trails: live = arc behind the sphere (length ~ orbit speed); replay = the last ~1.5 sessions of motion
-      for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,1.6)*0.38*a*Math.min(1,TL*1.5)*(grp[i]===0?0.7:1);
-        if(rp.on){var pp=Math.max(rp.d0,rp.p-f*1.5*TL); rpPose(i,pp,pose2); if(pose2.a<=0){pose2.ty=ty[i];pose2.rf=rf[i];} W3(pose2.rf,pose2.ty,ang[i]-f*0.25*TL,o,tP);}
-        else{var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL; W3(rf[i],ty[i],ang[i]-f*span,o,tP);}
-        tS[i*K+k]=sz*(0.55-0.45*f); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
-      for(k=0;k<K-1;k++){var o1=(i*K+k)*3,o2=o1+3,q=(i*LS+k*2)*3,f1=Math.pow(1-k/(K-1),1.2)*0.75*a*Math.min(1,TL*1.5),f2=Math.pow(1-(k+1)/(K-1),1.2)*0.75*a*Math.min(1,TL*1.5);
-        lP[q]=tP[o1];lP[q+1]=tP[o1+1];lP[q+2]=tP[o1+2];lP[q+3]=tP[o2];lP[q+4]=tP[o2+1];lP[q+5]=tP[o2+2];
-        lC[q]=tcol[0]*f1;lC[q+1]=tcol[1]*f1;lC[q+2]=tcol[2]*f1;lC[q+3]=tcol[0]*f2;lC[q+4]=tcol[1]*f2;lC[q+5]=tcol[2]*f2;}
+      // TAILS: live = arc behind the sphere along its orbit (length ~ orbit speed); replay = the same arc + the glide path it just drifted along
+      if(tOn){var tcol=tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
+        var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=grp[i]===0?0.8:1;
+        for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
+          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else W3(rf[i],ty[i],ang[i]-f*span,o,tP);
+          tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
+        if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
+          for(k=0;k<K;k++){var o5=(i*K+k)*3,oa=(i*K+Math.max(0,k-1))*3,ob=(i*K+Math.min(K-1,k+1))*3,
+              tx=tP[ob]-tP[oa],tyy=tP[ob+1]-tP[oa+1],tz=tP[ob+2]-tP[oa+2],vx=camP.x-tP[o5],vy=camP.y-tP[o5+1],vz=camP.z-tP[o5+2],
+              cx=tyy*vz-tz*vy,cy2=tz*vx-tx*vz,cz=tx*vy-tyy*vx,ln=Math.sqrt(cx*cx+cy2*cy2+cz*cz),hw=ln>1e-9?hw0*(1-0.8*k/(K-1))/ln:0,q=(i*K+k)*6;
+            rP[q]=tP[o5]+cx*hw;rP[q+1]=tP[o5+1]+cy2*hw;rP[q+2]=tP[o5+2]+cz*hw;rP[q+3]=tP[o5]-cx*hw;rP[q+4]=tP[o5+1]-cy2*hw;rP[q+5]=tP[o5+2]-cz*hw;
+            rC[q]=rC[q+3]=tC[o5];rC[q+1]=rC[q+4]=tC[o5+1];rC[q+2]=rC[q+5]=tC[o5+2];}}}
       // replay path: each session's ring position from the window start to now, curling back in angle with age
       if(rp.on&&rp.paths){var cur=rp.p, n0=Math.max(rp.d0,Math.ceil(cur)-PK+1), prev=null, s=0, base=(i*PS)*3;
         for(var d=Math.floor(cur);d>=n0&&s<PK;d--){var st=rpState(i,d); if(!st){prev=null;continue;}
@@ -254,8 +312,11 @@ function init(D,THREE){
           var pc=TC[st.g]; pC[o3]=pc[0]*fa3;pC[o3+1]=pc[1]*fa3;pC[o3+2]=pc[2]*fa3;pC[o3+3]=pc[0]*fa3*0.9;pC[o3+4]=pc[1]*fa3*0.9;pC[o3+5]=pc[2]*fa3*0.9; s++;}
         for(;s<PK;s++){var o4=base+s*6; for(var z=0;z<6;z++){pP[o4+z]=0;pC[o4+z]=0;}}}
     }
-    sg.setDrawRange(0,Mact); tg.setDrawRange(0,Mact*K); lg.setDrawRange(0,Mact*LS); pg.setDrawRange(0,Mact*PS); bg2.setDrawRange(0,Mact);
-    [sg,tg,lg,bg2].forEach(function(g){for(var k in g.attributes) g.attributes[k].needsUpdate=true;});
+    var tr=tOn&&!solid, rb=tOn&&solid; tPts.visible=tr; rMesh.visible=rb;
+    sg.setDrawRange(0,Mact); tg.setDrawRange(0,tr?Mact*K:0); rg.setDrawRange(0,rb?Mact*(K-1)*6:0); pg.setDrawRange(0,Mact*PS); bg2.setDrawRange(0,Mact);
+    [sg,bg2].forEach(function(g){for(var k in g.attributes) g.attributes[k].needsUpdate=true;});
+    if(tr){tg.attributes.position.needsUpdate=tg.attributes.aS.needsUpdate=tg.attributes.aC.needsUpdate=true;}
+    if(rb){rg.attributes.position.needsUpdate=rg.attributes.aC.needsUpdate=true;}
     if(pSeg.visible){pg.attributes.position.needsUpdate=pg.attributes.aC.needsUpdate=true;}
   }
 
@@ -286,7 +347,7 @@ function init(D,THREE){
       '<circle cx="'+X(l[0]).toFixed(1)+'" cy="'+Y(l[1]).toFixed(1)+'" r="2.2" fill="#fff"/></svg>'+
       '<div class="spl"><span>'+esc(String(from||'').slice(5))+' · RS '+f[1]+'</span><span>RS '+lo+'–'+hi+'</span><span>RS '+l[1]+' · '+esc(String(to||'').slice(5))+'</span></div>';}
   function fillCo(){if(sel<0) return; var s=info[sel], col;
-    if(rp.on&&RP){var d=clamp(Math.round(rp.p),rp.d0,rp.d1), st=rpState(sel,d), s0=null;
+    if(rp.on&&RP){var d=curDay(), st=rpState(sel,d), s0=null;
       for(var d0=rp.d0;d0<=d;d0++){s0=rpState(sel,d0); if(s0) break;}
       var g=st?st.g:grp[sel]; col=tcss(g); var ch=st&&s0?s0.rk-st.rk:null;
       var hh=[]; for(var j=rp.d0;j<=rp.d1;j++){var x=RP.v[sel*RP.nd+j]; hh.push(x<0?null:x%100);}
@@ -348,7 +409,7 @@ function init(D,THREE){
   stage.addEventListener('gesturestart',function(e){e.preventDefault();});
   cv.addEventListener('wheel',function(e){if(!e.ctrlKey) return; e.preventDefault(); zoom=clamp(zoom*(1+e.deltaY*0.01),0.5,1.7); need();},{passive:false});
   cv.setAttribute('tabindex','0');
-  cv.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){yaw-=0.15;need();}else if(e.key==='ArrowRight'){yaw+=0.15;need();}else if(e.key==='Escape'){if(sel>=0) select(-1); else if(op.t>=0) closeTier();}});
+  cv.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){yaw-=0.15;need();}else if(e.key==='ArrowRight'){yaw+=0.15;need();}else if(e.key==='Escape'){if(sel>=0) select(-1); else if(op.t>=0) closeTier();} else if(e.key===' '||e.key==='f'){e.preventDefault(); setFreeze(!frozen);}});
   function pick(x,y){var best=-1,bd=1e9;for(var i=0;i<Mact;i++){if(ea[i]<0.5) continue;var d=Math.hypot(sx[i]-x,sy[i]-y),lim=Math.max(sr[i]+9,15);
       if(d<lim){var sc=d-sdep[i]*2-(sr[i]*0.3);if(sc<bd){bd=sc;best=i;}}}
     select(best===sel?-1:best);}
@@ -373,19 +434,29 @@ function init(D,THREE){
   stage.appendChild(cb);
   var dr=document.createElement('div'); dr.className='rso-dr'; dr.id='rso-dr'; dr.setAttribute('aria-hidden','true'); stage.appendChild(dr);
   var SL=[['g','03 · GEOMETRY'],['sx','RING WIDTH · X',0.5,1.6,0.01,'×'],['sz','RING DEPTH · Z',0.3,1.8,0.01,'×'],['sy','TIER SPACING · Y',0.45,1.8,0.01,'×'],['tilt','RING TILT',-30,30,1,'°'],
-    ['g','04 · DYNAMICS'],['size','SPHERE SIZE',0.4,2.2,0.01,'×'],['trail','TRAIL LENGTH',0,2.5,0.01,'×'],['speed','ORBIT SPEED',0,3,0.01,'×'],['glow','GLOW INTENSITY',0.1,2.2,0.01,'×'],
-    ['g','05 · CAMERA'],['autoSpd','AUTO-ROTATE RATE',-3,3,0.05,'×'],['fov','FIELD OF VIEW',22,75,1,'°']];
+    ['g','04 · DYNAMICS'],['size','SPHERE SIZE',0.4,2.2,0.01,'×'],['speed','ORBIT SPEED',0,3,0.01,'×'],['glow','GLOW INTENSITY',0.1,2.2,0.01,'×'],
+    ['g','05 · TAILS'],['trail','LENGTH',0,2.5,0.01,'×'],['tW','WIDTH · THICKNESS',0.2,3,0.01,'×'],['tOp','OPACITY',0,1.5,0.01,'×'],['tFade','FADE CURVE',0.3,4,0.05,' γ'],['tGlow','TAIL GLOW',0,2.5,0.01,'×'],
+    ['g','06 · CAMERA'],['autoSpd','AUTO-ROTATE RATE',-3,3,0.05,'×'],['fov','FIELD OF VIEW',22,75,1,'°']];
   function drHTML(){var h='<div class="dr-hd"><b>MISSION CONTROL</b><span>ORBITAL · CONFIG</span><button type="button" class="dr-x" aria-label="Close controls">×</button></div><div class="dr-bd">';
     h+='<div class="dr-g">01 · THEME</div><div class="dr-pre">'+Object.keys(PRESETS).map(function(k){return '<button type="button" data-pre="'+k+'" class="'+(cfg.theme===k?'on':'')+'">'+PRESETS[k].name+'</button>';}).join('')+'</div>';
     h+='<div class="dr-g">02 · COLOUR</div><div class="dr-cols">'+TIERS.map(function(t,i){return '<label><input type="color" data-col="'+i+'" value="'+cfg.c[i]+'"><span>'+esc(t.label.replace(' · ELITE',''))+'</span></label>';}).join('')+
       '<label><input type="color" data-k="beam" value="'+cfg.beam+'"><span>BEAM / CORE</span></label><label><input type="color" data-k="bg" value="'+cfg.bg+'"><span>BACKGROUND</span></label>'+
-      '<label><input type="color" data-k="trailCol" value="'+cfg.trailCol+'"><span>TRAILS</span></label><label class="ck"><input type="checkbox" data-k="trailTier"'+(cfg.trailTier?' checked':'')+'><span>TRAILS MATCH RING</span></label></div>';
-    SL.forEach(function(s){if(s[0]==='g'){h+='<div class="dr-g">'+s[1]+'</div>';if(s[1].indexOf('CAMERA')>0) h+='<label class="ck row"><input type="checkbox" data-k="auto"'+(cfg.auto?' checked':'')+'><span>AUTO-ROTATE</span></label>';return;}
-      h+='<label class="dr-s"><span>'+s[1]+'</span><output data-o="'+s[0]+'">'+fmt(s[0],cfg[s[0]],s[5])+'</output><input type="range" data-k="'+s[0]+'" min="'+s[2]+'" max="'+s[3]+'" step="'+s[4]+'" value="'+cfg[s[0]]+'"></label>';});
-    h+='<div class="dr-g">06 · AUDIO</div><label class="ck row"><input type="checkbox" data-k="sound"'+(cfg.sound?' checked':'')+'><span>UI SOUNDS</span></label>';
+      '</div>';
+    SL.forEach(function(s){if(s[0]==='g'){h+='<div class="dr-g">'+s[1]+'</div>';if(s[1].indexOf('CAMERA')>0) h+='<label class="ck row"><input type="checkbox" data-k="auto"'+(cfg.auto?' checked':'')+'><span>AUTO-ROTATE</span></label>';
+        if(s[1].indexOf('TAILS')>0) h+=tailsHTML(); return;}
+      h+='<label class="dr-s'+(TK.indexOf(s[0])>=0?' tl-x':'')+'"><span>'+s[1]+'</span><output data-o="'+s[0]+'">'+fmt(s[0],cfg[s[0]],s[5])+'</output><input type="range" data-k="'+s[0]+'" min="'+s[2]+'" max="'+s[3]+'" step="'+s[4]+'" value="'+cfg[s[0]]+'"></label>';});
+    h+='<div class="dr-g">07 · AUDIO</div><label class="ck row"><input type="checkbox" data-k="sound"'+(cfg.sound?' checked':'')+'><span>UI SOUNDS</span></label>';
     h+='<button type="button" class="dr-reset">RESET TO DEFAULTS</button><div class="dr-ft">SAVED ON THIS DEVICE · localStorage</div></div>'; dr.innerHTML=h;}
+  var TK=['trail','tW','tOp','tFade','tGlow'];
+  function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
+  function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
+    '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
+    '<div class="dr-tc tl-x"><label class="cp"><input type="color" data-k="trailCol" value="'+cfg.trailCol+'"><span>CUSTOM</span></label><span class="dr-grad" title="gradient by rank change"><i>▼ FALLING</i><i>FLAT</i><i>CLIMBING ▲</i></span></div>'+
+    '<div class="dr-sub tl-x">STYLE</div>'+seg('tStyle',[['solid','SOLID'],['dotted','DOTTED'],['sparkle','✦ SPARKLE']]);}
   function fmt(k,v,u){return (k==='tilt'||k==='fov'?Math.round(v):(+v).toFixed(2))+(u||'');}
-  function applyCfg(full){TC=cfg.c.map(hex); trailRGB=hex(cfg.trailCol); U.uGlow.value=cfg.glow; U.uBeam.value=hex(cfg.beam); bgU.uBg.value=hex(cfg.bg); bgU.uT1.value=TC[2]; bgU.uT2.value=TC[4];
+  function segSync(){dr.querySelectorAll('.dr-seg').forEach(function(g){var gp=g.getAttribute('data-grp'); g.querySelectorAll('button').forEach(function(b){var on=cfg[gp]===b.getAttribute('data-tv'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));});});
+    dr.classList.toggle('toff',!cfg.tOn); dr.setAttribute('data-tm',cfg.tMode);}
+  function applyCfg(full){TC=cfg.c.map(hex); TU.uTG.value=cfg.tGlow; TU.uMode.value=cfg.tStyle==='dotted'?1:2; segSync(); sbSync(); var rgt=rpBar&&rpBar.querySelector('.rp-gt'); if(rgt){rgt.value=String(cfg.glide); rgt.parentNode.querySelector('output').textContent=cfg.glide.toFixed(1)+' s/day';} trailRGB=hex(cfg.trailCol); U.uGlow.value=cfg.glow; U.uBeam.value=hex(cfg.beam); bgU.uBg.value=hex(cfg.bg); bgU.uT1.value=TC[2]; bgU.uT2.value=TC[4];
     nodeG.material.uniforms.uTC.value=flat(TC);
     ringMats.forEach(function(m,t){m.uniforms.uColor.value=TC[t];}); dustMats.forEach(function(m,t){m.uniforms.uColor.value=TC[t];});
     labels.forEach(function(e,t){e.style.setProperty('--c',cfg.c[t]);}); for(var k in tags) tags[k].style.setProperty('--c',tcss(grp[k]));
@@ -394,16 +465,32 @@ function init(D,THREE){
     cam.fov=cfg.fov; layoutFixed(); resize(); if(full) setTargets(); if(sel>=0) fillCo(); saveCfg(cfg); need();}
   drHTML();
   dr.addEventListener('input',function(e){var el=e.target,k=el.getAttribute('data-k'),ci=el.getAttribute('data-col');
-    if(ci!=null){cfg.c[+ci]=el.value; cfg.theme='custom';} else if(k){if(el.type==='checkbox') cfg[k]=el.checked; else if(el.type==='color'){cfg[k]=el.value; cfg.theme='custom';} else {cfg[k]=+el.value; var o=dr.querySelector('output[data-o="'+k+'"]'); var s=SL.filter(function(x){return x[0]===k;})[0]; if(o) o.textContent=fmt(k,cfg[k],s&&s[5]);}}
+    if(ci!=null){cfg.c[+ci]=el.value; cfg.theme='custom';} else if(k){if(el.type==='checkbox') cfg[k]=el.checked; else if(k==='trailCol'){cfg.trailCol=el.value; cfg.tMode='custom'; segSync();} else if(el.type==='color'){cfg[k]=el.value; cfg.theme='custom';} else {cfg[k]=+el.value; var o=dr.querySelector('output[data-o="'+k+'"]'); var s=SL.filter(function(x){return x[0]===k;})[0]; if(o) o.textContent=fmt(k,cfg[k],s&&s[5]);}}
     if(cfg.theme==='custom') dr.querySelectorAll('.dr-pre button').forEach(function(b){b.classList.remove('on');});
     applyCfg(false);});
   dr.addEventListener('change',function(e){if(e.target.getAttribute('data-k')==='sound'&&cfg.sound) snd('tog',cfg);});
   dr.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;
     if(b.classList.contains('dr-x')){openDr(false);return;}
+    var tv=b.getAttribute('data-tv'); if(tv){var gp=b.parentNode.getAttribute('data-grp'); cfg[gp]=tv; snd('click',cfg); segSync(); applyCfg(false); return;}
     if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; drHTML(); applyCfg(true); return;}
-    var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.trailTier=P.trailTier; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true);}});
+    var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.tMode=P.tMode; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true);}});
   ['pointerdown','touchstart','wheel'].forEach(function(ev){dr.addEventListener(ev,function(e){e.stopPropagation();},{passive:true});});
   var hudB=cb.querySelector('.hud'), rpB=cb.querySelector('.rp');
+  var sbar=document.createElement('div'); sbar.className='rso-spd'; stage.parentNode.insertBefore(sbar,stage.nextSibling);
+  var fzb=document.createElement('div'); fzb.className='rso-fzb'; fzb.textContent='◼ SIM FROZEN'; stage.appendChild(fzb);
+  var SPV=[0.25,0.5,1,2,4];
+  sbar.innerHTML='<div class="sb-r1"><button type="button" class="sb-fz" aria-pressed="false"><i>❚❚</i><span>FREEZE</span></button><div class="sb-pills" role="group" aria-label="Simulation speed">'+
+    SPV.map(function(v){return '<button type="button" data-gs="'+v+'" aria-pressed="false">'+v+'×</button>';}).join('')+'</div></div>'+
+    '<label class="sb-r2"><span>SIM SPEED</span><input type="range" min="-3.32" max="2" step="0.01" value="0" aria-label="Simulation speed, log scale 0.1x to 4x"><output>1.00×</output></label>';
+  function sbSync(){if(!sbar) return; var g=cfg.gspd, sl=sbar.querySelector('input'), fb=sbar.querySelector('.sb-fz');
+    sbar.querySelectorAll('[data-gs]').forEach(function(b){var on=Math.abs(+b.getAttribute('data-gs')-g)<1e-3; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));});
+    if(document.activeElement!==sl) sl.value=String(Math.log2(g)); sbar.querySelector('output').textContent=frozen?'0 · FROZEN':g.toFixed(2)+'×';
+    fb.classList.toggle('on',frozen); fb.setAttribute('aria-pressed',String(frozen)); fb.querySelector('i').textContent=frozen?'▶':'❚❚'; fb.querySelector('span').textContent=frozen?'RESUME':'FREEZE';
+    root.classList.toggle('frozen',frozen);}
+  function setGs(g){cfg.gspd=clamp(Math.round(g*100)/100,0.1,4); saveCfg(cfg); frozen=false; sbSync(); need();}
+  function setFreeze(b){frozen=!!b; sbSync(); snd('tog',cfg); need();}
+  sbar.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return; var g=b.getAttribute('data-gs'); if(g){snd('click',cfg); setGs(+g); return;} if(b.classList.contains('sb-fz')) setFreeze(!frozen);});
+  sbar.addEventListener('input',function(e){if(e.target.type!=='range') return; var v=+e.target.value, g=Math.pow(2,v); SPV.forEach(function(s){if(Math.abs(Math.log2(s)-v)<0.06) g=s;}); setGs(g);});
   function openDr(on){dr.classList.toggle('on',on); dr.setAttribute('aria-hidden',on?'false':'true'); hudB.classList.toggle('on',on); hudB.setAttribute('aria-expanded',on?'true':'false'); snd('tog',cfg);}
   hudB.addEventListener('click',function(){openDr(!dr.classList.contains('on'));});
 
@@ -417,9 +504,10 @@ function init(D,THREE){
       '<div class="rp-date"><span class="t">T−0</span><b>—</b><span class="n">DAY 0/0</span></div>'+
       '<div class="rp-scrub"><input type="range" min="0" max="1" step="0.01" value="1" aria-label="Replay position"><div class="rp-ends"><span class="a"></span><span class="b"></span></div></div>'+
       '<div class="rp-r3"><button type="button" class="rp-step" data-st="-1" aria-label="Step back">◀◀</button><button type="button" class="rp-play" aria-label="Play">▶</button><button type="button" class="rp-step" data-st="1" aria-label="Step forward">▶▶</button>'+
-      '<div class="rp-spd" role="group" aria-label="Replay speed">'+[1,2,4].map(function(s){return '<button type="button" data-sp="'+s+'" class="'+(rp.spd===s?'on':'')+'">'+s+'×</button>';}).join('')+'</div></div>';}
+      '<div class="rp-spd" role="group" aria-label="Replay speed">'+[0.25,0.5,1,2,4].map(function(s){return '<button type="button" data-sp="'+s+'" class="'+(rp.spd===s?'on':'')+'">'+s+'×</button>';}).join('')+'</div></div>'+
+      '<label class="rp-gl"><span>TRANSITION <em>· glide per day step at 1×</em></span><output>'+cfg.glide.toFixed(1)+' s/day</output><input type="range" class="rp-gt" min="0.6" max="4" step="0.1" value="'+cfg.glide+'" aria-label="Transition time per day step, seconds"></label>';}
   function winRange(){var w=RW.filter(function(x){return x[0]===rp.win;})[0]||RW[1]; rp.d1=RP.nd-1; rp.d0=Math.max(0,rp.d1-Math.min(w[2],RP.nd-1));}
-  function rpReadout(){if(!RP) return; var d=clamp(Math.round(rp.p),rp.d0,rp.d1), q=rpBar.querySelector('.rp-date');
+  function rpReadout(){if(!RP) return; var d=curDay(), q=rpBar.querySelector('.rp-date');
     q.querySelector('.t').textContent='T−'+(rp.d1-d); q.querySelector('b').textContent=RP.dates[d]; q.querySelector('.n').textContent='DAY '+(d-rp.d0)+'/'+(rp.d1-rp.d0);
     var sc=rpBar.querySelector('.rp-scrub input'); if(document.activeElement!==sc||!scrubbing) sc.value=String(rp.p);
     var pl=rpBar.querySelector('.rp-play'); pl.textContent=rp.play?'❚❚':'▶'; pl.setAttribute('aria-label',rp.play?'Pause':'Play');
@@ -427,17 +515,21 @@ function init(D,THREE){
     tm.innerHTML='<div class="l1">REPLAY '+esc(rp.win.toUpperCase())+' · '+esc(RP.dates[rp.d0].slice(5))+' → '+esc(RP.dates[rp.d1].slice(5))+'</div><div class="l2">TOP 50 <b>'+n50+'</b> · RINGS '+inT.map(function(x,t){return '<i style="color:'+cfg.c[t]+'">'+x+'</i>';}).join(' ')+'</div>'+
       rp.events.slice(-3).map(function(e){return '<div class="ev '+(e[1]>0?'up':'dn')+'">'+esc(e[2].slice(5))+' · '+esc(e[0])+(e[1]>0?' ▲ ENTERS TOP 50':' ▼ LEAVES TOP 50')+'</div>';}).join('');}
   var scrubbing=false;
-  function rpSeek(p,flash){var old=rp.p; rp.p=clamp(p,rp.d0,rp.d1); var nd=Math.floor(rp.p+1e-6);
+  // mode: 'play' (clock tick), 'step' (button), 'scrub' (slider drag, short glide to the fractional pose), 'jump' (window start, no glide)
+  function rpSeek(p,mode){rp.p=clamp(p,rp.d0,rp.d1); var nd=Math.floor(rp.p+1e-6), flash=mode==='play'||mode==='step';
     if(flash&&nd>rp.lastDay&&rp.lastDay>=rp.d0){for(var d=rp.lastDay+1;d<=nd;d++){var ups=0,dns=0;for(var i=0;i<Mact;i++){var a=RP.v[i*RP.nd+d-1],b=RP.v[i*RP.nd+d],ra=a<0?1e9:Math.floor(a/100),rb=b<0?1e9:Math.floor(b/100);
         if(rb<=50&&ra>50){fl[i]=1;flS[i]=1;ups++;rp.events.push([info[i].t,1,RP.dates[d]]);} else if(ra<=50&&rb>50){fl[i]=1;flS[i]=-1;dns++;rp.events.push([info[i].t,-1,RP.dates[d]]);}}
       if(ups) snd('up',cfg); else if(dns) snd('dn',cfg); else snd('tick',cfg);} if(rp.events.length>30) rp.events=rp.events.slice(-30);}
+    if(mode==='scrub'){gRetarget('scrub',fracFn(rp.p)); rp.gday=-1;}
+    else if(mode==='jump'){gJump(nd); rp.gday=nd;}
+    else if(nd!==rp.gday){gRetarget(mode,dayFn(nd)); rp.gday=nd;}
     if(nd!==rp.lastDay){rp.lastDay=nd; rpReadout(); if(sel>=0) fillCo();} need();}
-  function rpStart(){if(op.t>=0){closeTier(); op.k=0; op.t=-1;} rp.on=true; rp.done=false; rp.events=[]; winRange(); rp.p=rp.d0; rp.lastDay=rp.d0; rp.play=true; Mact=N+RP.nx; sumC.classList.remove('on');
-    for(var i=N;i<Mact;i++){al[i]=0;} rpHTML(); var sc=rpBar.querySelector('.rp-scrub input'); sc.min=String(rp.d0); sc.max=String(rp.d1); sc.value=String(rp.p);
+  function rpStart(){if(op.t>=0){closeTier(); opDone();} rp.on=true; rp.done=false; rp.sumP=false; rp.events=[]; winRange(); rp.p=rp.d0; rp.lastDay=rp.d0; rp.play=true; Mact=N+RP.nx; sumC.classList.remove('on');
+    for(var i=N;i<Mact;i++){al[i]=0;} firstRanks(); gJump(rp.d0); rpHTML(); var sc=rpBar.querySelector('.rp-scrub input'); sc.min=String(rp.d0); sc.max=String(rp.d1); sc.value=String(rp.p);
     rpBar.querySelector('.rp-ends .a').textContent=RP.dates[rp.d0]; rpBar.querySelector('.rp-ends .b').textContent=RP.dates[rp.d1];
     pSeg.visible=rp.paths; rpBar.hidden=false; tm.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; root.classList.add('replay'); rpB.classList.add('on'); rpB.setAttribute('aria-pressed','true');
     setTargets(); rpReadout(); snd('play',cfg); labelsState(); need();}
-  function rpStop(){rp.on=false; rp.play=false; Mact=N; for(var i=0;i<N;i++){grp[i]=info[i].g; ty[i]=info[i].g; rf[i]=rfrac(info[i].k,D.universe,info[i].g)+jit[i]; dia[i]=0.1+0.29*Math.max(0,1-Math.log(info[i].k)/lnU); fl[i]=0;}
+  function rpStop(){rp.on=false; rp.play=false; rp.sumP=false; Mact=N; for(var i=0;i<N;i++){grp[i]=info[i].g; ty[i]=info[i].g; rf[i]=rfrac(info[i].k,D.universe,info[i].g)+jit[i]; dia[i]=0.1+0.29*Math.max(0,1-Math.log(info[i].k)/lnU); fl[i]=0;}
     if(sel>=N) select(-1); pSeg.visible=false; rpBar.hidden=true; tm.hidden=true; ctl.hidden=false; sumC.classList.remove('on'); root.classList.remove('replay'); rpB.classList.remove('on'); rpB.setAttribute('aria-pressed','false'); labelsState(); setTargets(); if(sel>=0) fillCo(); need();}
   function rpSummary(){var d0=rp.d0,d1=rp.d1,L=[],ins=0,outs=0;
     for(var i=0;i<Mact;i++){var a=RP.v[i*RP.nd+d0],b=RP.v[i*RP.nd+d1];var ra=a<0?null:Math.floor(a/100),rb=b<0?null:Math.floor(b/100);
@@ -451,7 +543,7 @@ function init(D,THREE){
       '<div class="s-bt"><button type="button" class="s-again">↻ REPLAY</button><button type="button" class="s-close">CLOSE</button></div>';
     sumC.classList.add('on'); snd('end',cfg);}
   sumC.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;
-    if(b.classList.contains('s-again')){sumC.classList.remove('on'); rp.events=[]; rp.lastDay=rp.d0; rpSeek(rp.d0,false); rp.play=true; rp.done=false; rpReadout(); return;}
+    if(b.classList.contains('s-again')){sumC.classList.remove('on'); rp.events=[]; rp.lastDay=rp.d0; rp.sumP=false; rpSeek(rp.d0,'jump'); rp.play=true; if(frozen) setFreeze(false); rp.done=false; rpReadout(); return;}
     if(b.classList.contains('s-close')){sumC.classList.remove('on'); return;}
     var i=b.getAttribute('data-i'); if(i!=null){sumC.classList.remove('on'); render(0); select(+i);}});
   ['pointerdown','touchstart'].forEach(function(ev){sumC.addEventListener(ev,function(e){e.stopPropagation();},{passive:true});});
@@ -459,11 +551,13 @@ function init(D,THREE){
     var w=b.getAttribute('data-rw'); if(w){rp.win=w; rpStart(); return;}
     if(b.classList.contains('rp-exit')){rpStop(); return;}
     if(b.classList.contains('rp-paths')){rp.paths=!rp.paths; b.classList.toggle('on',rp.paths); b.setAttribute('aria-pressed',String(rp.paths)); pSeg.visible=rp.paths; need(); return;}
-    if(b.classList.contains('rp-play')){if(rp.p>=rp.d1-1e-6){rp.events=[]; rp.lastDay=rp.d0; rpSeek(rp.d0,false);} rp.play=!rp.play; sumC.classList.remove('on'); rpReadout(); return;}
-    var st=b.getAttribute('data-st'); if(st){rp.play=false; var t=+st>0?Math.floor(rp.p+1e-6)+1:Math.ceil(rp.p-1e-6)-1; rpSeek(t,+st>0); rpReadout(); if(rp.p>=rp.d1) rpSummary(); return;}
+    if(b.classList.contains('rp-play')){if(rp.p>=rp.d1-1e-6){rp.events=[]; rp.lastDay=rp.d0; rp.sumP=false; rpSeek(rp.d0,'jump');} rp.play=!rp.play; if(rp.play&&frozen) setFreeze(false); sumC.classList.remove('on'); rpReadout(); return;}
+    var st=b.getAttribute('data-st'); if(st){rp.play=false; var t=+st>0?Math.floor(rp.p+1e-6)+1:Math.ceil(rp.p-1e-6)-1; rpSeek(t,'step'); rpReadout(); if(rp.p>=rp.d1) rp.sumP=true; return;}
     var sp=b.getAttribute('data-sp'); if(sp){rp.spd=+sp; rpBar.querySelectorAll('.rp-spd button').forEach(function(x){x.classList.toggle('on',x===b);});}});
-  rpBar.addEventListener('input',function(e){if(e.target.type!=='range') return; scrubbing=true; rp.play=false; var v=+e.target.value; if(v<rp.lastDay){rp.lastDay=Math.floor(v);} rpSeek(v,false); rpReadout();});
-  rpBar.addEventListener('change',function(e){if(e.target.type==='range'){scrubbing=false; rp.lastDay=Math.floor(rp.p+1e-6);}});
+  rpBar.addEventListener('input',function(e){if(e.target.type!=='range') return;
+    if(e.target.classList.contains('rp-gt')){cfg.glide=clamp(+e.target.value,0.6,4); e.target.parentNode.querySelector('output').textContent=cfg.glide.toFixed(1)+' s/day'; saveCfg(cfg); return;}
+    scrubbing=true; rp.play=false; var v=+e.target.value; if(v<rp.lastDay){rp.lastDay=Math.floor(v);} rpSeek(v,'scrub'); rpReadout();});
+  rpBar.addEventListener('change',function(e){if(e.target.type==='range'&&!e.target.classList.contains('rp-gt')){scrubbing=false; rp.lastDay=Math.floor(rp.p+1e-6);}});
   function loadRP(){if(RP) return Promise.resolve(RP); rpB.classList.add('busy');
     return fetch(rpSrc,{cache:'no-cache'}).then(function(r){if(!r.ok) throw new Error('replay '+r.status); return r.json();}).then(function(J){
       var A='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', w=J.w, nd=J.dates.length, nx=Math.min(J.roster.length-J.n_main,XC), n=N+nx, v=new Int32Array(n*nd);
@@ -512,9 +606,10 @@ function init(D,THREE){
   tp.addEventListener('input',function(e){if(e.target.type==='range') setE(+e.target.value);});
   function openTier(t){if(rp.on) return; if(dr.classList.contains('on')) openDr(false);
     if(sel>=0&&grp[sel]!==t) select(-1);
-    op.t=t; op.target=1; if(RM) op.k=1; snd('sel',cfg); fillTP(t); tp.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; backB.hidden=false; rpB.hidden=true;
+    if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; if(RM) op.k=1; snd('sel',cfg); fillTP(t); tp.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; backB.hidden=false; rpB.hidden=true;
     root.classList.add('tieropen'); labelsState(); need();}
-  function closeTier(){if(op.t<0) return; op.target=0; if(RM){op.k=0; op.t=-1;} snd('tog',cfg); tp.hidden=true; ctl.hidden=false; backB.hidden=true; rpB.hidden=false;
+  function opDone(){op.k=0; op.t=-1; if(op.pre){op.E=op.pre.E; zoom=op.pre.zoom; op.pre=null;}}
+  function closeTier(){if(op.t<0) return; op.target=0; if(RM) opDone(); snd('tog',cfg); tp.hidden=true; ctl.hidden=false; backB.hidden=true; rpB.hidden=false;
     if(clBox&&climb) clBox.hidden=false; root.classList.remove('tieropen'); labelsState(); need();}
   // ---------------------------------------------------------------- frame
   var v=new THREE.Vector3(), w2=new THREE.Vector3(), vis=true, last=performance.now(), frames=0;
@@ -525,7 +620,7 @@ function init(D,THREE){
     TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)'; labels[t].style.opacity=op.t<0||t===op.t?'':String(1-0.95*op.k);});
     var show={}, cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null;
     if(cl) cl.forEach(function(t){show[byT[t]]=1;});
-    else if(rp.on&&RP){var d=clamp(Math.round(rp.p),rp.d0,rp.d1),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
+    else if(rp.on&&RP){var d=curDay(),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
       for(i=0;i<Mact;i++){if(fl[i]>0.55) show[i]=1;}}
     else topIdx.forEach(function(i){show[i]=1;});
     if(op.t>=0&&op.k>0.3){for(var j=0;j<Mact;j++){if(grp[j]===op.t&&ea[j]>0.5) show[j]=1; else if(show[j]&&j!==sel) delete show[j];}}
@@ -535,27 +630,32 @@ function init(D,THREE){
       e.style.opacity=String(al[i2]<0.05?0:(i2===sel?1:clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
       e.style.transform='translate('+(sx[i2]+sr[i2]*0.75+2).toFixed(0)+'px,'+(sy[i2]-sr[i2]*0.75-12).toFixed(0)+'px)';}
     if(sel>=0){ret.style.transform='translate('+sx[sel].toFixed(1)+'px,'+sy[sel].toFixed(1)+'px)'; placeCo(false);}}
-  function render(dt){
-    if(op.t>=0){var ok=op.k; op.k=RM?op.target:op.k+(op.target-op.k)*Math.min(1,dt*3.2); if(Math.abs(op.k-op.target)<0.02) op.k=op.target; if(op.k===0&&op.target===0){op.t=-1; labelsState();} if(op.k!==ok) need();}
-    if(rp.on&&rp.play){var np2=rp.p+dt*rp.spd/0.55; if(np2>=rp.d1){rpSeek(rp.d1,true); rp.play=false; rp.done=true; rpReadout(); rpSummary();} else rpSeek(np2,true);}
-    if(!RM){tNow+=dt; U.uTime.value=tNow;
-      var ar=(cfg.auto?0.05*cfg.autoSpd:0)*(op.t>=0?1-0.6*op.k:1);
-      if(tNow-lastUser>2.5&&np===0){yawV+=(ar-yawV)*Math.min(1,dt*0.8);} else if(np===0){yawV*=Math.pow(0.04,dt);}
-      if(np===0) yaw+=yawV*dt;
-      var e=Math.min(1,dt*3), spd=cfg.speed*(rp.on?0.5:1);
-      for(var i=0;i<Mact;i++){om[i]+=(omT[i]-om[i])*e; al[i]+=(alT[i]-al[i])*Math.min(1,dt*(rp.on?6:3)); sm[i]+=(smT[i]-sm[i])*e; ang[i]+=om[i]*dt*spd*(i===sel?0.15:1)*(op.t>=0?1-0.72*op.k:1); if(fl[i]>0) fl[i]=Math.max(0,fl[i]-dt*0.9);}
-      core.rotation.y+=dt*0.25;}
+  var busyF=true;
+  function render(dt){busyF=false;
+    if(op.t>=0){var ok=op.k; op.k=RM?op.target:op.k+(op.target-op.k)*Math.min(1,dt*3.2); if(Math.abs(op.k-op.target)<0.02) op.k=op.target; if(op.target===0&&op.pre) zoom+=(op.pre.zoom-zoom)*Math.min(1,dt*4); if(op.k===0&&op.target===0){opDone(); labelsState();} if(op.k!==ok){need(); busyF=true;}}
+    var gS=frozen?0:cfg.gspd, dS=dt*gS;
+    if(rp.on&&rp.play&&dS>0){var np2=rp.p+dS*rp.spd/cfg.glide; if(np2>=rp.d1){rpSeek(rp.d1,'play'); rp.play=false; rp.done=true; rp.sumP=true; rpReadout();} else rpSeek(np2,'play');}
+    if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();}}
+    if(!RM){tNow+=dt; U.uTime.value+=dS;
+      var ar=(cfg.auto?0.05*cfg.autoSpd:0)*(op.t>=0?1-0.6*op.k:1)*gS;
+      if(frozen&&np===0){yawV*=Math.pow(0.002,dt);} else if(tNow-lastUser>2.5&&np===0){yawV+=(ar-yawV)*Math.min(1,dt*0.8);} else if(np===0){yawV*=Math.pow(0.04,dt);}
+      if(np===0) yaw+=yawV*dt; if(Math.abs(yawV)>2e-4) busyF=true;
+      var e=Math.min(1,dt*3), spd=cfg.speed*(rp.on?0.5:1), ar2=rp.on?Math.min(1,dt*Math.max(0.6,effRate())*3.5):Math.min(1,dt*3);
+      for(var i=0;i<Mact;i++){om[i]+=(omT[i]-om[i])*e; var da=alT[i]-al[i]; al[i]+=da*ar2; if(da>0.004||da<-0.004) busyF=true; sm[i]+=(smT[i]-sm[i])*e; ang[i]+=om[i]*dS*spd*(i===sel?0.15:1)*(op.t>=0?1-0.72*op.k:1); if(fl[i]>0) fl[i]=Math.max(0,fl[i]-dS*0.9);}
+      core.rotation.y+=dS*0.25;}
     else{for(var j=0;j<Mact;j++){if(fl[j]>0) fl[j]=0;}}
     placeCam(); upd(dt); renderer.render(scene,cam); project(); overlay(); dirty=false; frames++;}
   function loop(now){requestAnimationFrame(loop); var dt=Math.min(0.05,(now-last)/1000); last=now;
-    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)) return; render(dt);}
+    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)) return; if(frozen&&!RM&&!dirty&&!busyF) return; render(dt);}
   if('IntersectionObserver' in window){new IntersectionObserver(function(en){vis=en[0].isIntersecting; if(vis) need();},{rootMargin:'80px'}).observe(stage);}
   if('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize',resize);
   applyCfg(true); render(0); requestAnimationFrame(loop);
   root.classList.add('live');
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
-    replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[Math.round(rp.p)]:null,events:rp.events.length};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E};},
+    replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom};}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
+    ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
     label:function(t){var r=labels[t].querySelector('.hit').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}};
 }

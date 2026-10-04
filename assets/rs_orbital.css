@@ -213,3 +213,43 @@
 #rso .tp-list a.ch{justify-self:end;color:var(--c)!important;text-decoration:none!important;border:1px solid color-mix(in srgb,var(--c) 50%,transparent);border-radius:3px;padding:6px 6px;font-size:9px;letter-spacing:.8px;white-space:nowrap}
 #rso .tp-more{display:block;width:100%;margin:8px 0 4px;border:1px solid rgba(255,255,255,.18);background:none;color:#cfe;padding:9px;border-radius:3px;font-size:9.5px;letter-spacing:1px}
 #rso .tp-ld{padding:14px 4px;color:#7f97b0;text-align:center;letter-spacing:2px}
+/* ---- v3 (4 Oct 2026): SIM SPEED bar + FREEZE, TAILS section, replay TRANSITION slider ---- */
+#rso .rso-spd{margin:6px 8px 0;padding:7px 9px 4px;border:1px solid color-mix(in srgb,var(--acc) 45%,transparent);border-radius:4px;background:linear-gradient(180deg,rgba(2,14,26,.82),rgba(2,8,18,.7));
+ box-shadow:0 0 16px -10px var(--acc);font:500 10px/1.2 ui-monospace,'SF Mono',Menlo,monospace;color:#cfe3f5;letter-spacing:.8px}
+#rso .sb-r1{display:flex;align-items:center;gap:8px}
+#rso .sb-fz{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,196,80,.65);background:rgba(60,40,0,.35);color:#ffe2a0;padding:9px 10px;border-radius:3px;font-size:10.5px;letter-spacing:1.2px;flex:none;min-width:94px;justify-content:center}
+#rso .sb-fz i{font-style:normal;font-size:11px}
+#rso .sb-fz.on{background:linear-gradient(180deg,rgba(255,190,60,.55),rgba(200,130,0,.45));color:#fff;border-color:#ffc94d;box-shadow:0 0 12px -2px #ffc94d;text-shadow:0 0 6px #ffc94d}
+#rso .sb-pills{display:flex;flex:1;border:1px solid rgba(255,255,255,.18);border-radius:3px;overflow:hidden}
+#rso .sb-pills button{flex:1;border:0;border-right:1px solid rgba(255,255,255,.1);background:none;color:#b7d3ea;padding:9px 0;font-size:10.5px;letter-spacing:.4px;border-radius:0;min-width:0}
+#rso .sb-pills button:last-child{border-right:0}
+#rso .sb-pills button.on{background:color-mix(in srgb,var(--acc) 32%,transparent);color:#fff;text-shadow:0 0 6px var(--acc);box-shadow:inset 0 -2px 0 var(--acc)}
+#rso.frozen .sb-pills button.on{background:rgba(255,255,255,.06);box-shadow:none;color:#cfe3f5}
+#rso .sb-r2{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:2px}
+#rso .sb-r2 span{font-size:9.5px;color:var(--acc);letter-spacing:1.6px}
+#rso .sb-r2 output{font-size:11px;color:#fff;min-width:70px;text-align:right;font-variant-numeric:tabular-nums}
+#rso.frozen .sb-r2 output{color:#ffd47a}
+#rso .sb-r2 input[type=range],#rso .rp-gl input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0}
+#rso .rso-fzb{position:absolute;right:8px;top:40px;z-index:4;pointer-events:none;opacity:0;transition:opacity .25s;font:700 9.5px/1 ui-monospace,'SF Mono',Menlo,monospace;letter-spacing:2px;color:#ffd47a;
+ padding:5px 7px;border:1px solid rgba(255,201,77,.6);border-radius:3px;background:rgba(30,20,0,.55);box-shadow:0 0 10px -3px #ffc94d}
+#rso.frozen .rso-fzb{opacity:1}
+#rso .rp-spd button{padding:8px 6px}
+#rso .rp-r3{flex-wrap:wrap}
+#rso .rp-gl{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 8px;margin-top:6px;padding-top:4px;border-top:1px solid rgba(255,255,255,.07)}
+#rso .rp-gl span{font-size:9.5px;color:#cfe0f0;letter-spacing:1px}#rso .rp-gl em{font-style:normal;color:#8299b2;letter-spacing:.3px}
+#rso .rp-gl output{color:#fff;font-size:10px;font-variant-numeric:tabular-nums}
+#rso .rp-gl input[type=range]{grid-column:1/3;height:24px}
+#rso .dr-sub{margin:8px 0 4px;font-size:8.5px;color:#9db4cc;letter-spacing:1.6px}
+#rso .dr-seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid rgba(255,255,255,.18);border-radius:3px;overflow:hidden}
+#rso .dr-seg button{border:0;border-right:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.02);color:#cfe3f5;padding:8px 2px;font-size:9.5px;letter-spacing:.8px;border-radius:0}
+#rso .dr-seg button:last-child{border-right:0}
+#rso .dr-seg button.on{background:color-mix(in srgb,var(--acc) 28%,transparent);color:#fff;box-shadow:inset 0 -2px 0 var(--acc)}
+#rso .dr-tc{display:flex;align-items:center;gap:8px;margin-top:6px}
+#rso .dr-tc label.cp{display:flex;align-items:center;gap:6px;font-size:9.5px;color:#cfe0f0;flex:none}
+#rso .dr-tc label.cp input{width:26px;height:20px;padding:0;border:1px solid rgba(255,255,255,.3);background:none;border-radius:3px}
+#rso .dr-grad{flex:1;display:flex;justify-content:space-between;padding:3px 5px;border-radius:3px;font-size:8px;letter-spacing:.4px;color:#04121a;font-weight:700;
+ background:linear-gradient(90deg,#ff3d5a,#c9a440 50%,#3dff8a);opacity:.35;transition:opacity .2s}
+#rso .dr-grad i{font-style:normal}
+#rso .rso-dr[data-tm=delta] .dr-grad{opacity:1}
+#rso .rso-dr[data-tm=custom] label.cp{color:#fff}
+#rso .rso-dr.toff .tl-x{opacity:.38;pointer-events:none}

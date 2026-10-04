@@ -805,7 +805,9 @@
     else setTimeout(flab,0);
     setTimeout(function(){if(!FOLD)flab();},600);}
   if(!document.getElementById('tc-tf-css')){var tcs=document.createElement('style');tcs.id='tc-tf-css';   // 1D / 1W / 1M segmented switch (cyan, next to the gold presets)
-    tcs.textContent='.tcz .tcg .tctf{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #00e5ff;box-shadow:2px 2px 0 #000}'+
+    tcs.textContent='.tc-legend span.tc-vsak,.tc-legend span.tc-vsal,.tc-legend span.tc-pgk,.tc-legend .tc-warnline{white-space:normal!important;overflow-wrap:anywhere;max-width:100%}'+   // the module never widens the page, with or without desk.css (raw generator output)
+      '.tc-legend{min-width:0;max-width:100%}.tc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}.tc-tbl td.tc-src{overflow-wrap:anywhere}.tc-stage,.tc-panel,.tc-foot{min-width:0;max-width:100%}'+
+      '.tcz .tcg .tctf{display:inline-flex;flex:0 0 auto;gap:0;border:2px solid #00e5ff;box-shadow:2px 2px 0 #000}'+
       '.tcz .tcg .tctf button{min-width:38px!important;min-height:40px!important;margin:0;border:0!important;border-right:1px solid rgba(0,229,255,.45)!important;box-shadow:none!important;color:#00e5ff!important;background:#07061a!important;padding:4px 6px;flex:0 0 auto}'+
       '.tcz .tcg .tctf button:last-child{border-right:0!important}.tcz .tcg .tctf button[aria-checked=true]{background:#00e5ff!important;color:#07061a!important}'+
       '.tcz .tcg .tctf button:disabled{opacity:.3;cursor:not-allowed}.tcz .tcg .tctf button:focus-visible{outline:2px solid #ffd23f;outline-offset:-2px}'+
