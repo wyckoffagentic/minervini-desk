@@ -180,7 +180,8 @@ function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
   var xq=(mode==='mastack'||mode==='wyckoff'?String(r.getAttribute('data-xq')||'').replace(/[^a-z0-9=&]/g,''):''),src0=BASE+'stock.html?t='+encodeURIComponent(t)+'&embed=1&mini=1&ov='+mode+(k?'&k='+k:'')+xq;   // per-row chart variant (ma_stack &msv= / wyckoff &wv= &wt=)   // ma_stack.html: per-row chart variant (&msv=)
   f.addEventListener('load',function(){if(!f.getAttribute('src'))return;setTimeout(function(){var l=box.querySelector('.ld');if(l)l.remove();if(f.style.height==='0px')f.style.height='900px';},1200);});
   box.appendChild(f);
-  if(/[?&]ck=/.test(src0))f.src=src0;else chartPages().then(function(m){if(r._dkv===n)f.src=src0+(m?'&ck='+(m[t]?'p':'j'):'');});   // the row may have been closed meanwhile
+  chartPages().then(function(m){if(r._dkv!==n)return;   // (the row may have been closed meanwhile) the list is current with the pages: it wins over a ck baked into the row at build time
+    f.src=m?src0.replace(/&ck=[a-z]*/g,'')+'&ck='+(m[t]?'p':'j'):src0;});
   var st=r.querySelector('details.vsan p');if(st){var sp=el('div','dk-vstory');sp.innerHTML='<b>Story</b> '+st.innerHTML;box.appendChild(sp);}
   r.parentNode.insertBefore(n,r.nextSibling);r._dkv=n;r.classList.add('dk-vopen');OPEN.push(r);
 
