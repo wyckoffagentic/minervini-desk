@@ -3,10 +3,9 @@
            research-tools/rs_orbital.py on every rs / daily / refresh run.  Desk RS calc, not IBD's official rating.
    Engine: Three.js r186, tree-shaken + vendored at assets/vendor/three-r186.orbital.min.js (MIT, no CDN).
    Encoding: ring = RS tier, sphere size = rank, orbit speed + trail length = rank change over 1D/1W/4W, radius in ring = rank inside the tier.
-   HUD drawer: colours, presets, X/Y/Z stretch, tilt, sizes, speed, glow, TAILS (on/off, length, width, opacity, fade, glow, colour mode,
-           style), camera; saved in localStorage ('rso.cfg.v1').  SIM SPEED bar under the stage: 0.25-4x + FREEZE (scales everything).
-   Replay glides: each day step is an eased Hermite glide (TRANSITION slider, default 2.0 s/day at 1x) with a slight arc; glides
-           overlap 20% and carry velocity on retarget, so nothing snaps; spheres keep orbiting while they drift.
+   HUD drawer: colours, presets, X/Y/Z stretch, tilt, sizes, speed, glow, TAILS, per-orbit panel (ring on/opacity, stocks on/off,
+           planet size, FOCUS stretch by RS), BLACK HOLE (NOW / AUTO / frequency), camera; saved in localStorage ('rso.cfg.v1').
+           SIM SPEED bar: 0.25-4x + FREEZE. Replay glides: eased Hermite (TRANSITION slider) with arc + overlap.
    Replay: real sessions only (whatever rating_history.json covers at build time), scrub / play / step, Top-50 entry/exit flashes,
            path trails, end-of-window summary.  Touch: drag = rotate, pinch = zoom, tap = select.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
@@ -35,13 +34,22 @@ var PRESETS={
   neon:   {name:'NEON',            c:['#ffd23f','#a8ff3e','#00e5ff','#b06bff','#ff2bd6'],beam:'#00e5ff',bg:'#03030d',tMode:'ring',  trailCol:'#ffffff'},
   mission:{name:'MISSION CONTROL', c:['#ffffff','#d6e6ff','#9cc2ff','#5b8cff','#3a5fc8'],beam:'#bfe0ff',bg:'#01040c',tMode:'custom',trailCol:'#7fb2ff'},
   mars:   {name:'MARS',            c:['#ffe2b0','#ffb066','#ff7a3d','#e04a2a','#b8392a'],beam:'#ff9a5a',bg:'#0c0302',tMode:'ring',  trailCol:'#ff8a4c'}};
+var ORB0={on:true,ring:true,ringOp:1,size:1};
+function newOrbs(){return [0,1,2,3,4].map(function(){return {on:ORB0.on,ring:ORB0.ring,ringOp:ORB0.ringOp,size:ORB0.size};});}
 var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
   sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
-  tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2};
+  tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2,
+  orb:newOrbs(),bhAuto:true,bhMin:3,bhMax:8};
 var KEY='rso.cfg.v1';
-function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';}}catch(e){}
+function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';
+    if(Array.isArray(s.orb)&&s.orb.length===5){c.orb=s.orb.map(function(o){return {on:o&&o.on!==false,ring:o&&o.ring!==false,ringOp:clamp(+(o&&o.ringOp!=null?o.ringOp:1),0,1),size:clamp(+(o&&o.size!=null?o.size:1),0.3,3)};});}
+    if(typeof s.bhAuto==='boolean') c.bhAuto=s.bhAuto; if(s.bhMin!=null) c.bhMin=+s.bhMin; if(s.bhMax!=null) c.bhMax=+s.bhMax;}}catch(e){}
   if(['ring','custom','delta'].indexOf(c.tMode)<0) c.tMode='ring'; if(['solid','dotted','sparkle'].indexOf(c.tStyle)<0) c.tStyle='solid';
-  c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4); return c;}
+  if(!Array.isArray(c.orb)||c.orb.length!==5) c.orb=newOrbs();
+  c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4);
+  c.bhMin=clamp(c.bhMin||3,1,30); c.bhMax=clamp(Math.max(c.bhMax||8,c.bhMin),c.bhMin,60);
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) c.bhAuto=false;
+  return c;}
 var saveT=0; function saveCfg(cfg){clearTimeout(saveT);saveT=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}},250);}
 
 // ------------------------------------------------------------------ subtle UI sounds (WebAudio, off by default)
@@ -228,8 +236,11 @@ function init(D,THREE){
   scene.add(pSeg); scene.add(rMesh); scene.add(tPts); scene.add(sPts); scene.add(bPts);
   var sel=-1, yaw=0.5, pitch=0.34, zoom=1;
   // opened tier: op.t = tier (-1 none), op.k = 0..1 animation, op.E = ring stretch (slider / pinch)
-  var op={t:-1,k:0,target:0,E:1.35}, PITCH_O=0.8, ea=new Float32Array(M);
+  var op={t:-1,k:0,target:0,E:1.35,focus:false}, PITCH_O=0.8, ea=new Float32Array(M);
+  var bh={on:false,k:0,phase:0,dur:10,t:0,x:0,y:0,z:0,next:1e18,arm:function(){},trigger:function(){}};
   function tsc(t){if(op.t<0) return 1; return t===op.t?1+(op.E-1)*op.k:1-0.55*op.k;}
+  function orbOn(t){t=clamp(t,0,4); return cfg.orb[t].on;}
+  function rsFrac(rs,t){var lo=TIERS[t].lo,hi=TIERS[t].hi; return 0.55+0.85*clamp((rs-lo)/Math.max(1,hi-lo),0,1);}
   var cY=1,sY=0,cT=1,sT=0;
   function W3(rf_,ty_,a,o,arr){var tt=ty_<0.5?0:ty_>3.5?4:Math.round(ty_); if(op.t>=0&&tt===op.t) rf_+=(0.3+(rf_-0.6)*1.75-rf_)*op.k; var r=R*rf_*tsc(tt),x=Math.cos(a)*r,z=Math.sin(a)*r,x1=x*cY+z*sY,z1=-x*sY+z*cY;arr[o]=x1*cT*cfg.sx;arr[o+1]=x1*sT+tierY(ty_);arr[o+2]=z1*cfg.sz;}
   function colOf(i){var g=grp[i];return TC[g<0?0:g];}
@@ -284,10 +295,26 @@ function init(D,THREE){
   function upd(dt){
     var TL=cfg.trail, SZ=cfg.size, tOn=cfg.tOn&&TL>0.001&&cfg.tOp>0.001, sty=cfg.tStyle, solid=sty==='solid', tw=cfg.tW, tfd=cfg.tFade, tamp=cfg.tOp*Math.min(1,TL*1.5), gu=Math.min(rp.gu,1), tm=cfg.tMode;
     cY=Math.cos(yaw);sY=Math.sin(yaw);cT=Math.cos(cfg.tilt*Math.PI/180);sT=Math.sin(cfg.tilt*Math.PI/180); camP.copy(cam.position);
+    var foc=op.t>=0&&op.focus&&op.k>0.05, bhk=bh.k;
     for(var i=0;i<Mact;i++){
       if(rp.on){gEval(i,gu,gq); rf[i]=gq.rf; ty[i]=gq.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=clamp(Math.round(gq.ty),0,4);}
-      var tI=clamp(Math.round(ty[i]),0,4),c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI],a=al[i]*dm*(op.t<0||tI===op.t?1:1-0.93*op.k),sz=dia[i]*sm[i]*SZ*(i===sel?1.25:1)*(1+fl[i]*0.5);
-      ea[i]=a/dm; W3(rf[i],ty[i],ang[i],i*3,sP); sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=fl[i];
+      var tI=clamp(Math.round(ty[i]),0,4), oOn=orbOn(tI), oSz=cfg.orb[tI].size;
+      var c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI];
+      var aMul=(op.t<0||tI===op.t?1:1-0.93*op.k)*(oOn?1:0);
+      if(foc&&tI!==op.t) aMul*=1-0.97*op.k;
+      var a=al[i]*dm*aMul, sz=dia[i]*sm[i]*SZ*oSz*(i===sel?1.25:1)*(1+fl[i]*0.5);
+      // focus: remap radius by RS score within the tier (high RS farther out)
+      var rfUse=rf[i], angUse=ang[i];
+      if(foc&&tI===op.t){var rsV=i<N?info[i].rs:(rp.on?Math.round(Math.exp(gq.lk||0)):50); rfUse=rf[i]+(rsFrac(rsV,tI)-rf[i])*op.k; angUse=ang[i]+(hash(info[i].t+'f')-0.5)*0.35*op.k;}
+      ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP);
+      // black-hole warp: spiral + stretch toward the BH, then restore (positions are computed from live state so exit is exact)
+      if(bhk>0.001){var bx=bh.x,by=bh.y,bz=bh.z, px=sP[i*3],py=sP[i*3+1],pz=sP[i*3+2], dx=px-bx,dy=py-by,dz=pz-bz, dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+1e-4;
+        var pull=sstep(bhk)*clamp(1.15-dist/14,0,1); var swirl=bhk*bhk*2.4*(0.4+0.6*pull);
+        var cs=Math.cos(swirl+i*0.17), sn=Math.sin(swirl+i*0.17);
+        var rx=dx*cs-dz*sn, rz=dx*sn+dz*cs; var inward=1-pull*0.92*bhk;
+        sP[i*3]=bx+rx*inward; sP[i*3+1]=by+dy*inward*(1-0.35*pull*bhk)+Math.sin(swirl*1.7)*0.15*pull; sP[i*3+2]=bz+rz*inward;
+        sz*=1+pull*bhk*(1.8+1.6*Math.sin(swirl*3)); a*=1-0.55*pull*bhk;}
+      sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=fl[i];
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
@@ -383,7 +410,8 @@ function init(D,THREE){
     if(k>0){var f=fitOpen(); d+=(f.d*zoom-d)*k; cy+=(f.y-cy)*k; pt+=(PITCH_O-pt)*k;}
     camD=d; cam.position.set(0,cy+d*Math.sin(pt),d*Math.cos(pt)); cam.lookAt(0,cy,0);
     retic.quaternion.copy(cam.quaternion); for(var t=0;t<spinG.length;t++){spinG[t].rotation.y=yaw; var q=tsc(t); tierG[t].scale.set(cfg.sx*q,1,cfg.sz*q);
-      var od=op.t<0||t===op.t?1:1-0.9*op.k; ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od;}
+      var od=(op.t<0||t===op.t?1:1-0.9*op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k;
+      ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15);}
     stars.rotation.y=yaw*0.25;}
   function resize(){var r=stage.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
     renderer.setSize(W,H,false); cam.fov=cfg.fov; cam.aspect=W/H; cam.updateProjectionMatrix(); fit();
@@ -417,9 +445,9 @@ function init(D,THREE){
   // ---------------------------------------------------------------- live toggles (1D/1W/4W, CLIMBERS)
   var segB=root.querySelectorAll('.rso-seg button'), clB=root.querySelector('.rso-climb'), clBox=root.querySelector('.rso-cls'), legW=root.querySelector('[data-win]'), ctl=root.querySelector('.rso-ctl');
   function setTargets(){var cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null, set={}; if(cl) cl.forEach(function(t){set[t]=1;});
-    for(var i=0;i<N;i++){omT[i]=omega(i); if(!rp.on){alT[i]=cl?(set[info[i].t]?1:0.13):1;} smT[i]=cl&&set[info[i].t]?1.22:1;}
+    for(var i=0;i<N;i++){omT[i]=omega(i); if(!rp.on){var base=cl?(set[info[i].t]?1:0.13):1; alT[i]=orbOn(info[i].g)?base:0;} smT[i]=cl&&set[info[i].t]?1.22:1;}
     for(i=N;i<Mact;i++){omT[i]=omega(i); if(!rp.on) alT[i]=0; smT[i]=1;}
-    ringMats.forEach(function(m,t){m.uniforms.uDim.value=TDIM[t]*(cl?0.55:1);}); dustMats.forEach(function(m){m.uniforms.uDim.value=cl?0.35:(rp.on?0.55:1);});
+    /* ring/dust dims applied each frame in placeCam */
     if(legW) legW.textContent=WL[WIN[wi]];
     if(clBox){if(cl){clBox.innerHTML=cl.map(function(t){var i=byT[t],s=info[i];return '<button data-i="'+i+'" style="--c:'+tcss(s.g)+'">'+esc(t)+'<i>▲'+(s.c[wi]==null?'new':s.c[wi])+'</i></button>';}).join('')||'<span>none</span>'; clBox.hidden=false;}
       else{clBox.hidden=true; clBox.innerHTML='';}}
@@ -434,7 +462,7 @@ function init(D,THREE){
   stage.appendChild(cb);
   var dr=document.createElement('div'); dr.className='rso-dr'; dr.id='rso-dr'; dr.setAttribute('aria-hidden','true'); stage.appendChild(dr);
   var SL=[['g','03 · GEOMETRY'],['sx','RING WIDTH · X',0.5,1.6,0.01,'×'],['sz','RING DEPTH · Z',0.3,1.8,0.01,'×'],['sy','TIER SPACING · Y',0.45,1.8,0.01,'×'],['tilt','RING TILT',-30,30,1,'°'],
-    ['g','04 · DYNAMICS'],['size','SPHERE SIZE',0.4,2.2,0.01,'×'],['speed','ORBIT SPEED',0,3,0.01,'×'],['glow','GLOW INTENSITY',0.1,2.2,0.01,'×'],
+    ['g','04 · DYNAMICS'],['size','GLOBAL PLANET SIZE',0.4,2.2,0.01,'×'],['speed','ORBIT SPEED',0,3,0.01,'×'],['glow','GLOW INTENSITY',0.1,2.2,0.01,'×'],
     ['g','05 · TAILS'],['trail','LENGTH',0,2.5,0.01,'×'],['tW','WIDTH · THICKNESS',0.2,3,0.01,'×'],['tOp','OPACITY',0,1.5,0.01,'×'],['tFade','FADE CURVE',0.3,4,0.05,' γ'],['tGlow','TAIL GLOW',0,2.5,0.01,'×'],
     ['g','06 · CAMERA'],['autoSpd','AUTO-ROTATE RATE',-3,3,0.05,'×'],['fov','FIELD OF VIEW',22,75,1,'°']];
   function drHTML(){var h='<div class="dr-hd"><b>MISSION CONTROL</b><span>ORBITAL · CONFIG</span><button type="button" class="dr-x" aria-label="Close controls">×</button></div><div class="dr-bd">';
@@ -445,9 +473,16 @@ function init(D,THREE){
     SL.forEach(function(s){if(s[0]==='g'){h+='<div class="dr-g">'+s[1]+'</div>';if(s[1].indexOf('CAMERA')>0) h+='<label class="ck row"><input type="checkbox" data-k="auto"'+(cfg.auto?' checked':'')+'><span>AUTO-ROTATE</span></label>';
         if(s[1].indexOf('TAILS')>0) h+=tailsHTML(); return;}
       h+='<label class="dr-s'+(TK.indexOf(s[0])>=0?' tl-x':'')+'"><span>'+s[1]+'</span><output data-o="'+s[0]+'">'+fmt(s[0],cfg[s[0]],s[5])+'</output><input type="range" data-k="'+s[0]+'" min="'+s[2]+'" max="'+s[3]+'" step="'+s[4]+'" value="'+cfg[s[0]]+'"></label>';});
-    h+='<div class="dr-g">07 · AUDIO</div><label class="ck row"><input type="checkbox" data-k="sound"'+(cfg.sound?' checked':'')+'><span>UI SOUNDS</span></label>';
-    h+='<button type="button" class="dr-reset">RESET TO DEFAULTS</button><div class="dr-ft">SAVED ON THIS DEVICE · localStorage</div></div>'; dr.innerHTML=h;}
+    h+='<div class="dr-g">07 · ORBITS</div>'+orbitsHTML();
+    h+='<div class="dr-g">08 · BLACK HOLE</div>'+bhHTML();
+    h+='<div class="dr-g">09 · AUDIO</div><label class="ck row"><input type="checkbox" data-k="sound"'+(cfg.sound?' checked':'')+'><span>UI SOUNDS</span></label>';
+    h+='<button type="button" class="dr-reset">RESET TO DEFAULTS</button><div class="dr-ft">SAVED ON THIS DEVICE · localStorage</div></div>'; dr.innerHTML=h; orbSync(); bhSync();}
   var TK=['trail','tW','tOp','tFade','tGlow'];
+  function shortLab(t){return TIERS[t].label.replace('RS ','').replace(' · ELITE','★').replace('–','-');}
+  function orbitsHTML(){var h='<div class="orb-note">Per ring: stocks on/off · ring fade · planet size · FOCUS lays them out by RS</div>';
+    for(var t=0;t<5;t++){var o=cfg.orb[t]; h+='<div class="orb-row" data-ot="'+t+'" style="--c:'+cfg.c[t]+'">'+'<div class="orb-hd"><b style="color:'+cfg.c[t]+'">'+esc(shortLab(t))+'</b>'+'<button type="button" class="orb-tog'+(o.on?' on':'')+'" data-orb="on" aria-pressed="'+o.on+'">STOCKS</button>'+'<button type="button" class="orb-tog'+(o.ring?' on':'')+'" data-orb="ring" aria-pressed="'+o.ring+'">RING</button>'+'<button type="button" class="orb-foc'+(op.t===t&&op.focus?' on':'')+'" data-foc="'+t+'">FOCUS</button></div>'+'<label class="orb-s"><span>RING FADE</span><output data-oo="ringOp">'+(o.ringOp*100|0)+'%</output>'+'<input type="range" data-orb="ringOp" min="0" max="1" step="0.01" value="'+o.ringOp+'"'+(o.ring?'':' disabled')+'></label>'+'<label class="orb-s"><span>PLANET SIZE</span><output data-oo="size">'+(+o.size).toFixed(2)+'×</output>'+'<input type="range" data-orb="size" min="0.3" max="3" step="0.01" value="'+o.size+'"></label></div>';}
+    h+='<div class="orb-acts"><button type="button" class="orb-all" data-all="on">ALL ON</button><button type="button" class="orb-all" data-all="off">ALL OFF</button><button type="button" class="orb-all" data-all="solo" title="Leave only the focused / first-on orbit">SOLO FOCUS</button></div>'; return h;}
+  function bhHTML(){return '<button type="button" class="bh-now">🕳 BLACK HOLE NOW</button>'+'<label class="ck row"><input type="checkbox" data-k="bhAuto"'+(cfg.bhAuto?' checked':'')+'><span>AUTO (every few min)</span></label>'+'<label class="dr-s"><span>AUTO EVERY · MIN</span><output data-o="bhMin">'+cfg.bhMin+'-'+cfg.bhMax+'m</output>'+'<input type="range" data-k="bhSpan" min="2" max="20" step="1" value="'+Math.round((cfg.bhMin+cfg.bhMax)/2)+'"></label>'+'<div class="bh-ft">Wild 8–12s ride · then exact restore · off when reduced-motion</div>';}
   function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
   function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
     '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
@@ -456,7 +491,7 @@ function init(D,THREE){
   function fmt(k,v,u){return (k==='tilt'||k==='fov'?Math.round(v):(+v).toFixed(2))+(u||'');}
   function segSync(){dr.querySelectorAll('.dr-seg').forEach(function(g){var gp=g.getAttribute('data-grp'); g.querySelectorAll('button').forEach(function(b){var on=cfg[gp]===b.getAttribute('data-tv'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));});});
     dr.classList.toggle('toff',!cfg.tOn); dr.setAttribute('data-tm',cfg.tMode);}
-  function applyCfg(full){TC=cfg.c.map(hex); TU.uTG.value=cfg.tGlow; TU.uMode.value=cfg.tStyle==='dotted'?1:2; segSync(); sbSync(); var rgt=rpBar&&rpBar.querySelector('.rp-gt'); if(rgt){rgt.value=String(cfg.glide); rgt.parentNode.querySelector('output').textContent=cfg.glide.toFixed(1)+' s/day';} trailRGB=hex(cfg.trailCol); U.uGlow.value=cfg.glow; U.uBeam.value=hex(cfg.beam); bgU.uBg.value=hex(cfg.bg); bgU.uT1.value=TC[2]; bgU.uT2.value=TC[4];
+  function applyCfg(full){TC=cfg.c.map(hex); TU.uTG.value=cfg.tGlow; TU.uMode.value=cfg.tStyle==='dotted'?1:2; segSync(); sbSync(); orbSync(); bhSync(); var rgt=rpBar&&rpBar.querySelector('.rp-gt'); if(rgt){rgt.value=String(cfg.glide); rgt.parentNode.querySelector('output').textContent=cfg.glide.toFixed(1)+' s/day';} trailRGB=hex(cfg.trailCol); U.uGlow.value=cfg.glow; U.uBeam.value=hex(cfg.beam); bgU.uBg.value=hex(cfg.bg); bgU.uT1.value=TC[2]; bgU.uT2.value=TC[4];
     nodeG.material.uniforms.uTC.value=flat(TC);
     ringMats.forEach(function(m,t){m.uniforms.uColor.value=TC[t];}); dustMats.forEach(function(m,t){m.uniforms.uColor.value=TC[t];});
     labels.forEach(function(e,t){e.style.setProperty('--c',cfg.c[t]);}); for(var k in tags) tags[k].style.setProperty('--c',tcss(grp[k]));
@@ -464,16 +499,33 @@ function init(D,THREE){
     for(var t=0;t<5;t++) root.style.setProperty('--g'+t,cfg.c[t]);
     cam.fov=cfg.fov; layoutFixed(); resize(); if(full) setTargets(); if(sel>=0) fillCo(); saveCfg(cfg); need();}
   drHTML();
-  dr.addEventListener('input',function(e){var el=e.target,k=el.getAttribute('data-k'),ci=el.getAttribute('data-col');
-    if(ci!=null){cfg.c[+ci]=el.value; cfg.theme='custom';} else if(k){if(el.type==='checkbox') cfg[k]=el.checked; else if(k==='trailCol'){cfg.trailCol=el.value; cfg.tMode='custom'; segSync();} else if(el.type==='color'){cfg[k]=el.value; cfg.theme='custom';} else {cfg[k]=+el.value; var o=dr.querySelector('output[data-o="'+k+'"]'); var s=SL.filter(function(x){return x[0]===k;})[0]; if(o) o.textContent=fmt(k,cfg[k],s&&s[5]);}}
+  dr.addEventListener('input',function(e){var el=e.target,k=el.getAttribute('data-k'),ci=el.getAttribute('data-col'),ok=el.getAttribute('data-orb'),row=el.closest('.orb-row');
+    if(ok&&row){var t=+row.getAttribute('data-ot'); cfg.orb[t][ok]=+el.value; var o=row.querySelector('output[data-oo="'+ok+'"]'); if(o) o.textContent=ok==='ringOp'?(cfg.orb[t].ringOp*100|0)+'%':(+cfg.orb[t].size).toFixed(2)+'×'; applyCfg(false); return;}
+    if(ci!=null){cfg.c[+ci]=el.value; cfg.theme='custom';} else if(k){if(el.type==='checkbox'){cfg[k]=el.checked; if(k==='bhAuto'){bh.arm(); bhSync();}}
+      else if(k==='trailCol'){cfg.trailCol=el.value; cfg.tMode='custom'; segSync();} else if(el.type==='color'){cfg[k]=el.value; cfg.theme='custom';}
+      else if(k==='bhSpan'){var mid=+el.value; cfg.bhMin=Math.max(1,mid-2); cfg.bhMax=mid+2; var o=dr.querySelector('output[data-o="bhMin"]'); if(o) o.textContent=cfg.bhMin+'-'+cfg.bhMax+'m'; bh.arm();}
+      else {cfg[k]=+el.value; var o2=dr.querySelector('output[data-o="'+k+'"]'); var s=SL.filter(function(x){return x[0]===k;})[0]; if(o2) o2.textContent=fmt(k,cfg[k],s&&s[5]);}}
     if(cfg.theme==='custom') dr.querySelectorAll('.dr-pre button').forEach(function(b){b.classList.remove('on');});
     applyCfg(false);});
   dr.addEventListener('change',function(e){if(e.target.getAttribute('data-k')==='sound'&&cfg.sound) snd('tog',cfg);});
+  function orbSync(){dr.querySelectorAll('.orb-row').forEach(function(row){var t=+row.getAttribute('data-ot'),o=cfg.orb[t];
+      row.querySelectorAll('[data-orb]').forEach(function(el){var k=el.getAttribute('data-orb'); if(el.tagName==='BUTTON'){el.classList.toggle('on',!!o[k]); el.setAttribute('aria-pressed',String(!!o[k]));} else if(el.type==='range'){el.value=String(o[k]); el.disabled=k==='ringOp'&&!o.ring;}});
+      var fo=row.querySelector('.orb-foc'); if(fo) fo.classList.toggle('on',op.t===t&&op.focus&&op.target>0);});}
+  function bhSync(){var el=dr.querySelector('[data-k=bhAuto]'); if(el) el.checked=!!cfg.bhAuto; var o=dr.querySelector('output[data-o=bhMin]'); if(o) o.textContent=cfg.bhMin+'-'+cfg.bhMax+'m';
+    var sl=dr.querySelector('[data-k=bhSpan]'); if(sl) sl.value=String(Math.round((cfg.bhMin+cfg.bhMax)/2)); var bn=dr.querySelector('.bh-now'); if(bn) bn.classList.toggle('busy',bh.on);}
   dr.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;
     if(b.classList.contains('dr-x')){openDr(false);return;}
     var tv=b.getAttribute('data-tv'); if(tv){var gp=b.parentNode.getAttribute('data-grp'); cfg[gp]=tv; snd('click',cfg); segSync(); applyCfg(false); return;}
-    if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; drHTML(); applyCfg(true); return;}
-    var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.tMode=P.tMode; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true);}});
+    if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) cfg.bhAuto=false; if(op.focus) closeTier(); drHTML(); applyCfg(true); bh.arm(); return;}
+    var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.tMode=P.tMode; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true); return;}
+    var ok=b.getAttribute('data-orb'), row=b.closest('.orb-row');
+    if(ok&&row){var t=+row.getAttribute('data-ot'); cfg.orb[t][ok]=!cfg.orb[t][ok]; snd('tog',cfg); applyCfg(true); orbSync(); return;}
+    var ft=b.getAttribute('data-foc'); if(ft!=null){ft=+ft; snd('sel',cfg); if(op.t===ft&&op.focus) closeTier(); else openFocus(ft); openDr(false); return;}
+    var all=b.getAttribute('data-all'); if(all==='on'){cfg.orb.forEach(function(o){o.on=true;}); applyCfg(true); orbSync(); return;}
+    if(all==='off'){cfg.orb.forEach(function(o){o.on=false;}); applyCfg(true); orbSync(); return;}
+    if(all==='solo'){var keep=op.t>=0?op.t:cfg.orb.findIndex(function(o){return o.on;}); if(keep<0) keep=0; cfg.orb.forEach(function(o,i){o.on=i===keep;}); if(!(op.t===keep&&op.focus)) openFocus(keep); applyCfg(true); orbSync(); openDr(false); return;}
+    if(b.classList.contains('bh-now')){snd('play',cfg); bh.trigger(); bhSync(); return;}
+  });
   ['pointerdown','touchstart','wheel'].forEach(function(ev){dr.addEventListener(ev,function(e){e.stopPropagation();},{passive:true});});
   var hudB=cb.querySelector('.hud'), rpB=cb.querySelector('.rp');
   var sbar=document.createElement('div'); sbar.className='rso-spd'; stage.parentNode.insertBefore(sbar,stage.nextSibling);
@@ -604,27 +656,83 @@ function init(D,THREE){
     if(b.classList.contains('tp-more')){var t=op.t, a=shownN; shownN=Math.min(TL[t].length,shownN+150); b.insertAdjacentHTML('beforebegin',rowsHTML(t,a,shownN)); var m2=more(t); if(m2) b.insertAdjacentHTML('beforebegin',m2); b.remove(); return;}
     var i=b.getAttribute('data-i'); if(i!=null){i=+i; render(0); select(i); try{stage.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(_){} }});
   tp.addEventListener('input',function(e){if(e.target.type==='range') setE(+e.target.value);});
-  function openTier(t){if(rp.on) return; if(dr.classList.contains('on')) openDr(false);
+  function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false);
     if(sel>=0&&grp[sel]!==t) select(-1);
-    if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; if(RM) op.k=1; snd('sel',cfg); fillTP(t); tp.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; backB.hidden=false; rpB.hidden=true;
-    root.classList.add('tieropen'); labelsState(); need();}
-  function opDone(){op.k=0; op.t=-1; if(op.pre){op.E=op.pre.E; zoom=op.pre.zoom; op.pre=null;}}
+    if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; op.focus=!!asFocus; op.E=asFocus?Math.max(op.E,1.85):op.E; if(RM) op.k=1; snd('sel',cfg);
+    if(asFocus){cfg.orb.forEach(function(o,i){/* keep user's on-flags; focus dims others in upd */}); fillTPFocus(t);} else fillTP(t);
+    tp.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; backB.hidden=false; rpB.hidden=true;
+    root.classList.add('tieropen'); root.classList.toggle('tierfocus',!!asFocus); labelsState(); orbSync(); need();}
+  function openFocus(t){if(!orbOn(t)){cfg.orb[t].on=true; applyCfg(true);} openTier(t,true);}
+  function fillTPFocus(t){var T=TIERS[t], col=cfg.c[t];
+    tp.style.setProperty('--c',col);
+    tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Close focus">◂ BACK</button><div class="tp-t"><b>FOCUS · '+esc(T.label)+'</b><span>laid out by RS score · high RS farther out · pinch to stretch</span></div></div>'+      '<label class="tp-s"><span>RING STRETCH <em>· or pinch</em></span><output>'+op.E.toFixed(2)+'×</output><input type="range" min="1" max="2.6" step="0.01" value="'+op.E+'" aria-label="Ring stretch"></label>'+      '<div class="tp-focnote">Every sphere in this orbit is tagged. Tap a planet for its callout. BACK restores the full view.</div>';}
+  function opDone(){op.k=0; op.t=-1; op.focus=false; if(op.pre){op.E=op.pre.E; zoom=op.pre.zoom; op.pre=null;} root.classList.remove('tierfocus'); orbSync();}
   function closeTier(){if(op.t<0) return; op.target=0; if(RM) opDone(); snd('tog',cfg); tp.hidden=true; ctl.hidden=false; backB.hidden=true; rpB.hidden=false;
-    if(clBox&&climb) clBox.hidden=false; root.classList.remove('tieropen'); labelsState(); need();}
+    if(clBox&&climb) clBox.hidden=false; root.classList.remove('tieropen'); root.classList.remove('tierfocus'); labelsState(); need();}
+  // ---------------------------------------------------------------- BLACK HOLE (fun ride; exact restore)
+  bh.next=0; bh.yaw0=bh.pitch0=bh.zoom0=bh.cx=0;
+  // accretion disk + event-horizon disc (capped particle count for iPhone)
+  var bhG=new THREE.Group(); scene.add(bhG); bhG.visible=false;
+  (function(){var n=220,P=new Float32Array(n*3),S=new Float32Array(n),C=new Float32Array(n*3),Ph=new Float32Array(n);
+    for(var i=0;i<n;i++){var a=Math.random()*6.2832,rr=0.55+Math.random()*1.35+(i%7===0?0.9:0); P[i*3]=Math.cos(a)*rr;P[i*3+1]=(Math.random()-0.5)*0.08;P[i*3+2]=Math.sin(a)*rr;
+      S[i]=0.09+Math.random()*0.14; Ph[i]=Math.random()*6.28; var hot=Math.random(); C[i*3]=0.85+0.15*hot; C[i*3+1]=0.35+0.55*hot; C[i*3+2]=0.05+0.35*(1-hot);}
+    var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('aS',new THREE.BufferAttribute(S,1));
+    g.setAttribute('aC',new THREE.BufferAttribute(C,3)); g.setAttribute('aPh',new THREE.BufferAttribute(Ph,1));
+    var m=mat('attribute float aS;attribute vec3 aC;attribute float aPh;uniform float uTime;uniform float uScale;uniform float uK;varying vec3 vC;'+'void main(){float an=aPh+uTime*(0.9+aPh*0.4);vec3 p=position; float r=length(p.xz); p.xz=vec2(cos(an)*r,sin(an)*r);'+      'vec4 mv=modelViewMatrix*vec4(p,1.0);gl_PointSize=max(2.0,aS*(1.4+3.5*uK)*uScale/(-mv.z));vC=aC*(0.7+0.6*uK);gl_Position=projectionMatrix*mv;}',
+      'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*2.8),1.0);}',{uK:{value:0}});
+    var pts=new THREE.Points(g,m); pts.frustumCulled=false; bhG.add(pts); bh.acc=pts; bh.uK=m.uniforms.uK;
+    var hm=mat('varying vec2 vU;void main(){vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      'uniform float uK;varying vec2 vU;void main(){vec2 p=vU*2.0-1.0;float r=length(p);if(r>1.0)discard; float core=smoothstep(0.55,0.0,r); float rim=exp(-pow((r-0.72)/0.08,2.0))*1.2*uK; float lens=exp(-pow((r-0.9)/0.05,2.0))*0.7*uK;'+      'vec3 col=vec3(0.0)+vec3(1.0,0.55,0.15)*rim+vec3(0.6,0.85,1.0)*lens; gl_FragColor=vec4(col,1.0)*step(0.001,core+rim+lens);}',{uK:{value:0}},THREE.AdditiveBlending);
+    var disc=new THREE.Mesh(new THREE.PlaneGeometry(4.4,4.4),hm); disc.rotation.x=-Math.PI/2; disc.renderOrder=8; bhG.add(disc); bh.disc=disc; bh.dU=hm.uniforms.uK;
+    // dark core (opaque black via custom shader — MeshBasicMaterial is not in our tree-shaken Three bundle)
+    var cm=mat('void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}','void main(){gl_FragColor=vec4(0.0,0.0,0.0,1.0);}',{},THREE.NormalBlending); cm.transparent=false; cm.depthWrite=true; cm.depthTest=true; cm.blending=THREE.NormalBlending;
+    var core=new THREE.Mesh(new THREE.SphereGeometry(0.7,24,16),cm); core.renderOrder=9; bhG.add(core); bh.core=core;
+    if(bh.acc) bh.acc.renderOrder=7;})();
+  function bhArm(){if(!cfg.bhAuto||RM){bh.next=1e18; return;} var lo=cfg.bhMin*60, hi=cfg.bhMax*60; bh.next=tNow+lo+Math.random()*Math.max(1,hi-lo);}
+  bh.arm=bhArm;
+  function bhTrigger(){if(bh.on||RM) return; if(rp.on&&rp.play) rp.play=false;
+    bh.on=true; bh.t=0; bh.t0=performance.now(); bh.dur=8+Math.random()*4; bh.phase=0; bh.k=0;
+    bh.yaw0=yaw; bh.pitch0=pitch; bh.zoom0=zoom; bh.cx=cyC;
+    // drift in from a side
+    var side=Math.random()<0.5?-1:1; bh.x0=side*(R*cfg.sx*1.7+2); bh.y0=tierY(1)+(Math.random()-0.5)*1.2; bh.z0=(Math.random()-0.5)*2;
+    bh.x1=0; bh.y1=cyC; bh.z1=0; bh.x=bh.x0; bh.y=bh.y0; bh.z=bh.z0;
+    bhG.visible=true; root.classList.add('bhole'); snd('end',cfg); need();}
+  bh.trigger=bhTrigger;
+  function bhStep(dt){if(!bh.on){if(cfg.bhAuto&&!RM&&tNow>=bh.next) bhTrigger(); return;}
+    // wall-clock so the ride always lasts 8–12s even when the tab is at 10fps
+    bh.t=(performance.now()-bh.t0)/1000; var u=clamp(bh.t/bh.dur,0,1);
+    // phases: 0-0.22 drift in, 0.22-0.55 pull+swirl, 0.55-0.72 dive, 0.72-1 restore
+    var kin, pout;
+    if(u<0.22){kin=sstep(u/0.22); bh.k=0.15+0.55*kin; bh.x=bh.x0+(bh.x1-bh.x0)*kin; bh.y=bh.y0+(bh.y1-bh.y0)*kin; bh.z=bh.z0+(bh.z1-bh.z0)*kin;}
+    else if(u<0.55){kin=sstep((u-0.22)/0.33); bh.k=0.7+0.3*kin; bh.x=bh.x1; bh.y=bh.y1; bh.z=bh.z1; yaw+=dt*0.55*bh.k;}
+    else if(u<0.72){kin=sstep((u-0.55)/0.17); bh.k=1; zoom=bh.zoom0*(1-0.55*kin); pitch=bh.pitch0+(0.95-bh.pitch0)*kin*0.5; yaw+=dt*1.4;}
+    else{pout=sstep((u-0.72)/0.28); bh.k=1-pout; yaw=bh.yaw0+(yaw-bh.yaw0)*(1-pout*0.85); /* ease camera home */
+      yaw+=(bh.yaw0-yaw)*Math.min(1,dt*2.2); pitch+=(bh.pitch0-pitch)*Math.min(1,dt*2.2); zoom+=(bh.zoom0-zoom)*Math.min(1,dt*2.2);}
+    bhG.position.set(bh.x,bh.y,bh.z); bhG.scale.setScalar(1.1+1.6*bh.k); bhG.rotation.y+=dt*(0.6+1.5*bh.k);
+    if(bh.uK) bh.uK.value=bh.k; if(bh.dU) bh.dU.value=bh.k;
+    // lensing: subtle FOV pulse (restored at end)
+    cam.fov=cfg.fov+(bh.k>0.4?(bh.k-0.4)*18:0); cam.updateProjectionMatrix();
+    busyF=true; need();
+    if(u>=1){bh.on=false; bh.k=0; bhG.visible=false; yaw=bh.yaw0; pitch=bh.pitch0; zoom=bh.zoom0; cam.fov=cfg.fov; cam.updateProjectionMatrix();
+      root.classList.remove('bhole'); bh.arm(); bhSync(); need();}}
+  bhArm();
   // ---------------------------------------------------------------- frame
   var v=new THREE.Vector3(), w2=new THREE.Vector3(), vis=true, last=performance.now(), frames=0;
   function project(){var sc=H/(2*Math.tan(cam.fov*Math.PI/360)), mv=cam.matrixWorldInverse, cd=camD;
     for(var i=0;i<Mact;i++){v.set(sP[i*3],sP[i*3+1],sP[i*3+2]); w2.copy(v).applyMatrix4(mv); sdep[i]=clamp((-w2.z-cd)/-R,-1.2,1.2);
       v.project(cam); sx[i]=(v.x*0.5+0.5)*W; sy[i]=(-v.y*0.5+0.5)*H; sr[i]=sS[i]*0.435*2.3*sc/(-w2.z)/2*1.15;}}
   function overlay(){var tl=cfg.tilt*Math.PI/180;
-    TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)'; labels[t].style.opacity=op.t<0||t===op.t?'':String(1-0.95*op.k);});
+    TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)';
+      var lo=(op.t<0||t===op.t?1:1-0.95*op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
     var show={}, cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null;
     if(cl) cl.forEach(function(t){show[byT[t]]=1;});
     else if(rp.on&&RP){var d=curDay(),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
       for(i=0;i<Mact;i++){if(fl[i]>0.55) show[i]=1;}}
     else topIdx.forEach(function(i){show[i]=1;});
     if(op.t>=0&&op.k>0.3){for(var j=0;j<Mact;j++){if(grp[j]===op.t&&ea[j]>0.5) show[j]=1; else if(show[j]&&j!==sel) delete show[j];}}
-    if(sel>=0) show[sel]=1;
+    // hide tags for switched-off orbits
+    for(var sj in show){if(!orbOn(grp[+sj])) delete show[sj];}
+    if(sel>=0&&orbOn(grp[sel])) show[sel]=1;
     for(var k in tags){if(!show[k]) tags[k].style.opacity='0';}
     for(k in show){var i2=+k,e=tag(i2),fr=sdep[i2]; e.classList.toggle('cl',!!cl); e.style.setProperty('--c',tcss(grp[i2]));
       e.style.opacity=String(al[i2]<0.05?0:(i2===sel?1:clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
@@ -633,7 +741,9 @@ function init(D,THREE){
   var busyF=true;
   function render(dt){busyF=false;
     if(op.t>=0){var ok=op.k; op.k=RM?op.target:op.k+(op.target-op.k)*Math.min(1,dt*3.2); if(Math.abs(op.k-op.target)<0.02) op.k=op.target; if(op.target===0&&op.pre) zoom+=(op.pre.zoom-zoom)*Math.min(1,dt*4); if(op.k===0&&op.target===0){opDone(); labelsState();} if(op.k!==ok){need(); busyF=true;}}
-    var gS=frozen?0:cfg.gspd, dS=dt*gS;
+    // BH runs in real time (ignores FREEZE / SIM SPEED) so the ride always finishes cleanly
+    bhStep(dt);
+    var gS=frozen||bh.on?0:cfg.gspd, dS=dt*gS;
     if(rp.on&&rp.play&&dS>0){var np2=rp.p+dS*rp.spd/cfg.glide; if(np2>=rp.d1){rpSeek(rp.d1,'play'); rp.play=false; rp.done=true; rp.sumP=true; rpReadout();} else rpSeek(np2,'play');}
     if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();}}
     if(!RM){tNow+=dt; U.uTime.value+=dS;
@@ -646,14 +756,15 @@ function init(D,THREE){
     else{for(var j=0;j<Mact;j++){if(fl[j]>0) fl[j]=0;}}
     placeCam(); upd(dt); renderer.render(scene,cam); project(); overlay(); dirty=false; frames++;}
   function loop(now){requestAnimationFrame(loop); var dt=Math.min(0.05,(now-last)/1000); last=now;
-    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)) return; if(frozen&&!RM&&!dirty&&!busyF) return; render(dt);}
+    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)&&!bh.on) return; if(frozen&&!RM&&!dirty&&!busyF&&!bh.on) return; render(dt);}
   if('IntersectionObserver' in window){new IntersectionObserver(function(en){vis=en[0].isIntersecting; if(vis) need();},{rootMargin:'80px'}).observe(stage);}
   if('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize',resize);
   applyCfg(true); render(0); requestAnimationFrame(loop);
   root.classList.add('live');
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
-    replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom};}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
+    focus:function(t){openFocus(t);}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},

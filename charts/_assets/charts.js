@@ -778,11 +778,14 @@
         if(LY.sqz&&SQZ&&SQZ.d0){   // shaded coil zone + demand-tell dot (Pre Squeeze)
       var a=dix(SQZ.d0),b=SQZ.d1==null?bars.length-1:dix(SQZ.d1);if(a<0)a=0;if(b<0)b=bars.length-1;
       if(!(b<off-1||a>off+n)){var x0=X(Math.max(a,off)),x1=X(Math.min(b,off+n-1))+bw;
-        var yHi=Y(SQZ.hi),yLo=Y(SQZ.lo);x.save();x.fillStyle='rgba(0,229,255,0.11)';x.fillRect(x0,Math.min(yHi,yLo),Math.max(1,x1-x0),Math.abs(yLo-yHi));
-        x.strokeStyle='rgba(0,229,255,0.55)';x.lineWidth=1;x.setLineDash([4,3]);x.strokeRect(x0+0.5,Math.min(yHi,yLo)+0.5,Math.max(1,x1-x0)-1,Math.abs(yLo-yHi)-1);x.setLineDash([]);
+        // display band = bar H/L over the coil (actionable hi/lo alone is often a hairline)
+        var loV=SQZ.lo,hiV=SQZ.hi,i;for(i=Math.max(0,a);i<=Math.min(bars.length-1,b);i++){var bb=bars[i];if(!bb)continue;if(bb.l!=null&&(loV==null||bb.l<loV))loV=bb.l;if(bb.h!=null&&(hiV==null||bb.h>hiV))hiV=bb.h;}
+        if(loV==null)loV=SQZ.lo;if(hiV==null)hiV=SQZ.hi;
+        var yHi=Y(hiV),yLo=Y(loV);x.save();x.fillStyle='rgba(0,229,255,0.11)';x.fillRect(x0,Math.min(yHi,yLo),Math.max(1,x1-x0),Math.max(2,Math.abs(yLo-yHi)));
+        x.strokeStyle='rgba(0,229,255,0.55)';x.lineWidth=1;x.setLineDash([4,3]);x.strokeRect(x0+0.5,Math.min(yHi,yLo)+0.5,Math.max(1,x1-x0)-1,Math.max(1,Math.abs(yLo-yHi)-1));x.setLineDash([]);
         if(TX){x.font=(narrow?8:9)+'px '+FONT;x.fillStyle='#00e5ff';x.textAlign='left';
           x.fillText('SQUEEZE '+(SQZ.bars!=null?SQZ.bars+'b · ':'')+(SQZ.score!=null?SQZ.score:''),x0+4,Math.min(yHi,yLo)-4);}
-        if(SQZ.tell){var ti=dix(SQZ.tell);if(ti>=off&&ti<off+n){var cx=X(ti)+bw*0.5,cy=Y(SQZ.hi)-6;
+        if(SQZ.tell){var ti=dix(SQZ.tell);if(ti>=off&&ti<off+n){var cx=X(ti)+bw*0.5,cy=Y(hiV)-6;
           x.beginPath();x.arc(cx,cy,4.5,0,Math.PI*2);x.fillStyle='#ff9f1c';x.fill();x.strokeStyle='#fff';x.lineWidth=1;x.stroke();
           if(TX){x.fillStyle='#ff9f1c';x.font=(narrow?8:9)+'px '+FONT;x.textAlign='center';x.fillText('TELL',cx,cy-7);}}}
         x.restore();}}
@@ -993,7 +996,7 @@
   if(D.alert_state) notes.push(['ALERT','feeds/alerts/state.json: '+D.alert_state+(D.alert_detail?' — '+D.alert_detail:'')]);
   if(D.note) notes.push(['NOTE','watchlist.md: '+D.note]);
   if(D.verdict) notes.push(['VERDICT','report: '+D.verdict]);
-  (D.checks||[]).forEach(function(c){notes.push(['CHECK',c]);});
+  (Array.isArray(D.checks)?D.checks:[]).forEach(function(c){notes.push(['CHECK',c]);});
   if(RTH&&RTH.src) notes.push(['RS PANEL',RTH.src+' Regime (tooltip only, not drawn): '+(RTH.rule||'')]);
   if(RSD.src) notes.push(['RS LINE',RSD.src]);
   var RT=RSD.rating||{}; if(RT.src) notes.push(['RS RATING',(RT.status==='ranked'?'RS '+RT.rs+' · rank #'+RT.rank+' of '+RT.universe+' · 1w rank change '+(RT.chg_1w==null?'n/a':RT.chg_1w)+' (vs '+RT.week_ago+') · 4w '+(RT.chg_4w==null?'n/a':RT.chg_4w)+' (vs '+RT.four_week_ago+'); positive = moved up':
