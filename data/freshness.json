@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T11:48:58+11:00",
+  "generated": "2026-10-05T11:53:34+11:00",
   "ref_session": "2026-10-02",
   "ref_src": "feeds/rs/cache/grouped newest completed session",
   "pages": [
@@ -144,10 +144,10 @@
     }
   ],
   "charts": {
-    "total": 786,
+    "total": 926,
     "stale": [],
     "by_date": {
-      "2026-10-02": 786
+      "2026-10-02": 926
     }
   },
   "stale_count": 0

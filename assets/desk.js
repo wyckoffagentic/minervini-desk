@@ -160,6 +160,7 @@ function scanStrict(){   // weekend.html / email-style rows: first cell is <b>TI
   if(!cand.length)return;tickers().then(function(rows){UNI={};rows.forEach(function(x){UNI[x[0]]=1;});cand.forEach(function(r){var i=rowInfo(r,true);if(i)decorate(r,i);});});}
 function owner(x){return x&&x.closest&&x.closest('[data-dkx]');}
 function closeX(r){var k=OPEN.indexOf(r);if(k>=0)OPEN.splice(k,1);if(!r)return;var n=r._dkv;if(n&&n.parentNode)n.remove();r._dkv=null;
+  if(r._dkmh){var sc=r._dkmh[0];r._dkmh=null;if(!OPEN.some(function(o){return o._dkmh&&o._dkmh[0]===sc;})){sc.style.maxHeight=sc._dkmh0;delete sc._dkmh0;}}
   if(r._dko){r._dko.disconnect();r._dko=null;}r.classList.remove('dk-vopen');var b=r.querySelector('.dk-xb');if(b)b.setAttribute('aria-expanded','false');
   var dv=r.querySelector('details.vsan[open]');if(dv&&!r._dkc){r._dkc=1;dv.open=false;setTimeout(function(){r._dkc=0;},0);}}
 function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
@@ -170,7 +171,8 @@ function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
   if(tag==='TR'){var cs=0;[].forEach.call(r.children,function(td){cs+=td.colSpan||1;});n=el('tr','dk-vrow');var td=el('td');td.colSpan=cs;n.appendChild(td);td.appendChild(box);}
   else{n=el(tag==='LI'?'li':'div','dk-vrow');n.appendChild(box);}
   var sc=tag==='TR'?scrollBox(r):null;r._dksc=sc;
-  if(tag==='TR'&&sc){fitX(box,sc);box.style.position='sticky';box.style.left='0';}   // wide scrolling table: pin to the visible part (width = the container's visible width, not the table's scroll width)
+  if(tag==='TR'&&sc){fitX(box,sc);box.style.position='sticky';box.style.left='6px';   // wide scrolling table: pin to the visible part (width = the container's visible width, not the table's scroll width)
+    if(sc._dkmh0!==undefined)r._dkmh=[sc];else if(getComputedStyle(sc).maxHeight!=='none'){sc._dkmh0=sc.style.maxHeight;sc.style.maxHeight='none';r._dkmh=[sc];}}   // a height-capped scroller (qullamaggie.html .q-scroll 560px) would clip the chart's bottom: uncapped while a chart is open
   else if(tag==='TR'){box.style.width='100%';box.style.maxWidth=(innerWidth-16)+'px';}   // fixed-layout table: never widen it
   var f=D.createElement('iframe');f.title=t+' chart';f.setAttribute('scrolling','no');f.style.height='0px';
   var hint=((r.getAttribute('data-ty')||'')+' '+(r.textContent||'').slice(0,160)+' '+(mode==='setup'?headingText(r):'')).toLowerCase();
