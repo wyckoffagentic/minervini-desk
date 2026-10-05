@@ -169,15 +169,16 @@ function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
   box=el('div','dk-vchart','<div class="dk-vchart-h"><span><b>'+esc(t)+'</b> · '+lbl+' · volume'+(mode==='wyckoff'?'':' · RS')+'</span><a href="'+BASE+'stock.html?t='+encodeURIComponent(t)+'">Full stock page →</a></div><div class="ld">Loading chart…</div>');
   if(tag==='TR'){var cs=0;[].forEach.call(r.children,function(td){cs+=td.colSpan||1;});n=el('tr','dk-vrow');var td=el('td');td.colSpan=cs;n.appendChild(td);td.appendChild(box);}
   else{n=el(tag==='LI'?'li':'div','dk-vrow');n.appendChild(box);}
-  var sc=r.closest('.tscroll,.table-scroll,.tbl-wrap,.tw,.tc-scroll'),w=sc?sc.clientWidth-14:(r.parentNode&&r.parentNode.clientWidth?Math.min(r.parentNode.clientWidth,innerWidth-24):0);
-  if(tag==='TR'&&sc){w=Math.min(w||innerWidth-24,innerWidth-24);box.style.width=Math.max(260,w)+'px';box.style.position='sticky';box.style.left='0';}   // scrolling table: pin to the visible part
+  var sc=tag==='TR'?scrollBox(r):null;r._dksc=sc;
+  if(tag==='TR'&&sc){fitX(box,sc);box.style.position='sticky';box.style.left='0';}   // wide scrolling table: pin to the visible part (width = the container's visible width, not the table's scroll width)
   else if(tag==='TR'){box.style.width='100%';box.style.maxWidth=(innerWidth-16)+'px';}   // fixed-layout table: never widen it
   var f=D.createElement('iframe');f.title=t+' chart';f.setAttribute('scrolling','no');f.style.height='0px';
   var hint=((r.getAttribute('data-ty')||'')+' '+(r.textContent||'').slice(0,160)+' '+(mode==='setup'?headingText(r):'')).toLowerCase();
   var k=/spring/.test(hint)?'spring':/\bema\b|pullback/.test(hint)?'ema':/\bvcp\b/.test(hint)?'vcp':'';
-  f.src=BASE+'stock.html?t='+encodeURIComponent(t)+'&embed=1&mini=1&ov='+mode+(k?'&k='+k:'')+(mode==='mastack'||mode==='wyckoff'?String(r.getAttribute('data-xq')||'').replace(/[^a-z0-9=&]/g,''):'');   // per-row chart variant (ma_stack &msv= / wyckoff &wv= &wt=)   // ma_stack.html: per-row chart variant (&msv=)
-  f.addEventListener('load',function(){setTimeout(function(){var l=box.querySelector('.ld');if(l)l.remove();if(f.style.height==='0px')f.style.height='900px';},1200);});
+  var xq=(mode==='mastack'||mode==='wyckoff'?String(r.getAttribute('data-xq')||'').replace(/[^a-z0-9=&]/g,''):''),src0=BASE+'stock.html?t='+encodeURIComponent(t)+'&embed=1&mini=1&ov='+mode+(k?'&k='+k:'')+xq;   // per-row chart variant (ma_stack &msv= / wyckoff &wv= &wt=)   // ma_stack.html: per-row chart variant (&msv=)
+  f.addEventListener('load',function(){if(!f.getAttribute('src'))return;setTimeout(function(){var l=box.querySelector('.ld');if(l)l.remove();if(f.style.height==='0px')f.style.height='900px';},1200);});
   box.appendChild(f);
+  if(/[?&]ck=/.test(src0))f.src=src0;else chartPages().then(function(m){if(r._dkv===n)f.src=src0+(m?'&ck='+(m[t]?'p':'j'):'');});   // the row may have been closed meanwhile
   var st=r.querySelector('details.vsan p');if(st){var sp=el('div','dk-vstory');sp.innerHTML='<b>Story</b> '+st.innerHTML;box.appendChild(sp);}
   r.parentNode.insertBefore(n,r.nextSibling);r._dkv=n;r.classList.add('dk-vopen');OPEN.push(r);
 
@@ -186,6 +187,14 @@ function openX(r){var t=r.getAttribute('data-dkx');if(!t||r._dkv)return;
   // re-render / sort / filter of this list -> close (the chart row must never sit under the wrong ticker)
   if(window.MutationObserver){var mo=new MutationObserver(function(){if(!r.isConnected||r.nextElementSibling!==n||r.offsetParent===null)closeX(r);});
     mo.observe(r.parentNode,{childList:true});mo.observe(r,{attributes:true,attributeFilter:['class','style','hidden']});r._dko=mo;}}
+// the horizontal scroller around a wide table: a known wrapper class, else the nearest ancestor that actually scrolls sideways
+// (qullamaggie.html .q-scroll and any other wide table site-wide; 5 Oct 2026: the dropdown chart filled the scroll width and was clipped at 390px)
+function scrollBox(r){var k=r.closest('.tscroll,.table-scroll,.tbl-wrap,.tw,.tc-scroll,.q-scroll');if(k)return k;
+  for(var n=r.parentElement;n&&n!==B&&n!==D.documentElement;n=n.parentElement){var ox=getComputedStyle(n).overflowX;if((ox==='auto'||ox==='scroll')&&n.scrollWidth>n.clientWidth+1)return n;}return null;}
+function fitX(box,sc){var w=Math.min(sc.clientWidth,innerWidth)-14;box.style.width=Math.max(240,w)+'px';box.style.maxWidth=Math.max(240,w)+'px';}
+// which tickers have a charts/<T>.html page (data/chart_pages.json, written by research-tools/charts.py with the pages): the dropdown tells
+// stock.html (&ck=p|j) so it loads that page or the chart JSON directly instead of probing a missing page (404)
+var CHP=null;function chartPages(){if(!CHP)CHP=fetch(BASE+'data/chart_pages.json').then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(j){var o={};(j.tickers||[]).forEach(function(t){o[t]=1;});return o;}).catch(function(){return null;});return CHP;}
 function toggleX(r){if(r._dkv)closeX(r);else openX(r);}
 if(XP_ON){
   scan();scanStrict();
@@ -196,6 +205,7 @@ if(XP_ON){
     var r2=owner(e.target);if(r2&&!(window.getSelection&&String(window.getSelection()).length))toggleX(r2);});
   D.addEventListener('toggle',function(e){var d=e.target;if(!d.matches||!d.matches('details.vsan'))return;var r=owner(d);if(!r||r._dkc)return;if(d.open&&!r._dkv)openX(r);else if(!d.open&&r._dkv)closeX(r);},true);
   D.addEventListener('input',function(e){if(!e.target.closest('.dk-find,.dk-vrow,.wl-add,.dk-pop'))OPEN.slice().forEach(closeX);},true);   // list filters
+  window.addEventListener('resize',function(){OPEN.forEach(function(r){var b=r._dkv&&r._dkv.querySelector('.dk-vchart');if(b&&r._dksc)fitX(b,r._dksc);});});   // rotate / resize: keep the pinned chart the visible width
   window.addEventListener('message',function(e){var m=e.data;if(!m||typeof m.dkh!=='number')return;
     D.querySelectorAll('.dk-vchart iframe').forEach(function(f){if(f.contentWindow===e.source){f.style.height=Math.max(80,Math.min(9000,Math.ceil(m.dkh)))+'px';var l=f.parentNode.querySelector('.ld');if(l)l.remove();}});});
   ['list','wl-lists'].forEach(function(id){var c=D.getElementById(id);if(c&&window.MutationObserver)new MutationObserver(function(){scan(c);}).observe(c,{childList:true,subtree:id==='wl-lists'});});
