@@ -118,7 +118,7 @@ markBtns();
 var PAGE=(location.pathname.split('/').pop()||'index.html').toLowerCase();
 var XP_ON=!B.classList.contains('tc-embed')&&!B.classList.contains('tc-arcade')&&!/^(stock|lenses)\.html$/.test(PAGE);
 var TKRE=/^[A-Z][A-Z0-9]{0,5}(?:[.\-][A-Z0-9]{1,3})?$/,OPEN=[];
-var PMODE={'vsa.html':'vsa','springs_track.html':'spring','ma_stack.html':'mastack','wyckoff_structure.html':'wyckoff'}[PAGE]||'';   // wyckoff_structure.html: range box + Wyckoff events + C&E, no MAs (stock.js ov=wyckoff)   // ma_stack.html: EMA 10/20/50 + GUD levels (stock.js ov=mastack)
+var PMODE={'vsa.html':'vsa','springs_track.html':'spring','ma_stack.html':'mastack','wyckoff_structure.html':'wyckoff','squeeze.html':'setup'}[PAGE]||'';   // wyckoff_structure.html: range box + Wyckoff events + C&E, no MAs (stock.js ov=wyckoff)   // ma_stack.html: EMA 10/20/50 + GUD levels (stock.js ov=mastack)
 function headingText(el){var n=el;for(var d=0;n&&n!==B&&d<14;d++){var p=n.previousElementSibling,h=0;
   while(p&&h<60){if(/^H[1-4]$/.test(p.tagName)||(p.classList&&(p.classList.contains('sec-title')||p.classList.contains('bigsec'))))return p.textContent;
     if(p.querySelectorAll){var qs=p.querySelectorAll('h2,h3,h4,.sec-title,.bigsec');if(qs.length)return qs[qs.length-1].textContent;}p=p.previousElementSibling;h++;}
