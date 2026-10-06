@@ -121,6 +121,11 @@
   var OVL=(D.overlays||[]).filter(function(o){return o&&o.items&&o.items.length;});
   // Pre Squeeze band (Chris 5 Oct 2026): D.squeeze or band on the presqueeze overlay; LAYERS toggle 'sqz' (localStorage)
   var SQZ=D.squeeze||null;if(!SQZ){OVL.forEach(function(o){if(!SQZ&&o&&o.id==='presqueeze'&&o.band)SQZ=o.band;});}
+  // Pre Squeeze intensity (Chris 6 Oct 2026): per-bar 0-100 from presqueeze.py band.int = [[date, v], ...]
+  var SQI={},SQIN=0;if(SQZ&&SQZ.int&&SQZ.int.length){SQZ.int.forEach(function(q){if(q&&q[0]!=null&&q[1]!=null){SQI[q[0]]=+q[1];SQIN++;}});}
+  function sqzIdx(off,n){var m={};if(!SQIN)return m;Object.keys(SQI).forEach(function(d){var j=dix(d)-off;if(j<0||j>=n)return;if(m[j]==null||SQI[d]>m[j])m[j]=SQI[d];});return m;}   // visible bar -> max intensity (1W / 1M take the period max)
+  function sqzTip(i){if(!LS.L.sqz||!SQIN||!bars[i])return '';var v=SQI[bars[i].d];if(v==null){Object.keys(SQI).forEach(function(d){if(dix(d)===i&&(v==null||SQI[d]>v))v=SQI[d];});}
+    return v==null?'':'<br><span style="color:#00e5ff">SQUEEZE INTENSITY '+v+' / 100</span>';}
 
   var OLS={get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
   OVL.forEach(function(o){o.on=OLS.get('tc_ovl_'+o.id)!=='0';});
@@ -731,6 +736,12 @@
       var full=x.measureText(mw.join('   ')).width<=hmax;
       MAS.forEach(function(a,j){var has=Object.keys(a[0]).length>0,t=full?mw[j]:a[2]+(has?'':' n/a');HDR.ma.push(mw[j]);x.fillStyle=has?a[1]:'#4a456f';if(TX)x.fillText(t,mxp,pt-8);mxp+=x.measureText(t).width+(narrow?8:14);});}
     window.TC_HDR=HDR;
+    if(LY.sqz&&SQIN){   // Pre Squeeze intensity: each bar's background column, faint cyan (low) -> strong teal glow (high); under the bars
+      var SQV=sqzIdx(off,n),sqm=SQZ.lo!=null&&SQZ.hi!=null?Math.min(pt+ph,Math.max(pt,(Y(SQZ.hi)+Y(SQZ.lo))/2)):pt+ph/2;x.save();x.beginPath();x.rect(pl,pt,Math.max(0,barsEnd-pl),ph);x.clip();
+      Object.keys(SQV).forEach(function(k){var j=+k,t=Math.max(0,Math.min(1,SQV[k]/100)),al=0.04+0.27*Math.pow(t,1.25),r=Math.round(40*t),g=Math.round(229+26*t),bl=Math.round(255-30*t),c='rgba('+r+','+g+','+bl+',',x0=Math.round(X(j)-bw/2),xe=Math.round(X(j)+bw/2),
+        gr=x.createLinearGradient(0,pt,0,pt+ph),f=Math.max(0.0001,Math.min(0.9999,(sqm-pt)/ph));gr.addColorStop(0,c+(al*0.2).toFixed(3)+')');gr.addColorStop(f,c+al.toFixed(3)+')');gr.addColorStop(1,c+(al*0.2).toFixed(3)+')');
+        x.fillStyle=gr;x.fillRect(x0,pt,Math.max(1,xe-x0),ph);});   // whole-pixel edges, no overlap seams
+      x.restore();window.TC_SQI={n:Object.keys(SQV).length,max:Object.keys(SQV).reduce(function(a,k){return Math.max(a,SQV[k]);},0)};}else window.TC_SQI={n:0,max:0};
     // price bars. CANDLES (default, 4 Oct 2026 pro polish): colour = close vs the prior close (the desk's up / down, same as volume), HOLLOW body =
     // close ≥ open, FILLED = close < open; 1px wick on the half-pixel, odd body widths on whole pixels (crisp at any zoom). HLC = the old style.
     // Older 1W / 1M bars from the server history have no open: the prior close stands in.
@@ -777,15 +788,16 @@
     window.TC_BUY={tf:TF,text:TX?1:0,layer:LY.entry?1:0,groups:BG.length,lines:BUYD,miss:BG.filter(function(b){return !BUYD.some(function(d){return d.v===b.v;});}).map(function(b){return b.v;}),full:FULLW,plot:[pl,Math.round(barsEnd),pt,pt+ph]};
         if(LY.sqz&&SQZ&&SQZ.d0){   // shaded coil zone + demand-tell dot (Pre Squeeze)
       var a=dix(SQZ.d0),b=SQZ.d1==null?bars.length-1:dix(SQZ.d1);if(a<0)a=0;if(b<0)b=bars.length-1;
-      if(!(b<off-1||a>off+n)){var x0=X(Math.max(a,off)),x1=X(Math.min(b,off+n-1))+bw;
+      if(!(b<off-1||a>off+n)){var x0=X(Math.max(a,off)-off)-bw/2,x1=X(Math.min(b,off+n-1)-off)+bw/2;   // X() takes the visible index
         // display band = bar H/L over the coil (actionable hi/lo alone is often a hairline)
         var loV=SQZ.lo,hiV=SQZ.hi,i;for(i=Math.max(0,a);i<=Math.min(bars.length-1,b);i++){var bb=bars[i];if(!bb)continue;if(bb.l!=null&&(loV==null||bb.l<loV))loV=bb.l;if(bb.h!=null&&(hiV==null||bb.h>hiV))hiV=bb.h;}
         if(loV==null)loV=SQZ.lo;if(hiV==null)hiV=SQZ.hi;
-        var yHi=Y(hiV),yLo=Y(loV);x.save();x.fillStyle='rgba(0,229,255,0.11)';x.fillRect(x0,Math.min(yHi,yLo),Math.max(1,x1-x0),Math.max(2,Math.abs(yLo-yHi)));
-        x.strokeStyle='rgba(0,229,255,0.55)';x.lineWidth=1;x.setLineDash([4,3]);x.strokeRect(x0+0.5,Math.min(yHi,yLo)+0.5,Math.max(1,x1-x0)-1,Math.max(1,Math.abs(yLo-yHi)-1));x.setLineDash([]);
-        if(TX){x.font=(narrow?8:9)+'px '+FONT;x.fillStyle='#00e5ff';x.textAlign='left';
-          x.fillText('SQUEEZE '+(SQZ.bars!=null?SQZ.bars+'b · ':'')+(SQZ.score!=null?SQZ.score:''),x0+4,Math.min(yHi,yLo)-4);}
-        if(SQZ.tell){var ti=dix(SQZ.tell);if(ti>=off&&ti<off+n){var cx=X(ti)+bw*0.5,cy=Y(hiV)-6;
+        var yHi=Y(hiV),yLo=Y(loV),OVQ=LY.ovl&&OVL.some(function(o){return o&&o.id==='presqueeze'&&o.on!==false;});x.save();
+        if(!SQIN){x.fillStyle='rgba(0,229,255,0.11)';x.fillRect(x0,Math.min(yHi,yLo),Math.max(1,x1-x0),Math.max(2,Math.abs(yLo-yHi)));
+        x.strokeStyle='rgba(0,229,255,0.55)';x.lineWidth=1;x.setLineDash([4,3]);x.strokeRect(x0+0.5,Math.min(yHi,yLo)+0.5,Math.max(1,x1-x0)-1,Math.max(1,Math.abs(yLo-yHi)-1));x.setLineDash([]);}   // intensity on: the columns carry the coil span
+        if(TX&&!OVQ){x.font=(narrow?8:9)+'px '+FONT;x.fillStyle='#00e5ff';x.textAlign='left';
+          x.fillText('SQUEEZE '+(SQZ.bars!=null?SQZ.bars+'b · ':'')+(SQZ.score!=null?SQZ.score:'')+(SQIN&&SQZ.d1&&SQI[SQZ.d1]!=null?' · INT '+SQI[SQZ.d1]:''),Math.max(pl+2,x0+4),Math.min(yHi,yLo)-4);}
+        if(SQZ.tell){var ti=dix(SQZ.tell);if(ti>=off&&ti<off+n){var cx=X(ti-off),cy=Y(hiV)-6;
           x.beginPath();x.arc(cx,cy,4.5,0,Math.PI*2);x.fillStyle='#ff9f1c';x.fill();x.strokeStyle='#fff';x.lineWidth=1;x.stroke();
           if(TX){x.fillStyle='#ff9f1c';x.font=(narrow?8:9)+'px '+FONT;x.textAlign='center';x.fillText('TELL',cx,cy-7);}}}
         x.restore();}}
@@ -881,7 +893,7 @@
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
     tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+(LS.text?'':'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>'))+
       '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]&&!LS.text?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
-      (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i);
+      (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i)+sqzTip(i);
     tip.hidden=false;var w=host.clientWidth,ty=geo&&geo.pt!=null?geo.pt+4:py-40;tip.style.left=(px>w/2?Math.max(4,Math.min(px-tip.offsetWidth-14,geo?geo.pl+4:4)):Math.max(px+14,(geo?geo.barsEnd:w)-tip.offsetWidth-4))+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,ty))+'px';   // pinned to the top corner away from the pointer
   }
   function onMove(e){if(!geo)return;var r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e,px=p.clientX-r.left,py=p.clientY-r.top;
@@ -969,6 +981,7 @@
   function legendHTML(){return '<span><i style="background:'+C.up+'"></i>'+(BST==='hlc'?'HLC BAR UP (CLOSE ≥ PRIOR CLOSE)':'UP: CLOSE ≥ PRIOR CLOSE')+'</span><span><i style="background:'+C.dn+'"></i>DOWN</span>'+(BST==='hlc'?'':'<span>HOLLOW = CLOSE ≥ OPEN</span>')+vpKey()+
     (NOMA?'<span class="tc-warnline">NO MOVING AVERAGES ON THIS CHART (STRUCTURE + VOLUME ONLY)</span>':smaLeg())+
     (D.buy_zone?'<span><i style="background:rgba(0,229,255,.35)"></i>BUY ZONE</span>':'')+
+    (SQIN&&LS.L.sqz&&!document.body.classList.contains('tc-mini')?'<span><i style="background:linear-gradient(90deg,rgba(0,229,255,.06),rgba(20,242,240,.3),rgba(40,255,225,.75));width:28px"></i>SQZ INTENSITY 0-100</span>':'')+
     (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>'+rtMaLbl()+' OF RATING</span>'+
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
