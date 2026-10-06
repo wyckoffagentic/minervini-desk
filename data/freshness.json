@@ -1,103 +1,103 @@
 {
-  "generated": "2026-10-06T12:14:19+11:00",
-  "ref_session": "2026-10-02",
+  "generated": "2026-10-06T15:36:58+11:00",
+  "ref_session": "2026-10-05",
   "ref_src": "feeds/rs/cache/grouped newest completed session",
   "pages": [
     {
       "page": "index.html",
       "label": "Floor (home)",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/setups/latest.json meta.date (Floor \ud83c\udfaf Setups summary)",
       "status": "ok"
     },
     {
       "page": "setups.html",
       "label": "Setups + springs (VCP/PP/HTF/FB/SEPA, TR/uptrend springs)",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/setups/latest.json meta.date",
       "status": "ok"
     },
     {
       "page": "springs_track.html",
       "label": "Springs track record",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/springs/events.jsonl max last_seen",
       "status": "ok"
     },
     {
       "page": "setup_master.html",
       "label": "Setup Master",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/setup_master/latest.json meta.asof",
       "status": "ok"
     },
     {
       "page": "ma_stack.html",
       "label": "MA Stack",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/ma_stack/latest.json meta.asof",
       "status": "ok"
     },
     {
       "page": "wyckoff_structure.html",
       "label": "Wyckoff Structure",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/wyckoff_structure/latest.json meta.asof",
       "status": "ok"
     },
     {
       "page": "vsa.html",
       "label": "VSA",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/vsa/latest.json meta.session",
       "status": "ok"
     },
     {
       "page": "rs.html",
       "label": "RS Leaders",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/rs/latest.json meta.date",
       "status": "ok"
     },
     {
       "page": "highs.html",
       "label": "New highs",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/highs/latest.json meta.date",
       "status": "ok"
     },
     {
       "page": "top_movers.html",
       "label": "Top Movers",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/top_movers/latest.json meta.asof",
       "status": "ok"
     },
     {
       "page": "qullamaggie.html",
       "label": "Qullamaggie",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/qullamaggie/latest.json meta.asof",
       "status": "ok"
     },
     {
       "page": "stock.html",
       "label": "Stock pages",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "site/public/data/universe.json session",
       "status": "ok"
     },
     {
       "page": "watchlists.html",
       "label": "Watchlists",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "site/public/data/universe.json session",
       "status": "ok"
     },
     {
       "page": "charts/index.html",
       "label": "Chart index (oldest current chart)",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "src": "feeds/performance/chart_levels.json min last_date",
       "status": "ok"
     },
@@ -119,36 +119,35 @@
   "feeds": [
     {
       "feed": "feeds/setups/market_pulse.json",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "status": "ok"
     },
     {
       "feed": "feeds/ema_pullback/latest.json",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "status": "ok"
     },
     {
       "feed": "feeds/fundamentals/latest.json",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "status": "ok"
     },
     {
       "feed": "feeds/highs/latest.json (setups_date)",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "status": "ok"
     },
     {
       "feed": "feeds/vsa/latest.json (setups_session)",
-      "asof": "2026-10-02",
+      "asof": "2026-10-05",
       "status": "ok"
     }
   ],
   "charts": {
-    "total": 939,
+    "total": 985,
     "stale": [],
     "by_date": {
-      "2026-10-02": 919,
-      "2026-10-05": 20
+      "2026-10-05": 985
     }
   },
   "stale_count": 0
