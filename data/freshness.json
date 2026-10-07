@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-07T15:50:00+11:00",
+  "generated": "2026-10-07T16:12:05+11:00",
   "ref_session": "2026-10-06",
   "ref_src": "feeds/rs/cache/grouped newest completed session",
   "pages": [
@@ -97,9 +97,9 @@
     {
       "page": "charts/index.html",
       "label": "Chart index (oldest current chart)",
-      "asof": "2026-10-05",
+      "asof": "2026-10-06",
       "src": "feeds/performance/chart_levels.json min last_date",
-      "status": "STALE"
+      "status": "ok"
     },
     {
       "page": "alerts.html",
@@ -144,7 +144,7 @@
     }
   ],
   "charts": {
-    "total": 1044,
+    "total": 1065,
     "stale": [
       {
         "ticker": "PSKY",
@@ -156,9 +156,9 @@
       }
     ],
     "by_date": {
-      "2026-10-06": 1042,
+      "2026-10-06": 1063,
       "2026-10-05": 2
     }
   },
-  "stale_count": 3
+  "stale_count": 2
 }
