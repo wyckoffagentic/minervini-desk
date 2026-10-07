@@ -12,9 +12,11 @@
            and its planets stay (every other ring, planet, dust and label hidden). Clear: ALL / SHOW ALL / Esc / tap the same ring button or label.
            V-STRETCH slider (1-8x, continuous) spreads the solo orbit's planets vertically by rank (best at the top) + nudges overlapping tags apart.
            cfg.vs (stretch) + cfg.solo (last solo orbit) persist in localStorage ('rso.cfg.v1') and are restored on load.
-   CAPTURE EVENTS (7 Oct 2026): every ~45-90 s (HUD: RARE / NORMAL / CHAOS, on/off, TRIGGER NOW) a planet wobbles, spirals into the BLACK HOLE
-           (same bhG visuals), is held, slingshots out and eases back into its exact orbit slot (1 in 5: 2-3 planets of one orbit). Engine is mode-based:
-           mode 'all' = SUPERNOVA (1 in 10 + its own button): every shown planet and ring collapses into the hole and re-forms. cfg.capOn / cfg.capFreq persist.
+   BLACK HOLE EVENTS (7 Oct 2026, reworked): every ~45-90 s (HUD: RARE / NORMAL / CHAOS, on/off, TRIGGER NOW, BLACK HOLE) a real-looking black hole
+           (screen-space: black shadow, photon ring, rotating doppler accretion disk lensed over the top + under the bottom, glow halo; stars / dust / rings /
+           planets near it are lensed in their vertex shaders) appears at one side and pulls the orbit LAYERS in - outer / low-RS layers first and hardest,
+           elite layers resist and lag - then they come back in from the OPPOSITE side and settle (small overshoot) into their exact orbits.
+           mode 'full' = whole system (1 in 3 random + BLACK HOLE button), 'part' = 1-2 outer layers (TRIGGER NOW). cfg.capOn / cfg.capFreq persist.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
 (function(){
 'use strict';
@@ -88,7 +90,27 @@ function init(D,THREE){
   cv.addEventListener('webglcontextlost',function(e){e.preventDefault(); nogl('context lost'); running=false;});
   var scene=new THREE.Scene(), cam=new THREE.PerspectiveCamera(cfg.fov,1,0.1,400);
   var stars=new THREE.Group(), fixed=new THREE.Group(); scene.add(stars); scene.add(fixed);
-  var U={uTime:{value:0},uScale:{value:600},uGlow:{value:cfg.glow},uBeam:{value:hex(cfg.beam)}};
+  var U={uTime:{value:0},uScale:{value:600},uGlow:{value:cfg.glow},uBeam:{value:hex(cfg.beam)},
+    // BLACK HOLE event (shared by every material): hole H, exit point E, swirl axis, uCG = (swirl, ref dist from H, ref dist from E, horizon radius),
+    // uLens = (x, y, Einstein radius in drawing-buffer px, strength), uRes = drawing-buffer size
+    uH:{value:new THREE.Vector3()},uE:{value:new THREE.Vector3()},uAx:{value:new THREE.Vector3(0,0,1)},uCG:{value:new Float32Array([0,1,1,1])},
+    uLens:{value:new Float32Array(4)},uRes:{value:new Float32Array([1,1])}};
+  var capU=[0,1,2,3,4].map(function(){return {cl:new Float32Array(4),cx:new Float32Array([1,0.6])};});   // per layer: (a, b, overshoot, phase), (swirl, lead)
+  // point-mass lens on the projected vertex (primary image, tapered to 0 far from the hole)
+  var LENS_GL='uniform vec4 uLens;uniform vec2 uRes;vec4 lensP(vec4 c){if(uLens.w<0.001||c.w<=0.0) return c;vec2 s=(c.xy/c.w*0.5+0.5)*uRes;vec2 d=s-uLens.xy;float b=length(d)+0.001;float tE=uLens.z;'+
+    'float th=0.5*(b+sqrt(b*b+4.0*tE*tE));float nb=b+(th-b)*uLens.w*(1.0-smoothstep(4.0*tE,11.0*tE,b));c.xy=((uLens.xy+d*(nb/b))/uRes*2.0-1.0)*c.w;return c;}\n';
+  // pull field (phase 1 in toward H, near parts lead + spiral; 2 back out from E with overshoot; 3 tidal tug). capD3() below is the JS twin.
+  var CAP_GL='uniform vec3 uH;uniform vec3 uE;uniform vec3 uAx;uniform vec4 uCG;uniform vec4 uCL;uniform vec2 uCX;'+
+    'vec3 capD(vec3 P){if(uCL.w<0.5) return P;bool o=uCL.w>1.5&&uCL.w<2.5;vec3 c=o?uE:uH;vec3 d=P-c;float n=min(1.0,length(d)/(o?uCG.z:uCG.y));float w;'+
+    'if(uCL.w>2.5){w=uCL.x*(1.0-n)*(1.0-n);}else if(o){w=1.0-smoothstep(0.0,1.0,uCL.y*(1.0+uCX.y)-n*uCX.y)-uCL.z;}else{w=smoothstep(0.0,1.0,uCL.x*(1.0+uCX.y)-n*uCX.y);}'+
+    'float th=(o?-1.0:1.0)*uCG.x*uCX.x*pow(max(w,0.0),2.0);float cs=cos(th),sn=sin(th);d=d*cs+cross(uAx,d)*sn+uAx*dot(uAx,d)*(1.0-cs);return c+d*(1.0-w);}'+
+    'float capK(vec3 q){return (uCL.w<0.5||(uCL.w>1.5&&uCL.w<2.5))?1.0:smoothstep(0.0,1.0,(length(q-uH)/uCG.w-0.35)/0.75);}\n';
+  var CH=U.uH.value, CE=U.uE.value, CX=U.uAx.value, CG=U.uCG.value;
+  function capD3(A,o,L){var ph=L.ph; if(!ph) return 0; var out=ph===2, c=out?CE:CH, dx=A[o]-c.x, dy=A[o+1]-c.y, dz=A[o+2]-c.z, n=Math.min(1,Math.sqrt(dx*dx+dy*dy+dz*dz)/(out?CG[2]:CG[1])), w;
+    if(ph===3) w=L.a*(1-n)*(1-n); else if(out) w=1-sstep(L.b*(1+L.lead)-n*L.lead)-L.osc; else w=sstep(L.a*(1+L.lead)-n*L.lead);
+    var th=(out?-1:1)*CG[0]*L.sw*Math.pow(Math.max(w,0),2), cs=Math.cos(th), sn=Math.sin(th), kx=CX.x, ky=CX.y, kz=CX.z, kd=(kx*dx+ky*dy+kz*dz)*(1-cs), s=1-w;
+    A[o]=c.x+(dx*cs+(ky*dz-kz*dy)*sn+kx*kd)*s; A[o+1]=c.y+(dy*cs+(kz*dx-kx*dz)*sn+ky*kd)*s; A[o+2]=c.z+(dz*cs+(kx*dy-ky*dx)*sn+kz*kd)*s; return w;}
+  function capK3(A,o,L){if(!L.ph||L.ph===2) return 1; var dx=A[o]-CH.x, dy=A[o+1]-CH.y, dz=A[o+2]-CH.z; return sstep((Math.sqrt(dx*dx+dy*dy+dz*dz)/CG[3]-0.35)/0.75);}
   function mat(vs,fs,uni,blend){var u={};for(var k in U) u[k]=U[k];for(k in (uni||{})) u[k]=uni[k];
     return new THREE.ShaderMaterial({uniforms:u,vertexShader:vs,fragmentShader:fs,transparent:true,depthWrite:false,depthTest:false,blending:blend||THREE.AdditiveBlending,side:THREE.DoubleSide});}
 
@@ -110,15 +132,15 @@ function init(D,THREE){
       C[i*3]=c[0]*b;C[i*3+1]=c[1]*b;C[i*3+2]=c[2]*b;}
     var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('aS',new THREE.BufferAttribute(S,1));
     g.setAttribute('aC',new THREE.BufferAttribute(C,3)); g.setAttribute('aPh',new THREE.BufferAttribute(Ph,1));
-    var m=mat('attribute float aS;attribute vec3 aC;attribute float aPh;uniform float uTime;uniform float uPR;varying vec3 vC;'+
-      'void main(){vC=aC*(0.65+0.35*sin(uTime*(0.6+aPh*0.25)+aPh*7.0));gl_PointSize=aS*uPR;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    var m=mat(LENS_GL+'attribute float aS;attribute vec3 aC;attribute float aPh;uniform float uTime;uniform float uPR;varying vec3 vC;'+
+      'void main(){vC=aC*(0.65+0.35*sin(uTime*(0.6+aPh*0.25)+aPh*7.0));gl_PointSize=aS*uPR;gl_Position=lensP(projectionMatrix*modelViewMatrix*vec4(position,1.0));}',
       'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*3.5),1.0);}',{uPR:{value:PR}});
     var pts=new THREE.Points(g,m); pts.frustumCulled=false; stars.add(pts);})();
 
   // ---------------------------------------------------------------- rings (tierG: y + stretch -> tiltG: tilt -> spinG: yaw)
   var ringMats=[], tierG=[], tiltG=[], spinG=[], dustMats=[], dustAttr=[];
-  var RING_VS='varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}';
-  var RING_FS=['uniform vec3 uColor;uniform float uR;uniform float uTime;uniform float uDim;uniform float uGlow;varying vec2 vP;',
+  var RING_VS=LENS_GL+CAP_GL+'varying vec2 vP;varying float vK;void main(){vP=position.xz;vec4 wp=modelMatrix*vec4(position,1.0);vec3 q=capD(wp.xyz);vK=capK(q);gl_Position=lensP(projectionMatrix*viewMatrix*vec4(q,1.0));}';
+  var RING_FS=['uniform vec3 uColor;uniform float uR;uniform float uTime;uniform float uDim;uniform float uGlow;varying vec2 vP;varying float vK;',
     'float ln(float x,float c,float w,float fw){return 1.0-smoothstep(w,w+fw*1.6,abs(x-c));}',
     'void main(){float r=length(vP);float a=atan(vP.y,vP.x);float fw=fwidth(r);',
     ' float core=ln(r,uR,0.012,fw);',
@@ -132,21 +154,21 @@ function init(D,THREE){
     ' float sw=0.62+0.38*pow(0.5+0.5*cos(a-uTime*0.45),3.0);',
     ' float I=(core*1.15+glow)*sw+lanes+outer+tk+fill;',
     ' vec3 col=uColor*I+vec3(1.0)*core*0.35*sw;',
-    ' gl_FragColor=vec4(col*uDim,1.0);}'].join('\n');
-  var DUST_VS='attribute float aR;attribute float aA;attribute float aY;attribute float aSp;attribute float aS;attribute float aB;uniform float uTime;uniform float uScale;uniform float uDim;uniform vec3 uColor;varying vec3 vC;'+
-    'void main(){float an=aA+uTime*aSp;vec4 mv=modelViewMatrix*vec4(cos(an)*aR,aY,sin(an)*aR,1.0);gl_PointSize=max(1.5,aS*uScale/(-mv.z));vC=uColor*aB*uDim;gl_Position=projectionMatrix*mv;}';
+    ' gl_FragColor=vec4(col*uDim*vK,1.0);}'].join('\n');
+  var DUST_VS=LENS_GL+CAP_GL+'attribute float aR;attribute float aA;attribute float aY;attribute float aSp;attribute float aS;attribute float aB;uniform float uTime;uniform float uScale;uniform float uDim;uniform vec3 uColor;varying vec3 vC;'+
+    'void main(){float an=aA+uTime*aSp;vec4 wp=modelMatrix*vec4(cos(an)*aR,aY,sin(an)*aR,1.0);vec3 q=capD(wp.xyz);vec4 mv=viewMatrix*vec4(q,1.0);gl_PointSize=max(1.5,aS*uScale/(-mv.z));vC=uColor*aB*uDim*capK(q);gl_Position=lensP(projectionMatrix*mv);}';
   var DUST_FS='varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*2.5),1.0);}';
   TIERS.forEach(function(T,t){
     var a=new THREE.Group(), b=new THREE.Group(), c=new THREE.Group(); a.add(b); b.add(c); scene.add(a); tierG.push(a); tiltG.push(b); spinG.push(c);
-    var g=new THREE.RingGeometry(R*0.45,R*1.2,192,1); g.rotateX(-Math.PI/2);
-    var m=mat(RING_VS,RING_FS,{uColor:{value:TC[t]},uR:{value:R},uDim:{value:TDIM[t]}});
+    var g=new THREE.RingGeometry(R*0.45,R*1.2,192,4); g.rotateX(-Math.PI/2);
+    var m=mat(RING_VS,RING_FS,{uColor:{value:TC[t]},uR:{value:R},uDim:{value:TDIM[t]},uCL:{value:capU[t].cl},uCX:{value:capU[t].cx}});
     ringMats.push(m); var me=new THREE.Mesh(g,m); me.frustumCulled=false; c.add(me);
     var n=Math.min(T.dust,1200), Rr=new Float32Array(n),A=new Float32Array(n),Y=new Float32Array(n),Sp=new Float32Array(n),S=new Float32Array(n),Bb=new Float32Array(n);
     for(var j=0;j<n;j++){var l=LANES[Math.floor(Math.random()*3)]; Rr[j]=R*(l+(Math.random()-0.5)*0.16+(Math.random()<0.25?(Math.random()-0.5)*0.4:0));
       A[j]=Math.random()*6.2832; Y[j]=(Math.random()-0.5)*0.07; Sp[j]=0.03+Math.random()*0.05; S[j]=0.03+Math.random()*0.035; Bb[j]=(0.2+Math.random()*0.28)*TDIM[t];}
     var dg=new THREE.BufferGeometry(); dg.setAttribute('position',new THREE.BufferAttribute(new Float32Array(Math.max(n,1)*3),3));
     [['aR',Rr],['aA',A],['aY',Y],['aSp',Sp],['aS',S],['aB',Bb]].forEach(function(x){dg.setAttribute(x[0],new THREE.BufferAttribute(x[1],1));});
-    var dm=mat(DUST_VS,DUST_FS,{uDim:{value:1},uColor:{value:TC[t]}}); dustMats.push(dm);
+    var dm=mat(DUST_VS,DUST_FS,{uDim:{value:1},uColor:{value:TC[t]},uCL:{value:capU[t].cl},uCX:{value:capU[t].cx}}); dustMats.push(dm);
     if(n){var dp=new THREE.Points(dg,dm); dp.frustumCulled=false; c.add(dp);}});
 
   // ---------------------------------------------------------------- axis beam + ring nodes + AI core
@@ -207,7 +229,7 @@ function init(D,THREE){
   function buf(n,k){return new THREE.BufferAttribute(new Float32Array(n*k),k);}
   var sg=new THREE.BufferGeometry(); sg.setAttribute('position',buf(M,3)); sg.setAttribute('aS',buf(M,1)); sg.setAttribute('aC',buf(M,3)); sg.setAttribute('aF',buf(M,1));
   var sP=sg.attributes.position.array,sS=sg.attributes.aS.array,sC=sg.attributes.aC.array,sF=sg.attributes.aF.array;
-  var sMat=mat('attribute float aS;attribute vec3 aC;attribute float aF;uniform float uScale;varying vec3 vC;varying float vF;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*2.3*uScale/(-mv.z);vC=aC;vF=aF;gl_Position=projectionMatrix*mv;}',
+  var sMat=mat(LENS_GL+'attribute float aS;attribute vec3 aC;attribute float aF;uniform float uScale;varying vec3 vC;varying float vF;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*2.3*uScale/(-mv.z);vC=aC;vF=aF;gl_Position=lensP(projectionMatrix*mv);}',
     ['uniform float uGlow;varying vec3 vC;varying float vF;void main(){vec2 p=gl_PointCoord*2.0-1.0;p.y=-p.y;float r=length(p);if(r>1.0)discard;float rc=0.435;vec3 c=vec3(0.0);',
      'float lum=max(vC.r,max(vC.g,vC.b));vec3 hue=lum>0.0?vC/lum:vC;hue=mix(hue,vec3(1.0),clamp(vF,0.0,1.0)*0.7);',
      'if(r<rc){vec2 q=p/rc;vec3 n=vec3(q,sqrt(max(0.0,1.0-dot(q,q))));vec3 L=normalize(vec3(-0.45,0.55,0.7));',
@@ -222,10 +244,10 @@ function init(D,THREE){
   var tP=tg.attributes.position.array,tS=tg.attributes.aS.array,tC=tg.attributes.aC.array;
   // TAILS: uMode 1 = dotted (crisp beads), 2 = particle sparkle (jittered, twinkling star points); solid = ribbon below
   var TU={uMode:{value:1},uTG:{value:cfg.tGlow}};
-  var tMat=mat('attribute float aS;attribute vec3 aC;attribute float aF;attribute vec3 aJ;attribute float aPh;uniform float uScale;uniform float uTime;uniform float uMode;varying vec3 vC;varying float vM;'+
+  var tMat=mat(LENS_GL+'attribute float aS;attribute vec3 aC;attribute float aF;attribute vec3 aJ;attribute float aPh;uniform float uScale;uniform float uTime;uniform float uMode;varying vec3 vC;varying float vM;'+
     'void main(){vec3 p=position;float sp=step(1.5,uMode);float w=uTime*(1.2+aPh*2.0)+aPh*40.0;p+=(aJ*cos(w)+aJ.zxy*sin(w))*aS*(0.25+1.6*aF)*sp;'+
     'vec4 mv=modelViewMatrix*vec4(p,1.0);float s=mix(1.0,0.35+1.1*fract(aPh*13.7),sp);gl_PointSize=max(1.0,aS*s*uScale/(-mv.z));'+
-    'float tw=mix(1.0,0.25+0.95*pow(0.5+0.5*sin(uTime*(5.0+aPh*6.0)+aPh*30.0),3.0),sp);vC=aC*tw;vM=sp;gl_Position=projectionMatrix*mv;}',
+    'float tw=mix(1.0,0.25+0.95*pow(0.5+0.5*sin(uTime*(5.0+aPh*6.0)+aPh*30.0),3.0),sp);vC=aC*tw;vM=sp;gl_Position=lensP(projectionMatrix*mv);}',
     'uniform float uTG;varying vec3 vC;varying float vM;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r2=dot(p,p);if(r2>1.0)discard;'+
     'float bd=(1.0-smoothstep(0.30,0.48,r2))*0.95+exp(-r2*3.0)*0.45*uTG;'+
     'float st=exp(-r2*16.0)*1.3+(exp(-abs(p.x)*16.0)*exp(-abs(p.y)*2.2)+exp(-abs(p.y)*16.0)*exp(-abs(p.x)*2.2))*0.55*(0.4+0.6*uTG)+exp(-r2*4.0)*0.25*uTG;'+
@@ -236,7 +258,7 @@ function init(D,THREE){
     for(var i=0;i<M;i++){for(var k=0;k<K-1;k++){var a=(i*K+k)*2; I[n++]=a;I[n++]=a+1;I[n++]=a+2;I[n++]=a+1;I[n++]=a+3;I[n++]=a+2;}}
     rg.setAttribute('aV',new THREE.BufferAttribute(V,1)); rg.setIndex(new THREE.BufferAttribute(I,1));})();
   var rP=rg.attributes.position.array, rC=rg.attributes.aC.array;
-  var rMesh=new THREE.Mesh(rg,mat('attribute vec3 aC;attribute float aV;varying vec3 vC;varying float vV;void main(){vC=aC;vV=aV;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  var rMesh=new THREE.Mesh(rg,mat(LENS_GL+'attribute vec3 aC;attribute float aV;varying vec3 vC;varying float vV;void main(){vC=aC;vV=aV;gl_Position=lensP(projectionMatrix*modelViewMatrix*vec4(position,1.0));}',
     'uniform float uTG;varying vec3 vC;varying float vV;void main(){float v=vV*vV;float I=exp(-v*7.0)*(0.75+0.2*uTG)+exp(-v*2.2)*0.5*uTG;gl_FragColor=vec4(vC*I,1.0);}',TU)); rMesh.frustumCulled=false;
   var LINE_VS='attribute vec3 aC;varying vec3 vC;void main(){vC=aC;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}', LINE_FS='varying vec3 vC;void main(){gl_FragColor=vec4(vC,1.0);}';
   var PS=PK*2, pg=new THREE.BufferGeometry(); pg.setAttribute('position',buf(M*PS,3)); pg.setAttribute('aC',buf(M*PS,3));
@@ -244,7 +266,7 @@ function init(D,THREE){
   var pSeg=new THREE.LineSegments(pg,mat(LINE_VS,LINE_FS)); pSeg.frustumCulled=false; pSeg.visible=false;
   var bg2=new THREE.BufferGeometry(); bg2.setAttribute('position',buf(M,3)); bg2.setAttribute('aS',buf(M,1)); bg2.setAttribute('aC',buf(M,3));
   var bP=bg2.attributes.position.array,bS=bg2.attributes.aS.array,bC=bg2.attributes.aC.array;
-  var bPts=new THREE.Points(bg2,mat('attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*uScale/(-mv.z);vC=aC;gl_Position=projectionMatrix*mv;}',
+  var bPts=new THREE.Points(bg2,mat(LENS_GL+'attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*uScale/(-mv.z);vC=aC;gl_Position=lensP(projectionMatrix*mv);}',
     'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=length(p);if(r>1.0)discard;float ring=exp(-pow((r-0.8)/0.07,2.0))+exp(-pow((r-0.55)/0.04,2.0))*0.4;gl_FragColor=vec4(vC*ring,1.0);}'));
   bPts.frustumCulled=false;
   scene.add(pSeg); scene.add(rMesh); scene.add(tPts); scene.add(sPts); scene.add(bPts);
@@ -324,8 +346,9 @@ function init(D,THREE){
       var rfUse=rf[i], angUse=ang[i];
       if(foc&&tI===op.t){var rsV=i<N?info[i].rs:(rp.on?Math.round(Math.exp(gq.lk||0)):50); rfUse=rf[i]+(rsFrac(rsV,tI)-rf[i])*op.k; angUse=ang[i]+(hash(info[i].t+'f')-0.5)*0.35*op.k;}
       ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP); sP[i*3+1]+=yo;
-      var cj=cap.on?capOf[i]:-1, ctm=1;   // CAPTURE event: override the displayed pose (orbit state untouched -> exact return)
-      if(cj>=0){var cc=cap.list[cj]; capPose(cc,i); cc.av=aMul; sz*=cc.sz; a*=cap.mode==='all'?1-0.35*cc.spag:1+0.5*cc.spag; ctm=cc.tail; if(cc.sz<0.3) ea[i]=0;}
+      var cL=cap.on?capL[tI]:null, cw=0, cvv=1;   // BLACK HOLE event: displace the drawn pose by the layer's pull field (orbit state untouched -> exact return)
+      if(cL&&cL.ph){cw=capD3(sP,i*3,cL); cvv=capK3(sP,i*3,cL); a*=cvv; sz*=(1-0.4*clamp(cw,0,1))*(0.35+0.65*cvv); if(cvv<0.5) ea[i]=0;}
+      capVis[i]=cvv;
       // black-hole warp: spiral + stretch toward the BH, then restore (positions are computed from live state so exit is exact)
       if(bhk>0.001){var bx=bh.x,by=bh.y,bz=bh.z, px=sP[i*3],py=sP[i*3+1],pz=sP[i*3+2], dx=px-bx,dy=py-by,dz=pz-bz, dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+1e-4;
         var pull=sstep(bhk)*clamp(1.15-dist/14,0,1); var swirl=bhk*bhk*2.4*(0.4+0.6*pull);
@@ -333,15 +356,15 @@ function init(D,THREE){
         var rx=dx*cs-dz*sn, rz=dx*sn+dz*cs; var inward=1-pull*0.92*bhk;
         sP[i*3]=bx+rx*inward; sP[i*3+1]=by+dy*inward*(1-0.35*pull*bhk)+Math.sin(swirl*1.7)*0.15*pull; sP[i*3+2]=bz+rz*inward;
         sz*=1+pull*bhk*(1.8+1.6*Math.sin(swirl*3)); a*=1-0.55*pull*bhk;}
-      sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=cj>=0?Math.max(fl[i],cap.list[cj].spag*(cap.mode==='all'?0.2:0.8)):fl[i];
+      sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=cw>0.02?Math.max(fl[i],0.55*Math.min(1,cw)):fl[i];
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
       // TAILS: live = arc behind the sphere along its orbit (length ~ orbit speed); replay = the same arc + the glide path it just drifted along
       if(tOn){var tcol=tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
-        var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=grp[i]===0?0.8:1;
-        for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0*ctm;
-          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
+        var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1)*(cL&&cL.ph?1+1.2*cL.st:1), g0=grp[i]===0?0.8:1;
+        for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
+          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo; if(cL&&cL.ph){capD3(tP,o,cL); fa2*=capK3(tP,o,cL);}}
           tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
         if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
           for(k=0;k<K;k++){var o5=(i*K+k)*3,oa=(i*K+Math.max(0,k-1))*3,ob=(i*K+Math.min(K-1,k+1))*3,
@@ -358,7 +381,6 @@ function init(D,THREE){
           var pc=TC[st.g]; pC[o3]=pc[0]*fa3;pC[o3+1]=pc[1]*fa3;pC[o3+2]=pc[2]*fa3;pC[o3+3]=pc[0]*fa3*0.9;pC[o3+4]=pc[1]*fa3*0.9;pC[o3+5]=pc[2]*fa3*0.9; s++;}
         for(;s<PK;s++){var o4=base+s*6; for(var z=0;z<6;z++){pP[o4+z]=0;pC[o4+z]=0;}}}
     }
-    capDraw();
     var tr=tOn&&!solid, rb=tOn&&solid; tPts.visible=tr; rMesh.visible=rb;
     sg.setDrawRange(0,Mact); tg.setDrawRange(0,tr?Mact*K:0); rg.setDrawRange(0,rb?Mact*(K-1)*6:0); pg.setDrawRange(0,Mact*PS); bg2.setDrawRange(0,Mact);
     [sg,bg2].forEach(function(g){for(var k in g.attributes) g.attributes[k].needsUpdate=true;});
@@ -428,14 +450,14 @@ function init(D,THREE){
   var camD=14;
   function placeCam(){var k=op.t>=0?sstep(op.k):0, d=dist*zoom, cy=cyC, pt=pitch;
     if(k>0){var f=fitOpen(); d+=(f.d*zoom-d)*k; cy+=(f.y-cy)*k; pt+=(pitchOpen()-pt)*k;}
-    camD=d; cam.position.set(0,cy+d*Math.sin(pt),d*Math.cos(pt)); cam.lookAt(0,cy,0);
+    camD=d; cam.position.set(0,cy+d*Math.sin(pt),d*Math.cos(pt)); cam.lookAt(0,cy,0); capGeo(cy);
     retic.quaternion.copy(cam.quaternion); for(var t=0;t<spinG.length;t++){spinG[t].rotation.y=yaw; var q=tsc(t); tierG[t].scale.set(cfg.sx*q,1,cfg.sz*q);
-      var od=(op.t<0||t===op.t?1:1-op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k; ro*=capRing(t);
-      ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15)*capDust(t);}
-    cap.rd=cap.on&&cap.mode==='all'&&cap.wk>0; stars.rotation.y=yaw*0.25;}
+      var od=(op.t<0||t===op.t?1:1-op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k;
+      ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15);}
+    stars.rotation.y=yaw*0.25;}
   function resize(){var r=stage.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
     renderer.setSize(W,H,false); cam.fov=cfg.fov; cam.aspect=W/H; cam.updateProjectionMatrix(); fit();
-    U.uScale.value=H*PR/(2*Math.tan(cam.fov*Math.PI/360)); need();}
+    U.uScale.value=H*PR/(2*Math.tan(cam.fov*Math.PI/360)); U.uRes.value[0]=W*PR; U.uRes.value[1]=H*PR; need();}
   var dirty=true; function need(){dirty=true;}
   var ptr={}, np=0, pinch0=0, zoom0=1, tap=null, lpT=0, E0p=1.35;
   function pd(e){return Math.hypot(e[0].x-e[1].x,e[0].y-e[1].y);}
@@ -511,11 +533,11 @@ function init(D,THREE){
     for(var t=0;t<5;t++){var o=cfg.orb[t]; h+='<div class="orb-row" data-ot="'+t+'" style="--c:'+cfg.c[t]+'">'+'<div class="orb-hd"><b style="color:'+cfg.c[t]+'">'+esc(shortLab(t))+'</b>'+'<button type="button" class="orb-tog'+(o.on?' on':'')+'" data-orb="on" aria-pressed="'+o.on+'">STOCKS</button>'+'<button type="button" class="orb-tog'+(o.ring?' on':'')+'" data-orb="ring" aria-pressed="'+o.ring+'">RING</button>'+'<button type="button" class="orb-foc'+(op.t===t&&op.focus?' on':'')+'" data-foc="'+t+'">FOCUS</button></div>'+'<label class="orb-s"><span>RING FADE</span><output data-oo="ringOp">'+(o.ringOp*100|0)+'%</output>'+'<input type="range" data-orb="ringOp" min="0" max="1" step="0.01" value="'+o.ringOp+'"'+(o.ring?'':' disabled')+'></label>'+'<label class="orb-s"><span>PLANET SIZE</span><output data-oo="size">'+(+o.size).toFixed(2)+'×</output>'+'<input type="range" data-orb="size" min="0.3" max="3" step="0.01" value="'+o.size+'"></label></div>';}
     h+='<div class="orb-acts"><button type="button" class="orb-all" data-all="on">ALL ON</button><button type="button" class="orb-all" data-all="off">ALL OFF</button><button type="button" class="orb-all" data-all="solo" title="Leave only the focused / first-on orbit">SOLO FOCUS</button></div>'; return h;}
   function bhHTML(){return '<button type="button" class="bh-now">🕳 BLACK HOLE NOW</button>'+'<label class="ck row"><input type="checkbox" data-k="bhAuto"'+(cfg.bhAuto?' checked':'')+'><span>AUTO (every few min)</span></label>'+'<label class="dr-s"><span>AUTO EVERY · MIN</span><output data-o="bhMin">'+cfg.bhMin+'-'+cfg.bhMax+'m</output>'+'<input type="range" data-k="bhSpan" min="2" max="20" step="1" value="'+Math.round((cfg.bhMin+cfg.bhMax)/2)+'"></label>'+'<div class="bh-ft">Wild 8–12s ride · then exact restore · off when reduced-motion</div>'+
-    '<div class="dr-sub">CAPTURE EVENTS · a planet spins out, falls in, escapes</div>'+
-    '<label class="ck row"><input type="checkbox" data-k="capOn"'+(cfg.capOn?' checked':'')+'><span>CAPTURE EVENTS</span></label>'+
-    '<div class="dr-seg cap-f" role="group" aria-label="Capture event frequency" data-grp="capFreq">'+[['rare','RARE'],['normal','NORMAL'],['chaos','CHAOS']].map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg.capFreq===o[0])+'" class="'+(cfg.capFreq===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>'+
-    '<div class="cap-acts"><button type="button" class="cap-now">☄ TRIGGER NOW</button><button type="button" class="sn-now">💥 SUPERNOVA</button></div>'+
-    '<div class="bh-ft cap-ft">RARE 2–4 min · NORMAL 45–90 s · CHAOS 12–25 s · 1 in 5 takes 2–3 planets · 1 in 10 is a SUPERNOVA (whole system) · paused in replay, with a planet box open or while dragging</div>';}
+    '<div class="dr-sub">BLACK HOLE EVENTS · it pulls the orbits in, they come back round the other side</div>'+
+    '<label class="ck row"><input type="checkbox" data-k="capOn"'+(cfg.capOn?' checked':'')+'><span>BLACK HOLE EVENTS</span></label>'+
+    '<div class="dr-seg cap-f" role="group" aria-label="Black hole event frequency" data-grp="capFreq">'+[['rare','RARE'],['normal','NORMAL'],['chaos','CHAOS']].map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg.capFreq===o[0])+'" class="'+(cfg.capFreq===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>'+
+    '<div class="cap-acts"><button type="button" class="cap-now" title="Partial: 1–2 outer rings get pulled in">☄ TRIGGER NOW</button><button type="button" class="sn-now" title="The whole system gets pulled in">🕳 BLACK HOLE</button></div>'+
+    '<div class="bh-ft cap-ft">RARE 2–4 min · NORMAL 45–90 s · CHAOS 12–25 s · TRIGGER NOW = 1–2 outer rings get tugged in · BLACK HOLE = the whole system (1 in 3 random events) · paused in replay, with a planet box open or while dragging</div>';}
   function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
   function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
     '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
@@ -558,7 +580,7 @@ function init(D,THREE){
     var all=b.getAttribute('data-all'); if(all==='on'){cfg.orb.forEach(function(o){o.on=true;}); applyCfg(true); orbSync(); return;}
     if(all==='off'){cfg.orb.forEach(function(o){o.on=false;}); applyCfg(true); orbSync(); return;}
     if(all==='solo'){var keep=op.t>=0?op.t:cfg.orb.findIndex(function(o){return o.on;}); if(keep<0) keep=0; cfg.orb.forEach(function(o,i){o.on=i===keep;}); if(!(op.t===keep&&op.focus)) openFocus(keep); applyCfg(true); orbSync(); openDr(false); return;}
-    if(b.classList.contains('cap-now')||b.classList.contains('sn-now')){if(capTrigger(true,b.classList.contains('sn-now')?'all':'one')) openDr(false); return;}
+    if(b.classList.contains('cap-now')||b.classList.contains('sn-now')){if(capTrigger(true,b.classList.contains('sn-now')?'full':'part')) openDr(false); return;}
     if(b.classList.contains('bh-now')){snd('play',cfg); bh.trigger(); bhSync(); return;}
   });
   ['pointerdown','touchstart','wheel'].forEach(function(ev){dr.addEventListener(ev,function(e){e.stopPropagation();},{passive:true});});
@@ -691,7 +713,7 @@ function init(D,THREE){
     if(b.classList.contains('tp-more')){var t=op.t, a=shownN; shownN=Math.min(TL[t].length,shownN+150); b.insertAdjacentHTML('beforebegin',rowsHTML(t,a,shownN)); var m2=more(t); if(m2) b.insertAdjacentHTML('beforebegin',m2); b.remove(); return;}
     var i=b.getAttribute('data-i'); if(i!=null){i=+i; render(0); select(i); try{stage.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(_){} }});
   tp.addEventListener('input',function(e){if(e.target.type==='range') setE(+e.target.value);});
-  function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false); if(cap.on&&(cap.mode==='all'||cap.g!==t)) capAbort();
+  function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false);
     if(sel>=0&&grp[sel]!==t) select(-1);
     if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; cfg.solo=t; saveCfg(cfg); root.classList.add('solo'); op.focus=!!asFocus; op.E=asFocus?Math.max(op.E,1.85):op.E; if(RM) op.k=1; snd('sel',cfg);
     if(asFocus){cfg.orb.forEach(function(o,i){/* keep user's on-flags; focus dims others in upd */}); fillTPFocus(t);} else fillTP(t);
@@ -776,113 +798,120 @@ function init(D,THREE){
     if(u>=1){bh.on=false; bh.k=0; bhG.visible=false; yaw=bh.yaw0; pitch=bh.pitch0; zoom=bh.zoom0; cam.fov=cfg.fov; cam.updateProjectionMatrix();
       root.classList.remove('bhole'); bh.arm(); bhSync(); need();}}
   bhArm();
-  // ---------------------------------------------------------------- CAPTURE EVENTS (7 Oct 2026) + SUPERNOVA (mode 'all')
-  //   Per captured sphere, phases of u = (clock - stagger) / T:  A wobble + spin-up  ->  B accelerating spiral into the hole (spaghettified, trail)
-  //   -> C held inside (hole pulses)  ->  D Hermite slingshot from the hole to the LIVE orbit pose (zero end velocity)  ->  E damped settle.
-  //   Every frame starts from the sphere's normal orbit pose (sP from W3), so nothing about its orbit / RS data is modified and the exit is exact.
-  //   A future event type only needs: a candidate list + mode in capTrigger(), and (optionally) a ring transform in capRing().
-  var CAPF={rare:[120,240],normal:[45,90],chaos:[12,25]}, CMAX=3, CK=36, CA=0.15, CB=0.45, CC=0.58, CD=0.86;
-  var cap={on:false,mode:'one',clk:0,dur:10,wait:0,next:60,list:[],g:0,side:1,key:'',pendingRide:false,toast:0,wk:0,spin:0,rd:false},
-      capOf=new Int16Array(M).fill(-1), capCv=new Float32Array(3);
-  function F3(){return new Float32Array(3);}
-  // trail ribbons (own geometry, shares the TAILS ribbon material) + one event-horizon flash sprite
-  var CTV=CMAX*CK*2, ctg=new THREE.BufferGeometry(); ctg.setAttribute('position',buf(CTV,3)); ctg.setAttribute('aC',buf(CTV,3));
-  (function(){var V=new Float32Array(CTV),I=new Uint16Array(CMAX*(CK-1)*6),n=0; for(var j=0;j<CTV;j++) V[j]=(j%2)?-1:1;
-    for(var q=0;q<CMAX;q++){for(var k=0;k<CK-1;k++){var a=(q*CK+k)*2; I[n++]=a;I[n++]=a+1;I[n++]=a+2;I[n++]=a+1;I[n++]=a+3;I[n++]=a+2;}}
-    ctg.setAttribute('aV',new THREE.BufferAttribute(V,1)); ctg.setIndex(new THREE.BufferAttribute(I,1));})();
-  var ctMesh=new THREE.Mesh(ctg,rMesh.material); ctMesh.frustumCulled=false; ctMesh.visible=false; ctMesh.renderOrder=6; scene.add(ctMesh);
-  var cfg2=new THREE.BufferGeometry(); cfg2.setAttribute('position',buf(1,3)); cfg2.setAttribute('aS',buf(1,1)); cfg2.setAttribute('aC',buf(1,3));
-  var cfP=new THREE.Points(cfg2,mat('attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*uScale/(-mv.z);vC=aC;gl_Position=projectionMatrix*mv;}',
-    'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=length(p);if(r>1.0)discard;float g=exp(-r*r*7.0)*1.2+exp(-pow((r-0.62)/0.07,2.0))*0.9+exp(-r*2.6)*0.25;gl_FragColor=vec4(vC*g*(1.0-r*r),1.0);}'));
-  cfP.frustumCulled=false; cfP.visible=false; cfP.renderOrder=10; scene.add(cfP);
+  // ---------------------------------------------------------------- BLACK HOLE EVENTS (7 Oct 2026, reworked): the hole pulls the orbit LAYERS in, they come back from the far side
+  //   Per layer t (capL[t], mirrored into the ring + dust uniforms capU[t]):  ph 1 = pulled in toward H (near parts lead -> rings smear toward the hole
+  //   and spiral, a = progress)  ->  swallowed (hidden in transit)  ->  ph 2 = back out from E, just off the OPPOSITE edge (b = progress, osc = overshoot
+  //   wobble)  ->  ph 0 = home.  ph 3 = gentle tidal tug for layers that are not taken.  Outer / low-RS layers start first and get pulled hardest (more
+  //   lead + swirl); elite layers start later, pull in slower and stay more rigid.  capD (GLSL) / capD3 (JS) only displace the DRAWN pose, computed
+  //   from the live orbit pose every frame, so orbits / RS data never change and every layer lands back in its exact slot.
+  //   mode 'full' = every shown layer (main event: BLACK HOLE button, 1 in 3 random); 'part' = 1-2 outer layers (TRIGGER NOW, 2 in 3 random).
+  //   The black hole itself is one screen-space quad (bhx): opaque shadow, photon ring, rotating doppler-beamed accretion disk whose far half is
+  //   point-mass lensed over the top and into a thin secondary arc underneath, glow halo and (desktop) a lensed micro-starfield. Scene stars, dust,
+  //   rings, planets and tails are lensed by the same point-mass map in their vertex shaders (lensP); project() mirrors it for tags + taps.
+  var CAPF={rare:[120,240],normal:[45,90],chaos:[12,25]};
+  var cap={on:false,mode:'part',clk:0,dur:12,wait:0,next:60,side:1,key:'',pendingRide:false,toast:0,A:0,fl:0,sw:2.2,hq:true,cx:0,cy:0,rs:40,tE:56,lz:0,fadeAt:9,tg0:0.6,tgD:6,go:[]};
+  var capL=[0,1,2,3,4].map(function(){return {ph:0,a:0,b:0,osc:0,sw:1,lead:0.6,st:0,on:false,t0:0,ti:3,g:0.5,to:3,tug:0};});
+  var capVis=new Float32Array(M).fill(1), COARSE=!!(window.matchMedia&&matchMedia('(pointer: coarse)').matches);
+  var BHX_FS=['uniform float uA;uniform float uT;uniform float uF;uniform float uHQ;uniform float uPx;uniform float uSd;uniform vec4 uBQ;varying vec2 vQ;',
+    'float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}',
+    'float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h21(i),h21(i+vec2(1.0,0.0)),f.x),mix(h21(i+vec2(0.0,1.0)),h21(i+vec2(1.0,1.0)),f.x),f.y);}',
+    'const float EI=0.17;const float RI=1.38;const float RO=4.6;const float TE=1.42;',
+    // accretion disk seen almost edge-on; s = image-plane point (shadow radii), far = 1 for the half behind the hole
+    'vec4 disk(vec2 s,float far){float sl=smoothstep(-0.06,0.06,s.y);sl=far>0.5?sl:1.0-sl;if(sl<0.001) return vec4(0.0);',
+    ' vec2 d=vec2(s.x,s.y/EI);float r=length(d);if(r<RI*0.92||r>RO*1.08) return vec4(0.0);',
+    ' float x=clamp((r-RI)/(RO-RI),0.0,1.0);float prof=smoothstep(RI*0.93,RI*1.1,r)*(1.0-smoothstep(RO*0.7,RO*1.06,r))*pow(RI/r,0.9);',
+    ' float an=-uSd*uT*1.7/pow(r,1.5);float cs=cos(an),sn=sin(an);vec2 rd=vec2(d.x*cs-d.y*sn,d.x*sn+d.y*cs);',
+    ' float n=vn(rd*2.2+7.0);if(uHQ>0.5) n=n*0.62+vn(rd*5.3-3.0)*0.38;',
+    ' float ps=atan(rd.y,rd.x);float st=0.5+0.5*sin(r*17.0+2.2*sin(ps*3.0+r*1.7));float tex=0.4+0.6*n*(0.55+0.45*st);',
+    ' float dp=clamp(1.0-0.6*uSd*d.x/r,0.25,1.75);float dop=dp*dp;',
+    ' vec3 c=mix(vec3(1.0,0.97,0.88),vec3(1.0,0.62,0.2),smoothstep(0.0,0.38,x));c=mix(c,vec3(0.95,0.22,0.64),smoothstep(0.4,1.0,x));',
+    ' c=mix(c,vec3(1.0,0.96,0.9),clamp((dop-1.0)*0.3,0.0,0.45));c=mix(c,vec3(0.85,0.22,0.42),clamp((1.0-dop)*0.5,0.0,0.4));',
+    ' float I=prof*tex*dop*sl*1.35;return vec4(c*I,clamp(I*1.3,0.0,0.96));}',
+    'void main(){vec2 q=vQ;float rho=length(q);float Q=uBQ.w;if(rho>Q) discard;',
+    ' float win=1.0-smoothstep(Q*0.7,Q,rho);float m=smoothstep(1.0-uPx,1.0+uPx,rho);float ir=1.0/max(rho*rho,1e-4);',
+    ' vec2 b=q*(1.0-TE*TE*ir);float mu=1.0/max(0.06,abs(1.0-TE*TE*TE*TE*ir*ir));',
+    ' vec3 add=vec3(1.0,0.52,0.24)*(exp(-(rho-1.0)*1.25)*0.14+exp(-max(rho-1.0,0.0)*5.5)*0.2)*m*win;',
+    ' if(uHQ>0.5){vec2 g=b*4.2;vec2 id=floor(g);float h=h21(id);vec2 o=vec2(h21(id+3.1),h21(id+7.7))*0.8+0.1;float dd=length(fract(g)-o);',
+    '   add+=vec3(0.82,0.9,1.0)*step(0.8,h)*smoothstep(0.1,0.0,dd)*min(mu,4.0)*0.5*m*win;}',
+    ' vec4 df=disk(b,1.0);add+=df.rgb*min(sqrt(mu),1.8)*m*win;',
+    ' float pw=max(0.012,uPx*1.2);float pr=exp(-pow((rho-1.025)/pw,2.0))*1.5+exp(-pow((rho-1.08)/(pw*3.0),2.0))*0.3;',
+    ' add+=vec3(1.0,0.85,0.6)*pr*(1.0+0.6*uF)*(1.0-0.35*uSd*q.x/max(rho,1e-3));',
+    ' vec2 qn=q*(1.0-smoothstep(1.25,2.9,rho)*TE*TE*ir);vec4 dn=disk(qn,0.0)*win;',
+    ' float al=1.0-m;vec3 col=(dn.rgb+add*(1.0-dn.a))*(1.0+0.5*uF);al=dn.a+al*(1.0-dn.a);',
+    ' gl_FragColor=vec4(col*uA,al*uA);}'].join('\n');
+  var bhxU={uBQ:{value:new Float32Array([0,0,40,5.4])},uA:{value:0},uT:{value:0},uF:{value:0},uHQ:{value:1},uPx:{value:0.02},uSd:{value:1}};
+  var bhxM=mat('uniform vec2 uRes;uniform vec4 uBQ;varying vec2 vQ;void main(){vQ=position.xy*uBQ.w;vec2 p=uBQ.xy+vQ*uBQ.z;gl_Position=vec4(p/uRes*2.0-1.0,0.0,1.0);}',BHX_FS,bhxU,THREE.NormalBlending);
+  bhxM.premultipliedAlpha=true;   // ONE, ONE_MINUS_SRC_ALPHA: glow adds, the shadow (alpha 1, colour 0) blocks what is behind it
+  var bhx=new THREE.Mesh(new THREE.PlaneGeometry(2,2),bhxM); bhx.frustumCulled=false; bhx.renderOrder=50; bhx.visible=false; scene.add(bhx);
   var capT=document.createElement('div'); capT.className='rso-toast'; capT.setAttribute('role','status'); capT.setAttribute('aria-live','polite'); stage.appendChild(capT);
   function capToast(n){if(n===cap.toast) return; cap.toast=n; if(!n){capT.classList.remove('on'); return;}
-    var nm=cap.list.slice(0,3).map(function(c){return esc(info[c.i].t);}), who=nm.length<2?nm[0]:nm.slice(0,-1).join(', ')+' &amp; '+nm[nm.length-1];
-    capT.classList.toggle('sn',cap.mode==='all');
-    capT.innerHTML=cap.mode==='all'?(n===1?'<b>💥 SUPERNOVA</b> · the whole system got sucked into the black hole…':'…and it <b>re-formed!</b>'):
-      (n===1?'<b>'+who+'</b> got sucked into the black hole…':'…and <b>escaped!</b>');
+    var full=cap.mode==='full', nm=cap.go.map(function(t){return esc(shortLab(t));}).join(' + ');
+    capT.classList.toggle('sn',n<3); capT.classList.toggle('ok',n===3);
+    capT.innerHTML=n===1?'🕳 <b>BLACK HOLE INBOUND…</b>'+(full?' the whole system is being pulled in':' '+nm+' ring'+(cap.go.length>1?'s':'')+' caught'):
+      n===2?'<b>SWALLOWED</b> · flung round the far side…':'✓ <b>ORBITS RESTORED</b>';
     capT.classList.add('on');}
-  function capC(o){if(cap.mode==='all'){o[0]=0; o[1]=op.t>=0?tierY(op.t)-0.6:tierY(2); o[2]=R*cfg.sz*0.35; return o;}
-    var t=cap.g, k=op.t>=0?tsc(t):1; o[0]=cap.side*R*cfg.sx*0.5*k; o[1]=tierY(t)-0.95*Math.max(0.6,cfg.sy); o[2]=R*cfg.sz*0.5*k; return o;}
   function capArm(){var f=CAPF[cfg.capFreq]||CAPF.normal; cap.wait=0; cap.next=f[0]+Math.random()*(f[1]-f[0]);}
   function capSync(){var el=dr.querySelector('[data-k=capOn]'); if(el) el.checked=!!cfg.capOn; var key=cfg.capOn+'|'+cfg.capFreq; if(key!==cap.key){cap.key=key; capArm();}
     dr.querySelectorAll('.cap-now,.sn-now').forEach(function(b){b.classList.toggle('busy',cap.on);});}
-  function capCands(){var C=[]; for(var i=0;i<N;i++){if(ea[i]>0.5&&orbOn(grp[i])&&(op.t<0||grp[i]===op.t)&&i!==sel) C.push(i);} return C;}
-  function capTrigger(manual,mode,nf){if(cap.on||rp.on||bh.on||(op.t>=0&&op.target===0)) return false;
+  function capLab(t){if(!cap.on) return 1; var L=capL[t]; return L.ph===1?1-sstep(L.a*1.6):L.ph===2?sstep((L.b-0.55)/0.45):1;}
+  function capTrigger(manual,mode){if(cap.on||rp.on||bh.on||(op.t>=0&&op.target===0)) return false;
     if(manual&&sel>=0) select(-1);
-    var C=capCands(); if(!C.length){capArm(); return false;}
-    mode=mode||(Math.random()<0.1?'all':'one'); var i0=C[Math.floor(Math.random()*C.length)], L, T, stag;
-    if(mode==='all'){L=C; T=9.6+Math.random()*1.2; stag=1.1;}
-    else{L=[i0]; if(nf>1||(!nf&&Math.random()<0.2)){var same=C.filter(function(x){return grp[x]===grp[i0]&&x!==i0;}), n=nf>1?nf-1:Math.random()<0.5?1:2; while(n-->0&&same.length) L.push(same.splice(Math.floor(Math.random()*same.length),1)[0]);}
-      T=8+Math.random()*(L.length>1?2.8:4); stag=0.45;}
-    cap.mode=mode; cap.g=grp[i0]; cap.side=Math.random()<0.5?-1:1; cap.clk=0; cap.wk=0; cap.spin=0; capToast(0);
-    cap.list=L.map(function(i,j){return {i:i,off:mode==='all'?Math.random()*stag:j*stag,T:T,dir:Math.random()<0.5?-1:1,turns:1.4+Math.random()*0.9,
-      Ps:F3(),o3:F3(),e1:F3(),e2:F3(),N:F3(),r0:1,took:false,P:F3(),h:j<CMAX?new Float32Array(CK*3):null,hn:0,ht:-1,sz:1,spag:0,tail:1,av:1,fin:-1,fout:-1,fl:0};});
-    cap.dur=0; cap.list.forEach(function(c){cap.dur=Math.max(cap.dur,c.off+c.T);});
-    capOf.fill(-1); cap.list.forEach(function(c,j){capOf[c.i]=j;}); cap.on=true; capC(capCv); snd('play',cfg); capSync(); need(); return true;}
-  function capEnd(abort){cap.on=false; if(bh.uPS) bh.uPS.value=1; capOf.fill(-1); cap.list=[]; cap.wk=0; cap.spin=0; if(!bh.on) bhG.visible=false; ctMesh.visible=false; cfP.visible=false; capToast(0); capArm(); capSync(); need();
+    var vis=[]; for(var t=4;t>=0;t--){if(orbOn(t)&&(op.t<0||t===op.t)) vis.push(t);}          // outermost (lowest RS) first
+    if(!vis.length){capArm(); return false;}
+    if(mode!=='full'&&mode!=='part') mode=Math.random()<1/3?'full':'part';
+    var go=mode==='full'?vis:vis.slice(0,vis.length>1&&Math.random()<0.5?2:1), sp=mode==='full'?1.05+Math.random()*0.2:0.95+Math.random()*0.15, endIn=0, end=0;
+    cap.mode=mode; cap.go=go; cap.side=Math.random()<0.5?-1:1; cap.clk=0; cap.A=0; cap.fl=0; cap.sw=0.6+Math.random()*0.25; cap.hq=!COARSE&&W>=700; capToast(0);
+    capL.forEach(function(L){L.on=false; L.ph=0; L.a=L.b=L.osc=L.st=L.tug=0;});
+    go.forEach(function(t,r){var L=capL[t]; L.on=true; L.t0=(1.0+0.72*r)*sp; L.ti=(2.5+0.42*r)*sp; L.g=0.5; L.to=(3.1+0.22*r)*sp;
+      L.lead=0.55+0.1*t; L.sw=0.7+0.12*t; endIn=Math.max(endIn,L.t0+L.ti); end=Math.max(end,L.t0+L.ti+L.g+L.to);});
+    vis.forEach(function(t){var L=capL[t]; if(L.on) return; L.tug=0.12+0.05*t; L.lead=0.35+0.1*t; L.sw=0.25+0.05*t;});
+    cap.tg0=0.6; cap.tgD=endIn+0.6; cap.fadeAt=endIn+0.8; cap.dur=Math.max(end,cap.fadeAt+1.7)+1.4; bhxU.uT.value=0;
+    capVis.fill(1); cap.on=true; snd('play',cfg); capSync(); need(); return true;}
+  function capEnd(abort){cap.on=false; cap.A=0; cap.lz=0; cap.fl=0; U.uLens.value[3]=0; bhx.visible=false;
+    capL.forEach(function(L,t){L.on=false; L.ph=0; L.a=L.b=L.osc=L.st=L.tug=0; capU[t].cl[0]=capU[t].cl[1]=capU[t].cl[2]=capU[t].cl[3]=0;}); capVis.fill(1);
+    capToast(0); capArm(); capSync(); need();
     if(cap.pendingRide){cap.pendingRide=false; if(!abort) bhTrigger();}}
   function capAbort(){if(cap.on) capEnd(true);}
-  function capFl(x){return x<0?0:Math.exp(-x*3.2)*Math.min(1,x*30+0.35);}
   function capStep(dt){
     if(!cap.on){if(cfg.capOn&&!RM&&!rp.on&&sel<0&&np===0&&!bh.on&&!frozen&&!(op.t>=0&&op.k>0&&op.k<1)){cap.wait+=dt; if(cap.wait>=cap.next) capTrigger(false);} return;}
-    busyF=true; if(sel<0&&np===0) cap.clk+=dt;               // paused while a planet box is open or the camera is being dragged
-    capC(capCv);
-    var tc=cap.clk, big=cap.mode==='all', bk=sstep(tc/1.3)*(1-sstep((tc-(cap.dur-1.5))/1.5)), hold=0, fx=0, L0=cap.list[0];
-    cap.list.forEach(function(c){var u=(tc-c.off)/c.T; if(u>=CB&&u<CC) hold=1; fx=Math.max(fx,c.fl);});
-    if(big&&L0){var uN=(tc-0.55)/L0.T; cap.wk=uN<CA?0:uN<CB?sstep((uN-CA)/(CB-CA)):uN<CC?1:uN<CD?1-sstep((uN-CC)/(CD-CC)):0; cap.spin=12.566*sstep(clamp((uN-CA)/(CD-CA),0,1));}
-    var sc=(big?0.75:0.55)*(0.2+0.8*bk)*(1+0.09*hold*Math.sin(tc*14)+0.2*fx);
-    bhG.visible=bk>0.002; bhG.position.set(capCv[0],capCv[1],capCv[2]); bhG.scale.setScalar(sc); bhG.rotation.y+=dt*(0.8+1.2*bk+2*hold);
-    var kk=0.45*bk+0.3*hold*(0.5+0.5*Math.sin(tc*9))+(big?0.35:0.8)*fx; if(bh.uK) bh.uK.value=kk; if(bh.dU) bh.dU.value=kk; if(bh.uPS) bh.uPS.value=Math.max(0.05,sc*0.9);
-    if(L0){var u0=(tc-L0.off)/L0.T; capToast(u0>=CA*0.7&&u0<CC?1:u0>=CC&&tc<cap.dur-0.4?2:0);}
+    busyF=true; var run=sel<0&&np===0; if(run) cap.clk+=dt;      // paused while a planet box is open or the camera is being dragged
+    var tc=cap.clk, fl=0; bhxU.uT.value+=dt;
+    cap.A=sstep(tc/1.5)*(1-sstep((tc-cap.fadeAt)/1.7));
+    capL.forEach(function(L,t){
+      if(L.on){var u=tc-L.t0;
+        if(u<=0){L.ph=0; L.st=0;}
+        else if(u<L.ti){var s=u/L.ti; L.ph=1; L.a=Math.pow(s,1.7); L.st=sstep(s*1.6);}
+        else if(u<L.ti+L.g){L.ph=2; L.b=0; L.osc=0; L.st=1;}
+        else{var s2=(u-L.ti-L.g)/L.to; if(s2>=1){L.ph=0; L.st=0; L.a=L.b=L.osc=0;}
+          else{L.ph=2; L.b=1-Math.pow(1-s2,2.4); var v2=clamp((s2-0.5)/0.5,0,1); L.osc=0.085*Math.sin(2*Math.PI*v2)*Math.pow(1-v2,1.5); L.st=1-sstep(s2*1.3);}}
+        if(u>L.ti*0.85&&u<L.ti+1.6) fl=Math.max(fl,Math.exp(-Math.max(0,u-L.ti)*2.2)*sstep((u-0.85*L.ti)/(0.15*L.ti)));}
+      else if(L.tug>0){var x=clamp((tc-cap.tg0)/cap.tgD,0,1); L.a=L.tug*Math.pow(Math.sin(Math.PI*x),2); L.ph=L.a>1e-4?3:0; L.st=0;}
+      else L.ph=0;
+      var c=capU[t].cl; c[0]=L.a; c[1]=L.b; c[2]=L.osc; c[3]=L.ph; capU[t].cx[0]=L.sw; capU[t].cx[1]=L.lead;});
+    cap.fl=fl; bhxU.uF.value=fl;
+    var L0=capL[cap.go[0]], LL=capL[cap.go[cap.go.length-1]], outS=L0.t0+L0.ti+L0.g*0.6, endL=LL.t0+LL.ti+LL.g+LL.to;
+    capToast(tc<outS?1:tc<endL-0.9?2:3);
     if(tc>=cap.dur) capEnd(false);}
-  function capPose(c,i){var b=i*3, ox=sP[b],oy=sP[b+1],oz=sP[b+2], tl=cap.clk-c.off, u=clamp(tl/c.T,0,1), C=capCv, P=c.P, rl=Math.hypot(ox,oz)||1, ex=ox/rl, ez=oz/rl, s, k;
-    c.sz=1; c.spag=0; c.tail=0;
-    function epi(A){var ph=c.dir*(tl*6+tl*tl*9); P[0]=ox+A*(Math.cos(ph)*ex-0.5*Math.sin(ph*1.3)*ez); P[1]=oy+A*0.85*Math.sin(ph); P[2]=oz+A*(Math.cos(ph)*ez+0.5*Math.sin(ph*1.3)*ex);}
-    if(u<CA){var w=sstep(u/CA); epi(0.17*w*w); c.tail=1-w;}
-    else if(u<CB){s=(u-CA)/(CB-CA);
-      if(!c.took){epi(0.17); for(k=0;k<3;k++){c.Ps[k]=P[k]; c.o3[k]=P[k]-sP[b+k];}
-        var d0=[c.Ps[0]-C[0],c.Ps[1]-C[1],c.Ps[2]-C[2]]; c.r0=Math.hypot(d0[0],d0[1],d0[2])||1; for(k=0;k<3;k++) c.e1[k]=d0[k]/c.r0;
-        var n0=[0.25*cap.side,1,0.3], e1=c.e1, x2=n0[1]*e1[2]-n0[2]*e1[1], y2=n0[2]*e1[0]-n0[0]*e1[2], z2=n0[0]*e1[1]-n0[1]*e1[0], l2=Math.hypot(x2,y2,z2);
-        if(l2<1e-3){x2=0;y2=0;z2=1;l2=1;} c.e2[0]=x2/l2;c.e2[1]=y2/l2;c.e2[2]=z2/l2;
-        c.N[0]=e1[1]*c.e2[2]-e1[2]*c.e2[1]; c.N[1]=e1[2]*c.e2[0]-e1[0]*c.e2[2]; c.N[2]=e1[0]*c.e2[1]-e1[1]*c.e2[0]; c.took=true;}
-      var fb=1-sstep(s/0.3), r=c.r0*(1-Math.pow(s,2.3)), th=c.dir*c.turns*6.2832*Math.pow(s,1.8), cs=Math.cos(th), sn=Math.sin(th), bl=c.r0*0.18*Math.sin(Math.PI*s)*(1-s);
-      for(k=0;k<3;k++) P[k]=C[k]+r*(cs*c.e1[k]+sn*c.e2[k])+bl*c.N[k]+(sP[b+k]+c.o3[k]-c.Ps[k])*fb;
-      c.spag=sstep((s-0.35)/0.65); c.sz=(1-0.55*c.spag)*(1-sstep((s-0.86)/0.14)); if(s>0.97&&c.fin<0) c.fin=tl;}
-    else if(u<CC){P[0]=C[0];P[1]=C[1];P[2]=C[2]; c.sz=0; if(c.fin<0) c.fin=tl;}
-    else if(u<CD){s=(u-CC)/(CD-CC); if(c.fout<0) c.fout=tl;
-      var D=Math.hypot(ox-C[0],oy-C[1],oz-C[2]), h00=2*s*s*s-3*s*s+1, h10=s*s*s-2*s*s+s, h01=-2*s*s*s+3*s*s, sb=sP;
-      for(k=0;k<3;k++) P[k]=h00*C[k]+h10*(-c.dir*1.6*c.e2[k]+0.6*c.N[k])*D+h01*sb[b+k];
-      c.sz=sstep(s/0.3); c.spag=0.6*(1-sstep(s/0.45));}
-    else{s=(u-CD)/(1-CD); var am=0.12*(1-s)*(1-s)*Math.sin(4*Math.PI*s); P[0]=ox+am*ex; P[1]=oy+am*0.6; P[2]=oz+am*ez; c.tail=sstep(s);}
-    c.fl=Math.max(c.fin<0?0:capFl(tl-c.fin),c.fout<0?0:capFl(tl-c.fout));
-    sP[b]=P[0]; sP[b+1]=P[1]; sP[b+2]=P[2];}
-  function capRing(t){var cw=cap.on&&cap.mode==='all'&&(op.t<0||t===op.t)?cap.wk:0;
-    if(cw<=0){if(cap.rd){tierG[t].position.set(0,tierY(t),0); tiltG[t].rotation.x=0;} return 1;}
-    var q=tsc(t), sh=1-0.94*cw; tierG[t].scale.set(cfg.sx*q*sh,1,cfg.sz*q*sh); tierG[t].position.set(capCv[0]*cw,tierY(t)+(capCv[1]-tierY(t))*cw,capCv[2]*cw);
-    spinG[t].rotation.y=yaw+cap.spin; tiltG[t].rotation.x=0.35*cw*Math.sin(cap.clk*2.6+t*1.3); return 1-0.55*cw;}
-  function capDust(t){return cap.on&&cap.mode==='all'&&(op.t<0||t===op.t)?1-0.97*cap.wk:1;}   // dust sprites don't shrink with the ring: fade them
-  var HOT=[1,0.72,0.38];
-  function capDraw(){if(!cap.on){ctMesh.visible=false; cfP.visible=false; return;}
-    var n=0, cp=ctg.attributes.position.array, cc=ctg.attributes.aC.array, fx=0, SZ=cfg.size;
-    cap.list.forEach(function(c){fx=Math.max(fx,c.fl); if(!c.h||n>=CMAX) return; var q0=n++, h=c.h, i=c.i, k;
-      if(c.hn===0||cap.clk-c.ht>=0.022){h.copyWithin(3,0,(CK-1)*3); c.hn=Math.min(CK,c.hn+1); c.ht=cap.clk;} h[0]=c.P[0];h[1]=c.P[1];h[2]=c.P[2];
-      var u=(cap.clk-c.off)/c.T, ta=(u<CA?sstep(u/CA):u<CD?1:1-sstep((u-CD)/(1-CD)))*c.av, col=TC[clamp(grp[i],0,4)], base=dia[i]*SZ*0.42*(1+2.4*c.spag), hm=0.55*c.spag;
-      for(k=0;k<CK;k++){var ka=Math.min(k,c.hn-1)*3, kb=Math.max(0,Math.min(k-1,c.hn-1))*3, kc=Math.min(k+1,c.hn-1)*3, f=k/(CK-1), q=(q0*CK+k)*6,
-          tx=h[kb]-h[kc], ty_=h[kb+1]-h[kc+1], tz=h[kb+2]-h[kc+2], vx=camP.x-h[ka], vy=camP.y-h[ka+1], vz=camP.z-h[ka+2],
-          cx=ty_*vz-tz*vy, cy2=tz*vx-tx*vz, cz=tx*vy-ty_*vx, ln=Math.sqrt(cx*cx+cy2*cy2+cz*cz), hw=ln>1e-9&&k<c.hn?base*Math.pow(1-f,0.9)/ln:0, fa=Math.pow(1-f,1.3)*0.95*ta;
-        cp[q]=h[ka]+cx*hw;cp[q+1]=h[ka+1]+cy2*hw;cp[q+2]=h[ka+2]+cz*hw;cp[q+3]=h[ka]-cx*hw;cp[q+4]=h[ka+1]-cy2*hw;cp[q+5]=h[ka+2]-cz*hw;
-        for(var j=0;j<3;j++){var cv_=(col[j]+(HOT[j]-col[j])*hm)*fa; cc[q+j]=cc[q+3+j]=cv_;}}});
-    for(var r=n;r<CMAX;r++){for(var z=r*CK*6;z<(r+1)*CK*6;z++){cp[z]=0;cc[z]=0;}}
-    ctg.attributes.position.needsUpdate=ctg.attributes.aC.needsUpdate=true; ctg.setDrawRange(0,n*(CK-1)*6); ctMesh.visible=n>0;
-    var big=cap.mode==='all', fp=cfg2.attributes; fp.position.array[0]=capCv[0]; fp.position.array[1]=capCv[1]; fp.position.array[2]=capCv[2];
-    var fi=big?0.45:1; fp.aS.array[0]=(0.5+2.6*(1-fx))*(big?1.3:1)*(0.3+0.7*fx); fp.aC.array[0]=1.3*fx*fi; fp.aC.array[1]=1.0*fx*fi; fp.aC.array[2]=0.7*fx*fi;
-    fp.position.needsUpdate=fp.aS.needsUpdate=fp.aC.needsUpdate=true; cfP.visible=fx>0.01;}
+  // per frame (from placeCam, camera already placed): hole H at the chosen screen side, exit E just off the opposite edge, lens + quad uniforms
+  function capGeo(ty0){if(!cap.on) return;
+    var A=cap.A, tv=Math.tan(cam.fov*Math.PI/360), asp=W/H, p=cam.position, fx=-p.x, fy=ty0-p.y, fz=-p.z, fl=Math.sqrt(fx*fx+fy*fy+fz*fz); fx/=fl; fy/=fl; fz/=fl;
+    var rl=Math.hypot(fz,fx)||1, rx=-fz/rl, rz=fx/rl, ux=-rz*fy, uy=rz*fx-rx*fz, uz=rx*fy;
+    function at(nx,ny,o){var a=nx*tv*asp, b=ny*tv; o.set(p.x+(fx+rx*a+ux*b)*fl, p.y+(fy+uy*b)*fl, p.z+(fz+rz*a+uz*b)*fl);}
+    var rs0=clamp(Math.min(W*0.12,H*0.115),30,84), rs=rs0*(0.3+0.7*sstep(A)); cap.rs=rs;
+    cap.cx=cap.side>0?W-1.5*rs0:1.5*rs0; cap.cy=H*0.4;
+    var ny=1-cap.cy/H*2; at(cap.cx/W*2-1,ny,CH); at(-cap.side*1.3,ny-0.08,CE);
+    CX.set(p.x-CH.x,p.y-CH.y,p.z-CH.z).normalize();
+    var R1=R*1.3*Math.max(cfg.sx,cfg.sz)*(op.t>=0?Math.max(1,op.E):1)+3.3*cfg.sy;
+    CG[0]=cap.sw*cap.side; CG[1]=Math.hypot(CH.x,CH.y-ty0,CH.z)+R1; CG[2]=Math.hypot(CE.x,CE.y-ty0,CE.z)+R1; CG[3]=Math.max(1e-3,rs*2*fl*tv/H);
+    cap.tE=1.42*rs; cap.lz=A;
+    var LZ=U.uLens.value; LZ[0]=cap.cx*PR; LZ[1]=(H-cap.cy)*PR; LZ[2]=cap.tE*PR; LZ[3]=cap.lz;
+    var q=bhxU.uBQ.value; q[0]=LZ[0]; q[1]=LZ[1]; q[2]=rs*PR; q[3]=5.4; bhxU.uPx.value=1/(rs*PR); bhxU.uA.value=A; bhxU.uSd.value=cap.side; bhxU.uHQ.value=cap.hq?1:0; bhx.visible=A>0.003;}
   // ---------------------------------------------------------------- frame
   var v=new THREE.Vector3(), w2=new THREE.Vector3(), vis=true, last=performance.now(), frames=0;
-  function project(){var sc=H/(2*Math.tan(cam.fov*Math.PI/360)), mv=cam.matrixWorldInverse, cd=camD;
+  function project(){var sc=H/(2*Math.tan(cam.fov*Math.PI/360)), mv=cam.matrixWorldInverse, cd=camD, lz=cap.on?cap.lz:0, lx=cap.cx, ly=cap.cy, tE=cap.tE;
     for(var i=0;i<Mact;i++){v.set(sP[i*3],sP[i*3+1],sP[i*3+2]); w2.copy(v).applyMatrix4(mv); sdep[i]=clamp((-w2.z-cd)/-R,-1.2,1.2);
-      v.project(cam); sx[i]=(v.x*0.5+0.5)*W; sy[i]=(-v.y*0.5+0.5)*H; sr[i]=sS[i]*0.435*2.3*sc/(-w2.z)/2*1.15;}}
+      v.project(cam); sx[i]=(v.x*0.5+0.5)*W; sy[i]=(-v.y*0.5+0.5)*H; sr[i]=sS[i]*0.435*2.3*sc/(-w2.z)/2*1.15;
+      if(lz>0){var dx=sx[i]-lx, dy=sy[i]-ly, b=Math.sqrt(dx*dx+dy*dy)+1e-3, th=0.5*(b+Math.sqrt(b*b+4*tE*tE)), nb=b+(th-b)*lz*(1-sstep((b-4*tE)/(7*tE))); sx[i]=lx+dx*nb/b; sy[i]=ly+dy*nb/b;}}}
   // SOLO: push overlapping ticker tags apart vertically (a few relaxation passes, capped so each tag stays next to its planet)
   function nudge(L){var h=18, cap=20+8*(cfg.vs-1), n=L.length; if(n<2) return; L.sort(function(a,b){return a.y-b.y;});
     for(var pass=0;pass<12;pass++){var moved=false;
@@ -891,7 +920,7 @@ function init(D,THREE){
       for(var j=0;j<n;j++){var Q=L[j]; Q.y=clamp(Q.y,Q.y0-cap,Q.y0+cap);} L.sort(function(a,b){return a.y-b.y;}); if(!moved) break;}}
   function overlay(){var tl=cfg.tilt*Math.PI/180;
     TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)';
-      var lo=(op.t<0||t===op.t?1:1-op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35)*(cap.on&&cap.mode==='all'?1-0.9*cap.wk:1); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
+      var lo=(op.t<0||t===op.t?1:1-op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35)*capLab(t); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
     var show={}, cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null;
     if(cl) cl.forEach(function(t){show[byT[t]]=1;});
     else if(rp.on&&RP){var d=curDay(),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
@@ -902,13 +931,11 @@ function init(D,THREE){
     for(var sj in show){if(!orbOn(grp[+sj])) delete show[sj];}
     if(sel>=0&&orbOn(grp[sel])) show[sel]=1;
     if(hov>=0&&ea[hov]>0.5) show[hov]=1;
-    if(cap.on&&cap.mode==='one') cap.list.forEach(function(c){if(orbOn(grp[c.i])&&(op.t<0||grp[c.i]===op.t)) show[c.i]=1;});
     for(var k in tags){if(!show[k]){tags[k].style.opacity='0'; tags[k].classList.remove('hov');}}
     var solo=op.t>=0&&op.k>0.3&&!rp.on, LB=solo?[]:null;
     for(k in show){var i2=+k,e=tag(i2),fr=sdep[i2]; e.classList.toggle('cl',!!cl); e.classList.toggle('hov',i2===hov); e.style.setProperty('--c',tcss(grp[i2]));
       var inSolo=solo&&grp[i2]===op.t;
-      var cpj=cap.on?capOf[i2]:-1; e.classList.toggle('cap',cpj>=0&&cap.mode==='one');
-      e.style.opacity=String(al[i2]<0.05||(cpj>=0&&cap.mode==='all'&&cap.list[cpj].sz<0.05)?0:(cpj>=0&&cap.mode==='one')?(cap.list[cpj].sz<0.05?0.9:1):(i2===sel||i2===hov||inSolo?Math.min(1,al[i2]*1.5)*(inSolo?Math.min(1,op.k*1.4):1):clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
+      e.style.opacity=String((al[i2]<0.05?0:(i2===sel||i2===hov||inSolo?Math.min(1,al[i2]*1.5)*(inSolo?Math.min(1,op.k*1.4):1):clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)))*(cap.on?capVis[i2]:1));
       var tx=sx[i2]+sr[i2]*0.75+2, ty2=sy[i2]-sr[i2]*0.75-12;
       if(inSolo){var tw_=info[i2].t.length*6.6+11; LB.push({e:e,i:i2,x:clamp(tx,2,W-tw_-2),y:ty2,y0:ty2,w:tw_});} else e.style.transform='translate('+tx.toFixed(0)+'px,'+ty2.toFixed(0)+'px)';}
     if(LB){nudge(LB); LB.forEach(function(L){var pv=L.e._oy==null?L.y-L.y0:L.e._oy, oy=pv+((L.y-L.y0)-pv)*0.35; L.e._oy=oy;
@@ -943,7 +970,7 @@ function init(D,THREE){
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
-    focus:function(t){openFocus(t);}, cap:function(){return {on:cap.on,mode:cap.mode,clk:cap.clk,dur:cap.dur,wait:cap.wait,next:cap.next,wk:cap.wk,g:cap.g,C:[capCv[0],capCv[1],capCv[2]],list:cap.list.map(function(c){return {t:info[c.i].t,u:clamp((cap.clk-c.off)/c.T,0,1),sz:c.sz,spag:c.spag,fl:c.fl};})};}, capNow:function(m,n){return capTrigger(true,m||'one',n);}, capStop:function(){capAbort();}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    focus:function(t){openFocus(t);}, cap:function(){return {on:cap.on,mode:cap.mode,clk:cap.clk,dur:cap.dur,wait:cap.wait,next:cap.next,A:cap.A,side:cap.side,hq:cap.hq,go:cap.go.slice(),C:[cap.cx,cap.cy,cap.rs],fl:cap.fl,toast:cap.toast,layers:capL.map(function(L){return {ph:L.ph,a:L.a,b:L.b,osc:L.osc,on:L.on,tug:L.tug,t0:L.t0,ti:L.ti,g:L.g,to:L.to};})};}, capNow:function(m){return capTrigger(true,m==='full'||m==='all'?'full':'part');}, capStop:function(){capAbort();}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},

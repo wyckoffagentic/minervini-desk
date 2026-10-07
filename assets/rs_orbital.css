@@ -329,3 +329,6 @@
 #rso .sn-now{border-color:rgba(255,90,216,.65);background:linear-gradient(180deg,rgba(60,0,50,.55),rgba(20,0,18,.4));color:#ffd6f5;box-shadow:0 0 14px -6px #ff2bd6}
 #rso .cap-now.busy,#rso .sn-now.busy{opacity:.55;pointer-events:none}
 #rso .cap-ft{color:#c9dbec}
+/* ---- BLACK HOLE EVENTS rework (7 Oct 2026 PM): restored toast ---- */
+#rso .rso-toast.ok{border-color:#5af0ff;background:linear-gradient(180deg,rgba(0,34,44,.9),rgba(0,10,16,.88));box-shadow:0 0 22px -3px #00e5ff,inset 0 0 12px -6px #00e5ff;text-shadow:0 0 6px rgba(0,229,255,.7);color:#eafcff}
+#rso .rso-toast.ok b{color:#c8fbff}
