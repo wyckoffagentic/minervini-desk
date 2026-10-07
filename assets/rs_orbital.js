@@ -12,6 +12,9 @@
            and its planets stay (every other ring, planet, dust and label hidden). Clear: ALL / SHOW ALL / Esc / tap the same ring button or label.
            V-STRETCH slider (1-8x, continuous) spreads the solo orbit's planets vertically by rank (best at the top) + nudges overlapping tags apart.
            cfg.vs (stretch) + cfg.solo (last solo orbit) persist in localStorage ('rso.cfg.v1') and are restored on load.
+   CAPTURE EVENTS (7 Oct 2026): every ~45-90 s (HUD: RARE / NORMAL / CHAOS, on/off, TRIGGER NOW) a planet wobbles, spirals into the BLACK HOLE
+           (same bhG visuals), is held, slingshots out and eases back into its exact orbit slot (1 in 5: 2-3 planets of one orbit). Engine is mode-based:
+           mode 'all' = SUPERNOVA (1 in 10 + its own button): every shown planet and ring collapses into the hole and re-forms. cfg.capOn / cfg.capFreq persist.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
 (function(){
 'use strict';
@@ -43,7 +46,7 @@ function newOrbs(){return [0,1,2,3,4].map(function(){return {on:ORB0.on,ring:ORB
 var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
   sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
   tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2,
-  orb:newOrbs(),bhAuto:true,bhMin:3,bhMax:8,vs:1,solo:-1};
+  orb:newOrbs(),bhAuto:true,bhMin:3,bhMax:8,vs:1,solo:-1,capOn:true,capFreq:'normal'};
 var KEY='rso.cfg.v1';
 function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';
     if(Array.isArray(s.orb)&&s.orb.length===5){c.orb=s.orb.map(function(o){return {on:o&&o.on!==false,ring:o&&o.ring!==false,ringOp:clamp(+(o&&o.ringOp!=null?o.ringOp:1),0,1),size:clamp(+(o&&o.size!=null?o.size:1),0.3,3)};});}
@@ -53,7 +56,8 @@ function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(lo
   c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4);
   c.vs=clamp(+c.vs||1,1,8); c.solo=Math.round(+c.solo); if(!(c.solo>=0&&c.solo<=4)) c.solo=-1;
   c.bhMin=clamp(c.bhMin||3,1,30); c.bhMax=clamp(Math.max(c.bhMax||8,c.bhMin),c.bhMin,60);
-  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) c.bhAuto=false;
+  if(['rare','normal','chaos'].indexOf(c.capFreq)<0) c.capFreq='normal';
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){c.bhAuto=false; c.capOn=false;}
   return c;}
 var saveT=0; function saveCfg(cfg){clearTimeout(saveT);saveT=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}},250);}
 
@@ -320,6 +324,8 @@ function init(D,THREE){
       var rfUse=rf[i], angUse=ang[i];
       if(foc&&tI===op.t){var rsV=i<N?info[i].rs:(rp.on?Math.round(Math.exp(gq.lk||0)):50); rfUse=rf[i]+(rsFrac(rsV,tI)-rf[i])*op.k; angUse=ang[i]+(hash(info[i].t+'f')-0.5)*0.35*op.k;}
       ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP); sP[i*3+1]+=yo;
+      var cj=cap.on?capOf[i]:-1, ctm=1;   // CAPTURE event: override the displayed pose (orbit state untouched -> exact return)
+      if(cj>=0){var cc=cap.list[cj]; capPose(cc,i); cc.av=aMul; sz*=cc.sz; a*=cap.mode==='all'?1-0.35*cc.spag:1+0.5*cc.spag; ctm=cc.tail; if(cc.sz<0.3) ea[i]=0;}
       // black-hole warp: spiral + stretch toward the BH, then restore (positions are computed from live state so exit is exact)
       if(bhk>0.001){var bx=bh.x,by=bh.y,bz=bh.z, px=sP[i*3],py=sP[i*3+1],pz=sP[i*3+2], dx=px-bx,dy=py-by,dz=pz-bz, dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+1e-4;
         var pull=sstep(bhk)*clamp(1.15-dist/14,0,1); var swirl=bhk*bhk*2.4*(0.4+0.6*pull);
@@ -327,14 +333,14 @@ function init(D,THREE){
         var rx=dx*cs-dz*sn, rz=dx*sn+dz*cs; var inward=1-pull*0.92*bhk;
         sP[i*3]=bx+rx*inward; sP[i*3+1]=by+dy*inward*(1-0.35*pull*bhk)+Math.sin(swirl*1.7)*0.15*pull; sP[i*3+2]=bz+rz*inward;
         sz*=1+pull*bhk*(1.8+1.6*Math.sin(swirl*3)); a*=1-0.55*pull*bhk;}
-      sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=fl[i];
+      sS[i]=sz; sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sF[i]=cj>=0?Math.max(fl[i],cap.list[cj].spag*(cap.mode==='all'?0.2:0.8)):fl[i];
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
       // TAILS: live = arc behind the sphere along its orbit (length ~ orbit speed); replay = the same arc + the glide path it just drifted along
       if(tOn){var tcol=tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
         var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=grp[i]===0?0.8:1;
-        for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
+        for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0*ctm;
           if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
           tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
         if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
@@ -352,6 +358,7 @@ function init(D,THREE){
           var pc=TC[st.g]; pC[o3]=pc[0]*fa3;pC[o3+1]=pc[1]*fa3;pC[o3+2]=pc[2]*fa3;pC[o3+3]=pc[0]*fa3*0.9;pC[o3+4]=pc[1]*fa3*0.9;pC[o3+5]=pc[2]*fa3*0.9; s++;}
         for(;s<PK;s++){var o4=base+s*6; for(var z=0;z<6;z++){pP[o4+z]=0;pC[o4+z]=0;}}}
     }
+    capDraw();
     var tr=tOn&&!solid, rb=tOn&&solid; tPts.visible=tr; rMesh.visible=rb;
     sg.setDrawRange(0,Mact); tg.setDrawRange(0,tr?Mact*K:0); rg.setDrawRange(0,rb?Mact*(K-1)*6:0); pg.setDrawRange(0,Mact*PS); bg2.setDrawRange(0,Mact);
     [sg,bg2].forEach(function(g){for(var k in g.attributes) g.attributes[k].needsUpdate=true;});
@@ -423,9 +430,9 @@ function init(D,THREE){
     if(k>0){var f=fitOpen(); d+=(f.d*zoom-d)*k; cy+=(f.y-cy)*k; pt+=(pitchOpen()-pt)*k;}
     camD=d; cam.position.set(0,cy+d*Math.sin(pt),d*Math.cos(pt)); cam.lookAt(0,cy,0);
     retic.quaternion.copy(cam.quaternion); for(var t=0;t<spinG.length;t++){spinG[t].rotation.y=yaw; var q=tsc(t); tierG[t].scale.set(cfg.sx*q,1,cfg.sz*q);
-      var od=(op.t<0||t===op.t?1:1-op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k;
-      ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15);}
-    stars.rotation.y=yaw*0.25;}
+      var od=(op.t<0||t===op.t?1:1-op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k; ro*=capRing(t);
+      ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15)*capDust(t);}
+    cap.rd=cap.on&&cap.mode==='all'&&cap.wk>0; stars.rotation.y=yaw*0.25;}
   function resize(){var r=stage.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
     renderer.setSize(W,H,false); cam.fov=cfg.fov; cam.aspect=W/H; cam.updateProjectionMatrix(); fit();
     U.uScale.value=H*PR/(2*Math.tan(cam.fov*Math.PI/360)); need();}
@@ -503,7 +510,12 @@ function init(D,THREE){
   function orbitsHTML(){var h='<div class="orb-note">Per ring: stocks on/off · ring fade · planet size · FOCUS lays them out by RS</div>';
     for(var t=0;t<5;t++){var o=cfg.orb[t]; h+='<div class="orb-row" data-ot="'+t+'" style="--c:'+cfg.c[t]+'">'+'<div class="orb-hd"><b style="color:'+cfg.c[t]+'">'+esc(shortLab(t))+'</b>'+'<button type="button" class="orb-tog'+(o.on?' on':'')+'" data-orb="on" aria-pressed="'+o.on+'">STOCKS</button>'+'<button type="button" class="orb-tog'+(o.ring?' on':'')+'" data-orb="ring" aria-pressed="'+o.ring+'">RING</button>'+'<button type="button" class="orb-foc'+(op.t===t&&op.focus?' on':'')+'" data-foc="'+t+'">FOCUS</button></div>'+'<label class="orb-s"><span>RING FADE</span><output data-oo="ringOp">'+(o.ringOp*100|0)+'%</output>'+'<input type="range" data-orb="ringOp" min="0" max="1" step="0.01" value="'+o.ringOp+'"'+(o.ring?'':' disabled')+'></label>'+'<label class="orb-s"><span>PLANET SIZE</span><output data-oo="size">'+(+o.size).toFixed(2)+'×</output>'+'<input type="range" data-orb="size" min="0.3" max="3" step="0.01" value="'+o.size+'"></label></div>';}
     h+='<div class="orb-acts"><button type="button" class="orb-all" data-all="on">ALL ON</button><button type="button" class="orb-all" data-all="off">ALL OFF</button><button type="button" class="orb-all" data-all="solo" title="Leave only the focused / first-on orbit">SOLO FOCUS</button></div>'; return h;}
-  function bhHTML(){return '<button type="button" class="bh-now">🕳 BLACK HOLE NOW</button>'+'<label class="ck row"><input type="checkbox" data-k="bhAuto"'+(cfg.bhAuto?' checked':'')+'><span>AUTO (every few min)</span></label>'+'<label class="dr-s"><span>AUTO EVERY · MIN</span><output data-o="bhMin">'+cfg.bhMin+'-'+cfg.bhMax+'m</output>'+'<input type="range" data-k="bhSpan" min="2" max="20" step="1" value="'+Math.round((cfg.bhMin+cfg.bhMax)/2)+'"></label>'+'<div class="bh-ft">Wild 8–12s ride · then exact restore · off when reduced-motion</div>';}
+  function bhHTML(){return '<button type="button" class="bh-now">🕳 BLACK HOLE NOW</button>'+'<label class="ck row"><input type="checkbox" data-k="bhAuto"'+(cfg.bhAuto?' checked':'')+'><span>AUTO (every few min)</span></label>'+'<label class="dr-s"><span>AUTO EVERY · MIN</span><output data-o="bhMin">'+cfg.bhMin+'-'+cfg.bhMax+'m</output>'+'<input type="range" data-k="bhSpan" min="2" max="20" step="1" value="'+Math.round((cfg.bhMin+cfg.bhMax)/2)+'"></label>'+'<div class="bh-ft">Wild 8–12s ride · then exact restore · off when reduced-motion</div>'+
+    '<div class="dr-sub">CAPTURE EVENTS · a planet spins out, falls in, escapes</div>'+
+    '<label class="ck row"><input type="checkbox" data-k="capOn"'+(cfg.capOn?' checked':'')+'><span>CAPTURE EVENTS</span></label>'+
+    '<div class="dr-seg cap-f" role="group" aria-label="Capture event frequency" data-grp="capFreq">'+[['rare','RARE'],['normal','NORMAL'],['chaos','CHAOS']].map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg.capFreq===o[0])+'" class="'+(cfg.capFreq===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>'+
+    '<div class="cap-acts"><button type="button" class="cap-now">☄ TRIGGER NOW</button><button type="button" class="sn-now">💥 SUPERNOVA</button></div>'+
+    '<div class="bh-ft cap-ft">RARE 2–4 min · NORMAL 45–90 s · CHAOS 12–25 s · 1 in 5 takes 2–3 planets · 1 in 10 is a SUPERNOVA (whole system) · paused in replay, with a planet box open or while dragging</div>';}
   function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
   function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
     '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
@@ -533,11 +545,12 @@ function init(D,THREE){
       row.querySelectorAll('[data-orb]').forEach(function(el){var k=el.getAttribute('data-orb'); if(el.tagName==='BUTTON'){el.classList.toggle('on',!!o[k]); el.setAttribute('aria-pressed',String(!!o[k]));} else if(el.type==='range'){el.value=String(o[k]); el.disabled=k==='ringOp'&&!o.ring;}});
       var fo=row.querySelector('.orb-foc'); if(fo) fo.classList.toggle('on',op.t===t&&op.focus&&op.target>0);});}
   function bhSync(){var el=dr.querySelector('[data-k=bhAuto]'); if(el) el.checked=!!cfg.bhAuto; var o=dr.querySelector('output[data-o=bhMin]'); if(o) o.textContent=cfg.bhMin+'-'+cfg.bhMax+'m';
-    var sl=dr.querySelector('[data-k=bhSpan]'); if(sl) sl.value=String(Math.round((cfg.bhMin+cfg.bhMax)/2)); var bn=dr.querySelector('.bh-now'); if(bn) bn.classList.toggle('busy',bh.on);}
+    var sl=dr.querySelector('[data-k=bhSpan]'); if(sl) sl.value=String(Math.round((cfg.bhMin+cfg.bhMax)/2)); var bn=dr.querySelector('.bh-now'); if(bn) bn.classList.toggle('busy',bh.on);
+    if(typeof cap!=='undefined'&&cap) capSync();}
   dr.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;
     if(b.classList.contains('dr-x')){openDr(false);return;}
     var tv=b.getAttribute('data-tv'); if(tv){var gp=b.parentNode.getAttribute('data-grp'); cfg[gp]=tv; snd('click',cfg); segSync(); applyCfg(false); return;}
-    if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) cfg.bhAuto=false; if(op.focus) closeTier(); drHTML(); applyCfg(true); bh.arm(); return;}
+    if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){cfg.bhAuto=false; cfg.capOn=false;} if(op.focus) closeTier(); drHTML(); applyCfg(true); bh.arm(); return;}
     var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.tMode=P.tMode; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true); return;}
     var ok=b.getAttribute('data-orb'), row=b.closest('.orb-row');
     if(ok&&row){var t=+row.getAttribute('data-ot'); cfg.orb[t][ok]=!cfg.orb[t][ok]; snd('tog',cfg); applyCfg(true); orbSync(); return;}
@@ -545,6 +558,7 @@ function init(D,THREE){
     var all=b.getAttribute('data-all'); if(all==='on'){cfg.orb.forEach(function(o){o.on=true;}); applyCfg(true); orbSync(); return;}
     if(all==='off'){cfg.orb.forEach(function(o){o.on=false;}); applyCfg(true); orbSync(); return;}
     if(all==='solo'){var keep=op.t>=0?op.t:cfg.orb.findIndex(function(o){return o.on;}); if(keep<0) keep=0; cfg.orb.forEach(function(o,i){o.on=i===keep;}); if(!(op.t===keep&&op.focus)) openFocus(keep); applyCfg(true); orbSync(); openDr(false); return;}
+    if(b.classList.contains('cap-now')||b.classList.contains('sn-now')){if(capTrigger(true,b.classList.contains('sn-now')?'all':'one')) openDr(false); return;}
     if(b.classList.contains('bh-now')){snd('play',cfg); bh.trigger(); bhSync(); return;}
   });
   ['pointerdown','touchstart','wheel'].forEach(function(ev){dr.addEventListener(ev,function(e){e.stopPropagation();},{passive:true});});
@@ -597,7 +611,7 @@ function init(D,THREE){
     else if(mode==='jump'){gJump(nd); rp.gday=nd;}
     else if(nd!==rp.gday){gRetarget(mode,dayFn(nd)); rp.gday=nd;}
     if(nd!==rp.lastDay){rp.lastDay=nd; rpReadout(); if(sel>=0) fillCo();} need();}
-  function rpStart(){if(op.t>=0){closeTier(); opDone();} rp.on=true; rp.done=false; rp.sumP=false; rp.events=[]; winRange(); rp.p=rp.d0; rp.lastDay=rp.d0; rp.play=true; Mact=N+RP.nx; sumC.classList.remove('on');
+  function rpStart(){capAbort(); if(op.t>=0){closeTier(); opDone();} rp.on=true; rp.done=false; rp.sumP=false; rp.events=[]; winRange(); rp.p=rp.d0; rp.lastDay=rp.d0; rp.play=true; Mact=N+RP.nx; sumC.classList.remove('on');
     for(var i=N;i<Mact;i++){al[i]=0;} firstRanks(); gJump(rp.d0); rpHTML(); var sc=rpBar.querySelector('.rp-scrub input'); sc.min=String(rp.d0); sc.max=String(rp.d1); sc.value=String(rp.p);
     rpBar.querySelector('.rp-ends .a').textContent=RP.dates[rp.d0]; rpBar.querySelector('.rp-ends .b').textContent=RP.dates[rp.d1];
     pSeg.visible=rp.paths; rpBar.hidden=false; tm.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; root.classList.add('replay'); rpB.classList.add('on'); rpB.setAttribute('aria-pressed','true');
@@ -677,7 +691,7 @@ function init(D,THREE){
     if(b.classList.contains('tp-more')){var t=op.t, a=shownN; shownN=Math.min(TL[t].length,shownN+150); b.insertAdjacentHTML('beforebegin',rowsHTML(t,a,shownN)); var m2=more(t); if(m2) b.insertAdjacentHTML('beforebegin',m2); b.remove(); return;}
     var i=b.getAttribute('data-i'); if(i!=null){i=+i; render(0); select(i); try{stage.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(_){} }});
   tp.addEventListener('input',function(e){if(e.target.type==='range') setE(+e.target.value);});
-  function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false);
+  function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false); if(cap.on&&(cap.mode==='all'||cap.g!==t)) capAbort();
     if(sel>=0&&grp[sel]!==t) select(-1);
     if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; cfg.solo=t; saveCfg(cfg); root.classList.add('solo'); op.focus=!!asFocus; op.E=asFocus?Math.max(op.E,1.85):op.E; if(RM) op.k=1; snd('sel',cfg);
     if(asFocus){cfg.orb.forEach(function(o,i){/* keep user's on-flags; focus dims others in upd */}); fillTPFocus(t);} else fillTP(t);
@@ -724,9 +738,9 @@ function init(D,THREE){
       S[i]=0.09+Math.random()*0.14; Ph[i]=Math.random()*6.28; var hot=Math.random(); C[i*3]=0.85+0.15*hot; C[i*3+1]=0.35+0.55*hot; C[i*3+2]=0.05+0.35*(1-hot);}
     var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('aS',new THREE.BufferAttribute(S,1));
     g.setAttribute('aC',new THREE.BufferAttribute(C,3)); g.setAttribute('aPh',new THREE.BufferAttribute(Ph,1));
-    var m=mat('attribute float aS;attribute vec3 aC;attribute float aPh;uniform float uTime;uniform float uScale;uniform float uK;varying vec3 vC;'+'void main(){float an=aPh+uTime*(0.9+aPh*0.4);vec3 p=position; float r=length(p.xz); p.xz=vec2(cos(an)*r,sin(an)*r);'+      'vec4 mv=modelViewMatrix*vec4(p,1.0);gl_PointSize=max(2.0,aS*(1.4+3.5*uK)*uScale/(-mv.z));vC=aC*(0.7+0.6*uK);gl_Position=projectionMatrix*mv;}',
-      'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*2.8),1.0);}',{uK:{value:0}});
-    var pts=new THREE.Points(g,m); pts.frustumCulled=false; bhG.add(pts); bh.acc=pts; bh.uK=m.uniforms.uK;
+    var m=mat('attribute float aS;attribute vec3 aC;attribute float aPh;uniform float uTime;uniform float uScale;uniform float uK;uniform float uPS;varying vec3 vC;'+'void main(){float an=aPh+uTime*(0.9+aPh*0.4);vec3 p=position; float r=length(p.xz); p.xz=vec2(cos(an)*r,sin(an)*r);'+      'vec4 mv=modelViewMatrix*vec4(p,1.0);gl_PointSize=max(2.0*uPS,aS*(1.4+3.5*uK)*uPS*uScale/(-mv.z));vC=aC*(0.7+0.6*uK);gl_Position=projectionMatrix*mv;}',
+      'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;gl_FragColor=vec4(vC*exp(-r*2.8),1.0);}',{uK:{value:0},uPS:{value:1}});
+    var pts=new THREE.Points(g,m); pts.frustumCulled=false; bhG.add(pts); bh.acc=pts; bh.uK=m.uniforms.uK; bh.uPS=m.uniforms.uPS;   /* uPS: sprite scale, 1 for the ride, = group scale for CAPTURE */
     var hm=mat('varying vec2 vU;void main(){vU=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       'uniform float uK;varying vec2 vU;void main(){vec2 p=vU*2.0-1.0;float r=length(p);if(r>1.0)discard; float core=smoothstep(0.55,0.0,r); float rim=exp(-pow((r-0.72)/0.08,2.0))*1.2*uK; float lens=exp(-pow((r-0.9)/0.05,2.0))*0.7*uK;'+      'vec3 col=vec3(0.0)+vec3(1.0,0.55,0.15)*rim+vec3(0.6,0.85,1.0)*lens; gl_FragColor=vec4(col,1.0)*step(0.001,core+rim+lens);}',{uK:{value:0}},THREE.AdditiveBlending);
     var disc=new THREE.Mesh(new THREE.PlaneGeometry(4.4,4.4),hm); disc.rotation.x=-Math.PI/2; disc.renderOrder=8; bhG.add(disc); bh.disc=disc; bh.dU=hm.uniforms.uK;
@@ -736,7 +750,7 @@ function init(D,THREE){
     if(bh.acc) bh.acc.renderOrder=7;})();
   function bhArm(){if(!cfg.bhAuto||RM){bh.next=1e18; return;} var lo=cfg.bhMin*60, hi=cfg.bhMax*60; bh.next=tNow+lo+Math.random()*Math.max(1,hi-lo);}
   bh.arm=bhArm;
-  function bhTrigger(){if(bh.on||RM) return; if(rp.on&&rp.play) rp.play=false;
+  function bhTrigger(){if(bh.on||RM) return; if(cap.on){cap.pendingRide=true; return;} if(rp.on&&rp.play) rp.play=false;
     bh.on=true; bh.t=0; bh.t0=performance.now(); bh.dur=8+Math.random()*4; bh.phase=0; bh.k=0;
     bh.yaw0=yaw; bh.pitch0=pitch; bh.zoom0=zoom; bh.cx=cyC;
     // drift in from a side
@@ -744,7 +758,7 @@ function init(D,THREE){
     bh.x1=0; bh.y1=cyC; bh.z1=0; bh.x=bh.x0; bh.y=bh.y0; bh.z=bh.z0;
     bhG.visible=true; root.classList.add('bhole'); snd('end',cfg); need();}
   bh.trigger=bhTrigger;
-  function bhStep(dt){if(!bh.on){if(cfg.bhAuto&&!RM&&tNow>=bh.next) bhTrigger(); return;}
+  function bhStep(dt){if(!bh.on){if(cfg.bhAuto&&!RM&&tNow>=bh.next&&!cap.on) bhTrigger(); return;}
     // wall-clock so the ride always lasts 8–12s even when the tab is at 10fps
     bh.t=(performance.now()-bh.t0)/1000; var u=clamp(bh.t/bh.dur,0,1);
     // phases: 0-0.22 drift in, 0.22-0.55 pull+swirl, 0.55-0.72 dive, 0.72-1 restore
@@ -762,6 +776,108 @@ function init(D,THREE){
     if(u>=1){bh.on=false; bh.k=0; bhG.visible=false; yaw=bh.yaw0; pitch=bh.pitch0; zoom=bh.zoom0; cam.fov=cfg.fov; cam.updateProjectionMatrix();
       root.classList.remove('bhole'); bh.arm(); bhSync(); need();}}
   bhArm();
+  // ---------------------------------------------------------------- CAPTURE EVENTS (7 Oct 2026) + SUPERNOVA (mode 'all')
+  //   Per captured sphere, phases of u = (clock - stagger) / T:  A wobble + spin-up  ->  B accelerating spiral into the hole (spaghettified, trail)
+  //   -> C held inside (hole pulses)  ->  D Hermite slingshot from the hole to the LIVE orbit pose (zero end velocity)  ->  E damped settle.
+  //   Every frame starts from the sphere's normal orbit pose (sP from W3), so nothing about its orbit / RS data is modified and the exit is exact.
+  //   A future event type only needs: a candidate list + mode in capTrigger(), and (optionally) a ring transform in capRing().
+  var CAPF={rare:[120,240],normal:[45,90],chaos:[12,25]}, CMAX=3, CK=36, CA=0.15, CB=0.45, CC=0.58, CD=0.86;
+  var cap={on:false,mode:'one',clk:0,dur:10,wait:0,next:60,list:[],g:0,side:1,key:'',pendingRide:false,toast:0,wk:0,spin:0,rd:false},
+      capOf=new Int16Array(M).fill(-1), capCv=new Float32Array(3);
+  function F3(){return new Float32Array(3);}
+  // trail ribbons (own geometry, shares the TAILS ribbon material) + one event-horizon flash sprite
+  var CTV=CMAX*CK*2, ctg=new THREE.BufferGeometry(); ctg.setAttribute('position',buf(CTV,3)); ctg.setAttribute('aC',buf(CTV,3));
+  (function(){var V=new Float32Array(CTV),I=new Uint16Array(CMAX*(CK-1)*6),n=0; for(var j=0;j<CTV;j++) V[j]=(j%2)?-1:1;
+    for(var q=0;q<CMAX;q++){for(var k=0;k<CK-1;k++){var a=(q*CK+k)*2; I[n++]=a;I[n++]=a+1;I[n++]=a+2;I[n++]=a+1;I[n++]=a+3;I[n++]=a+2;}}
+    ctg.setAttribute('aV',new THREE.BufferAttribute(V,1)); ctg.setIndex(new THREE.BufferAttribute(I,1));})();
+  var ctMesh=new THREE.Mesh(ctg,rMesh.material); ctMesh.frustumCulled=false; ctMesh.visible=false; ctMesh.renderOrder=6; scene.add(ctMesh);
+  var cfg2=new THREE.BufferGeometry(); cfg2.setAttribute('position',buf(1,3)); cfg2.setAttribute('aS',buf(1,1)); cfg2.setAttribute('aC',buf(1,3));
+  var cfP=new THREE.Points(cfg2,mat('attribute float aS;attribute vec3 aC;uniform float uScale;varying vec3 vC;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=aS*uScale/(-mv.z);vC=aC;gl_Position=projectionMatrix*mv;}',
+    'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=length(p);if(r>1.0)discard;float g=exp(-r*r*7.0)*1.2+exp(-pow((r-0.62)/0.07,2.0))*0.9+exp(-r*2.6)*0.25;gl_FragColor=vec4(vC*g*(1.0-r*r),1.0);}'));
+  cfP.frustumCulled=false; cfP.visible=false; cfP.renderOrder=10; scene.add(cfP);
+  var capT=document.createElement('div'); capT.className='rso-toast'; capT.setAttribute('role','status'); capT.setAttribute('aria-live','polite'); stage.appendChild(capT);
+  function capToast(n){if(n===cap.toast) return; cap.toast=n; if(!n){capT.classList.remove('on'); return;}
+    var nm=cap.list.slice(0,3).map(function(c){return esc(info[c.i].t);}), who=nm.length<2?nm[0]:nm.slice(0,-1).join(', ')+' &amp; '+nm[nm.length-1];
+    capT.classList.toggle('sn',cap.mode==='all');
+    capT.innerHTML=cap.mode==='all'?(n===1?'<b>💥 SUPERNOVA</b> · the whole system got sucked into the black hole…':'…and it <b>re-formed!</b>'):
+      (n===1?'<b>'+who+'</b> got sucked into the black hole…':'…and <b>escaped!</b>');
+    capT.classList.add('on');}
+  function capC(o){if(cap.mode==='all'){o[0]=0; o[1]=op.t>=0?tierY(op.t)-0.6:tierY(2); o[2]=R*cfg.sz*0.35; return o;}
+    var t=cap.g, k=op.t>=0?tsc(t):1; o[0]=cap.side*R*cfg.sx*0.5*k; o[1]=tierY(t)-0.95*Math.max(0.6,cfg.sy); o[2]=R*cfg.sz*0.5*k; return o;}
+  function capArm(){var f=CAPF[cfg.capFreq]||CAPF.normal; cap.wait=0; cap.next=f[0]+Math.random()*(f[1]-f[0]);}
+  function capSync(){var el=dr.querySelector('[data-k=capOn]'); if(el) el.checked=!!cfg.capOn; var key=cfg.capOn+'|'+cfg.capFreq; if(key!==cap.key){cap.key=key; capArm();}
+    dr.querySelectorAll('.cap-now,.sn-now').forEach(function(b){b.classList.toggle('busy',cap.on);});}
+  function capCands(){var C=[]; for(var i=0;i<N;i++){if(ea[i]>0.5&&orbOn(grp[i])&&(op.t<0||grp[i]===op.t)&&i!==sel) C.push(i);} return C;}
+  function capTrigger(manual,mode,nf){if(cap.on||rp.on||bh.on||(op.t>=0&&op.target===0)) return false;
+    if(manual&&sel>=0) select(-1);
+    var C=capCands(); if(!C.length){capArm(); return false;}
+    mode=mode||(Math.random()<0.1?'all':'one'); var i0=C[Math.floor(Math.random()*C.length)], L, T, stag;
+    if(mode==='all'){L=C; T=9.6+Math.random()*1.2; stag=1.1;}
+    else{L=[i0]; if(nf>1||(!nf&&Math.random()<0.2)){var same=C.filter(function(x){return grp[x]===grp[i0]&&x!==i0;}), n=nf>1?nf-1:Math.random()<0.5?1:2; while(n-->0&&same.length) L.push(same.splice(Math.floor(Math.random()*same.length),1)[0]);}
+      T=8+Math.random()*(L.length>1?2.8:4); stag=0.45;}
+    cap.mode=mode; cap.g=grp[i0]; cap.side=Math.random()<0.5?-1:1; cap.clk=0; cap.wk=0; cap.spin=0; capToast(0);
+    cap.list=L.map(function(i,j){return {i:i,off:mode==='all'?Math.random()*stag:j*stag,T:T,dir:Math.random()<0.5?-1:1,turns:1.4+Math.random()*0.9,
+      Ps:F3(),o3:F3(),e1:F3(),e2:F3(),N:F3(),r0:1,took:false,P:F3(),h:j<CMAX?new Float32Array(CK*3):null,hn:0,ht:-1,sz:1,spag:0,tail:1,av:1,fin:-1,fout:-1,fl:0};});
+    cap.dur=0; cap.list.forEach(function(c){cap.dur=Math.max(cap.dur,c.off+c.T);});
+    capOf.fill(-1); cap.list.forEach(function(c,j){capOf[c.i]=j;}); cap.on=true; capC(capCv); snd('play',cfg); capSync(); need(); return true;}
+  function capEnd(abort){cap.on=false; if(bh.uPS) bh.uPS.value=1; capOf.fill(-1); cap.list=[]; cap.wk=0; cap.spin=0; if(!bh.on) bhG.visible=false; ctMesh.visible=false; cfP.visible=false; capToast(0); capArm(); capSync(); need();
+    if(cap.pendingRide){cap.pendingRide=false; if(!abort) bhTrigger();}}
+  function capAbort(){if(cap.on) capEnd(true);}
+  function capFl(x){return x<0?0:Math.exp(-x*3.2)*Math.min(1,x*30+0.35);}
+  function capStep(dt){
+    if(!cap.on){if(cfg.capOn&&!RM&&!rp.on&&sel<0&&np===0&&!bh.on&&!frozen&&!(op.t>=0&&op.k>0&&op.k<1)){cap.wait+=dt; if(cap.wait>=cap.next) capTrigger(false);} return;}
+    busyF=true; if(sel<0&&np===0) cap.clk+=dt;               // paused while a planet box is open or the camera is being dragged
+    capC(capCv);
+    var tc=cap.clk, big=cap.mode==='all', bk=sstep(tc/1.3)*(1-sstep((tc-(cap.dur-1.5))/1.5)), hold=0, fx=0, L0=cap.list[0];
+    cap.list.forEach(function(c){var u=(tc-c.off)/c.T; if(u>=CB&&u<CC) hold=1; fx=Math.max(fx,c.fl);});
+    if(big&&L0){var uN=(tc-0.55)/L0.T; cap.wk=uN<CA?0:uN<CB?sstep((uN-CA)/(CB-CA)):uN<CC?1:uN<CD?1-sstep((uN-CC)/(CD-CC)):0; cap.spin=12.566*sstep(clamp((uN-CA)/(CD-CA),0,1));}
+    var sc=(big?0.75:0.55)*(0.2+0.8*bk)*(1+0.09*hold*Math.sin(tc*14)+0.2*fx);
+    bhG.visible=bk>0.002; bhG.position.set(capCv[0],capCv[1],capCv[2]); bhG.scale.setScalar(sc); bhG.rotation.y+=dt*(0.8+1.2*bk+2*hold);
+    var kk=0.45*bk+0.3*hold*(0.5+0.5*Math.sin(tc*9))+(big?0.35:0.8)*fx; if(bh.uK) bh.uK.value=kk; if(bh.dU) bh.dU.value=kk; if(bh.uPS) bh.uPS.value=Math.max(0.05,sc*0.9);
+    if(L0){var u0=(tc-L0.off)/L0.T; capToast(u0>=CA*0.7&&u0<CC?1:u0>=CC&&tc<cap.dur-0.4?2:0);}
+    if(tc>=cap.dur) capEnd(false);}
+  function capPose(c,i){var b=i*3, ox=sP[b],oy=sP[b+1],oz=sP[b+2], tl=cap.clk-c.off, u=clamp(tl/c.T,0,1), C=capCv, P=c.P, rl=Math.hypot(ox,oz)||1, ex=ox/rl, ez=oz/rl, s, k;
+    c.sz=1; c.spag=0; c.tail=0;
+    function epi(A){var ph=c.dir*(tl*6+tl*tl*9); P[0]=ox+A*(Math.cos(ph)*ex-0.5*Math.sin(ph*1.3)*ez); P[1]=oy+A*0.85*Math.sin(ph); P[2]=oz+A*(Math.cos(ph)*ez+0.5*Math.sin(ph*1.3)*ex);}
+    if(u<CA){var w=sstep(u/CA); epi(0.17*w*w); c.tail=1-w;}
+    else if(u<CB){s=(u-CA)/(CB-CA);
+      if(!c.took){epi(0.17); for(k=0;k<3;k++){c.Ps[k]=P[k]; c.o3[k]=P[k]-sP[b+k];}
+        var d0=[c.Ps[0]-C[0],c.Ps[1]-C[1],c.Ps[2]-C[2]]; c.r0=Math.hypot(d0[0],d0[1],d0[2])||1; for(k=0;k<3;k++) c.e1[k]=d0[k]/c.r0;
+        var n0=[0.25*cap.side,1,0.3], e1=c.e1, x2=n0[1]*e1[2]-n0[2]*e1[1], y2=n0[2]*e1[0]-n0[0]*e1[2], z2=n0[0]*e1[1]-n0[1]*e1[0], l2=Math.hypot(x2,y2,z2);
+        if(l2<1e-3){x2=0;y2=0;z2=1;l2=1;} c.e2[0]=x2/l2;c.e2[1]=y2/l2;c.e2[2]=z2/l2;
+        c.N[0]=e1[1]*c.e2[2]-e1[2]*c.e2[1]; c.N[1]=e1[2]*c.e2[0]-e1[0]*c.e2[2]; c.N[2]=e1[0]*c.e2[1]-e1[1]*c.e2[0]; c.took=true;}
+      var fb=1-sstep(s/0.3), r=c.r0*(1-Math.pow(s,2.3)), th=c.dir*c.turns*6.2832*Math.pow(s,1.8), cs=Math.cos(th), sn=Math.sin(th), bl=c.r0*0.18*Math.sin(Math.PI*s)*(1-s);
+      for(k=0;k<3;k++) P[k]=C[k]+r*(cs*c.e1[k]+sn*c.e2[k])+bl*c.N[k]+(sP[b+k]+c.o3[k]-c.Ps[k])*fb;
+      c.spag=sstep((s-0.35)/0.65); c.sz=(1-0.55*c.spag)*(1-sstep((s-0.86)/0.14)); if(s>0.97&&c.fin<0) c.fin=tl;}
+    else if(u<CC){P[0]=C[0];P[1]=C[1];P[2]=C[2]; c.sz=0; if(c.fin<0) c.fin=tl;}
+    else if(u<CD){s=(u-CC)/(CD-CC); if(c.fout<0) c.fout=tl;
+      var D=Math.hypot(ox-C[0],oy-C[1],oz-C[2]), h00=2*s*s*s-3*s*s+1, h10=s*s*s-2*s*s+s, h01=-2*s*s*s+3*s*s, sb=sP;
+      for(k=0;k<3;k++) P[k]=h00*C[k]+h10*(-c.dir*1.6*c.e2[k]+0.6*c.N[k])*D+h01*sb[b+k];
+      c.sz=sstep(s/0.3); c.spag=0.6*(1-sstep(s/0.45));}
+    else{s=(u-CD)/(1-CD); var am=0.12*(1-s)*(1-s)*Math.sin(4*Math.PI*s); P[0]=ox+am*ex; P[1]=oy+am*0.6; P[2]=oz+am*ez; c.tail=sstep(s);}
+    c.fl=Math.max(c.fin<0?0:capFl(tl-c.fin),c.fout<0?0:capFl(tl-c.fout));
+    sP[b]=P[0]; sP[b+1]=P[1]; sP[b+2]=P[2];}
+  function capRing(t){var cw=cap.on&&cap.mode==='all'&&(op.t<0||t===op.t)?cap.wk:0;
+    if(cw<=0){if(cap.rd){tierG[t].position.set(0,tierY(t),0); tiltG[t].rotation.x=0;} return 1;}
+    var q=tsc(t), sh=1-0.94*cw; tierG[t].scale.set(cfg.sx*q*sh,1,cfg.sz*q*sh); tierG[t].position.set(capCv[0]*cw,tierY(t)+(capCv[1]-tierY(t))*cw,capCv[2]*cw);
+    spinG[t].rotation.y=yaw+cap.spin; tiltG[t].rotation.x=0.35*cw*Math.sin(cap.clk*2.6+t*1.3); return 1-0.55*cw;}
+  function capDust(t){return cap.on&&cap.mode==='all'&&(op.t<0||t===op.t)?1-0.97*cap.wk:1;}   // dust sprites don't shrink with the ring: fade them
+  var HOT=[1,0.72,0.38];
+  function capDraw(){if(!cap.on){ctMesh.visible=false; cfP.visible=false; return;}
+    var n=0, cp=ctg.attributes.position.array, cc=ctg.attributes.aC.array, fx=0, SZ=cfg.size;
+    cap.list.forEach(function(c){fx=Math.max(fx,c.fl); if(!c.h||n>=CMAX) return; var q0=n++, h=c.h, i=c.i, k;
+      if(c.hn===0||cap.clk-c.ht>=0.022){h.copyWithin(3,0,(CK-1)*3); c.hn=Math.min(CK,c.hn+1); c.ht=cap.clk;} h[0]=c.P[0];h[1]=c.P[1];h[2]=c.P[2];
+      var u=(cap.clk-c.off)/c.T, ta=(u<CA?sstep(u/CA):u<CD?1:1-sstep((u-CD)/(1-CD)))*c.av, col=TC[clamp(grp[i],0,4)], base=dia[i]*SZ*0.42*(1+2.4*c.spag), hm=0.55*c.spag;
+      for(k=0;k<CK;k++){var ka=Math.min(k,c.hn-1)*3, kb=Math.max(0,Math.min(k-1,c.hn-1))*3, kc=Math.min(k+1,c.hn-1)*3, f=k/(CK-1), q=(q0*CK+k)*6,
+          tx=h[kb]-h[kc], ty_=h[kb+1]-h[kc+1], tz=h[kb+2]-h[kc+2], vx=camP.x-h[ka], vy=camP.y-h[ka+1], vz=camP.z-h[ka+2],
+          cx=ty_*vz-tz*vy, cy2=tz*vx-tx*vz, cz=tx*vy-ty_*vx, ln=Math.sqrt(cx*cx+cy2*cy2+cz*cz), hw=ln>1e-9&&k<c.hn?base*Math.pow(1-f,0.9)/ln:0, fa=Math.pow(1-f,1.3)*0.95*ta;
+        cp[q]=h[ka]+cx*hw;cp[q+1]=h[ka+1]+cy2*hw;cp[q+2]=h[ka+2]+cz*hw;cp[q+3]=h[ka]-cx*hw;cp[q+4]=h[ka+1]-cy2*hw;cp[q+5]=h[ka+2]-cz*hw;
+        for(var j=0;j<3;j++){var cv_=(col[j]+(HOT[j]-col[j])*hm)*fa; cc[q+j]=cc[q+3+j]=cv_;}}});
+    for(var r=n;r<CMAX;r++){for(var z=r*CK*6;z<(r+1)*CK*6;z++){cp[z]=0;cc[z]=0;}}
+    ctg.attributes.position.needsUpdate=ctg.attributes.aC.needsUpdate=true; ctg.setDrawRange(0,n*(CK-1)*6); ctMesh.visible=n>0;
+    var big=cap.mode==='all', fp=cfg2.attributes; fp.position.array[0]=capCv[0]; fp.position.array[1]=capCv[1]; fp.position.array[2]=capCv[2];
+    var fi=big?0.45:1; fp.aS.array[0]=(0.5+2.6*(1-fx))*(big?1.3:1)*(0.3+0.7*fx); fp.aC.array[0]=1.3*fx*fi; fp.aC.array[1]=1.0*fx*fi; fp.aC.array[2]=0.7*fx*fi;
+    fp.position.needsUpdate=fp.aS.needsUpdate=fp.aC.needsUpdate=true; cfP.visible=fx>0.01;}
   // ---------------------------------------------------------------- frame
   var v=new THREE.Vector3(), w2=new THREE.Vector3(), vis=true, last=performance.now(), frames=0;
   function project(){var sc=H/(2*Math.tan(cam.fov*Math.PI/360)), mv=cam.matrixWorldInverse, cd=camD;
@@ -775,7 +891,7 @@ function init(D,THREE){
       for(var j=0;j<n;j++){var Q=L[j]; Q.y=clamp(Q.y,Q.y0-cap,Q.y0+cap);} L.sort(function(a,b){return a.y-b.y;}); if(!moved) break;}}
   function overlay(){var tl=cfg.tilt*Math.PI/180;
     TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)';
-      var lo=(op.t<0||t===op.t?1:1-op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
+      var lo=(op.t<0||t===op.t?1:1-op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35)*(cap.on&&cap.mode==='all'?1-0.9*cap.wk:1); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
     var show={}, cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null;
     if(cl) cl.forEach(function(t){show[byT[t]]=1;});
     else if(rp.on&&RP){var d=curDay(),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
@@ -786,11 +902,13 @@ function init(D,THREE){
     for(var sj in show){if(!orbOn(grp[+sj])) delete show[sj];}
     if(sel>=0&&orbOn(grp[sel])) show[sel]=1;
     if(hov>=0&&ea[hov]>0.5) show[hov]=1;
+    if(cap.on&&cap.mode==='one') cap.list.forEach(function(c){if(orbOn(grp[c.i])&&(op.t<0||grp[c.i]===op.t)) show[c.i]=1;});
     for(var k in tags){if(!show[k]){tags[k].style.opacity='0'; tags[k].classList.remove('hov');}}
     var solo=op.t>=0&&op.k>0.3&&!rp.on, LB=solo?[]:null;
     for(k in show){var i2=+k,e=tag(i2),fr=sdep[i2]; e.classList.toggle('cl',!!cl); e.classList.toggle('hov',i2===hov); e.style.setProperty('--c',tcss(grp[i2]));
       var inSolo=solo&&grp[i2]===op.t;
-      e.style.opacity=String(al[i2]<0.05?0:(i2===sel||i2===hov||inSolo?Math.min(1,al[i2]*1.5)*(inSolo?Math.min(1,op.k*1.4):1):clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
+      var cpj=cap.on?capOf[i2]:-1; e.classList.toggle('cap',cpj>=0&&cap.mode==='one');
+      e.style.opacity=String(al[i2]<0.05||(cpj>=0&&cap.mode==='all'&&cap.list[cpj].sz<0.05)?0:(cpj>=0&&cap.mode==='one')?(cap.list[cpj].sz<0.05?0.9:1):(i2===sel||i2===hov||inSolo?Math.min(1,al[i2]*1.5)*(inSolo?Math.min(1,op.k*1.4):1):clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
       var tx=sx[i2]+sr[i2]*0.75+2, ty2=sy[i2]-sr[i2]*0.75-12;
       if(inSolo){var tw_=info[i2].t.length*6.6+11; LB.push({e:e,i:i2,x:clamp(tx,2,W-tw_-2),y:ty2,y0:ty2,w:tw_});} else e.style.transform='translate('+tx.toFixed(0)+'px,'+ty2.toFixed(0)+'px)';}
     if(LB){nudge(LB); LB.forEach(function(L){var pv=L.e._oy==null?L.y-L.y0:L.e._oy, oy=pv+((L.y-L.y0)-pv)*0.35; L.e._oy=oy;
@@ -801,7 +919,7 @@ function init(D,THREE){
   function render(dt){busyF=false;
     if(op.t>=0){var ok=op.k; op.k=RM?op.target:op.k+(op.target-op.k)*Math.min(1,dt*3.2); if(Math.abs(op.k-op.target)<0.02) op.k=op.target; if(op.target===0&&op.pre) zoom+=(op.pre.zoom-zoom)*Math.min(1,dt*4); if(op.k===0&&op.target===0){opDone(); labelsState();} if(op.k!==ok){need(); busyF=true;}}
     // BH runs in real time (ignores FREEZE / SIM SPEED) so the ride always finishes cleanly
-    bhStep(dt);
+    bhStep(dt); capStep(dt);
     var gS=frozen||bh.on?0:cfg.gspd, dS=dt*gS;
     if(rp.on&&rp.play&&dS>0){var np2=rp.p+dS*rp.spd/cfg.glide; if(np2>=rp.d1){rpSeek(rp.d1,'play'); rp.play=false; rp.done=true; rp.sumP=true; rpReadout();} else rpSeek(np2,'play');}
     if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();}}
@@ -815,7 +933,7 @@ function init(D,THREE){
     else{for(var j=0;j<Mact;j++){if(fl[j]>0) fl[j]=0;}}
     placeCam(); upd(dt); renderer.render(scene,cam); project(); overlay(); dirty=false; frames++;}
   function loop(now){requestAnimationFrame(loop); var dt=Math.min(0.05,(now-last)/1000); last=now;
-    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)&&!bh.on) return; if(frozen&&!RM&&!dirty&&!busyF&&!bh.on) return; render(dt);}
+    if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)&&!bh.on&&!cap.on) return; if(frozen&&!RM&&!dirty&&!busyF&&!bh.on&&!cap.on) return; render(dt);}
   if('IntersectionObserver' in window){new IntersectionObserver(function(en){vis=en[0].isIntersecting; if(vis) need();},{rootMargin:'80px'}).observe(stage);}
   if('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize',resize);
   applyCfg(true); render(0);
@@ -825,7 +943,7 @@ function init(D,THREE){
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
-    focus:function(t){openFocus(t);}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    focus:function(t){openFocus(t);}, cap:function(){return {on:cap.on,mode:cap.mode,clk:cap.clk,dur:cap.dur,wait:cap.wait,next:cap.next,wk:cap.wk,g:cap.g,C:[capCv[0],capCv[1],capCv[2]],list:cap.list.map(function(c){return {t:info[c.i].t,u:clamp((cap.clk-c.off)/c.T,0,1),sz:c.sz,spag:c.spag,fl:c.fl};})};}, capNow:function(m,n){return capTrigger(true,m||'one',n);}, capStop:function(){capAbort();}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
