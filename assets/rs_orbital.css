@@ -277,3 +277,37 @@
 #rso.bhole .rso-hint{opacity:0}
 #rso.bhole .rso-cbar{opacity:.35;pointer-events:none}
 #rso.tierfocus .rso-leg{opacity:.45}
+/* ---- SOLO ORBIT bar + V-STRETCH (7 Oct 2026): pick one ring, hide the rest, stretch its planets apart vertically ---- */
+#rso .rso-solo{--c:var(--acc);margin:6px 8px 0;padding:8px 9px 7px;border:1px solid color-mix(in srgb,var(--c) 60%,transparent);border-radius:4px;
+ background:linear-gradient(180deg,rgba(2,14,26,.86),rgba(2,8,18,.74));box-shadow:0 0 16px -9px var(--c),inset 0 0 14px -10px var(--c);
+ font:500 10px/1.2 ui-monospace,'SF Mono',Menlo,monospace;color:#e6f6ff;letter-spacing:.8px;transition:border-color .25s,box-shadow .25s}
+#rso .rso-solo.act{box-shadow:0 0 20px -6px var(--c),inset 0 0 16px -9px var(--c)}
+#rso .so-r1{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 1px 6px}
+#rso .so-lb{font-weight:700;font-size:10.5px;letter-spacing:2px;color:#fff;text-shadow:0 0 6px var(--c);flex:none}
+#rso .so-st{font-size:9.5px;letter-spacing:1px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+#rso .rso-solo.act .so-st{color:var(--c);text-shadow:0 0 6px color-mix(in srgb,var(--c) 70%,transparent);font-weight:700}
+#rso .so-btns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+#rso .so-btns button{--c:var(--acc);min-height:40px;padding:6px 2px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 70%,transparent);
+ background:rgba(3,10,24,.7);color:#f2fbff;font-size:10.5px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:clip;
+ box-shadow:0 0 10px -5px var(--c),inset 0 0 8px -6px var(--c);touch-action:manipulation;transition:background .15s,box-shadow .15s}
+#rso .so-btns button.all{--c:#00e5ff}
+#rso .so-btns button:hover{box-shadow:0 0 12px -2px var(--c),inset 0 0 8px -4px var(--c)}
+#rso .so-btns button.on{background:linear-gradient(180deg,color-mix(in srgb,var(--c) 55%,transparent),color-mix(in srgb,var(--c) 30%,rgba(0,0,0,.4)));
+ color:#fff;border-color:var(--c);text-shadow:0 0 6px #000,0 0 8px var(--c);box-shadow:0 0 14px -1px var(--c),inset 0 0 6px rgba(255,255,255,.3)}
+#rso .so-btns button:focus-visible{outline:1px dashed #fff;outline-offset:2px}
+#rso .so-vs{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin-top:6px}
+#rso .so-vs span{font-weight:700;font-size:10px;letter-spacing:1.4px;color:#fff;white-space:nowrap}
+#rso .so-vs output{font-size:12px;font-weight:700;color:#fff;min-width:52px;text-align:right;font-variant-numeric:tabular-nums;text-shadow:0 0 6px var(--c)}
+#rso .so-vs input[type=range]{--acc:var(--c);-webkit-appearance:none;appearance:none;width:100%;height:40px;background:transparent;margin:0;touch-action:pan-y;cursor:pointer}
+#rso .so-vs input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--c),rgba(255,255,255,.55))}
+#rso .so-vs input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--c),rgba(255,255,255,.55))}
+#rso .so-vs input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-11px;border-radius:50%;background:radial-gradient(circle,#fff 0 22%,#03101c 26%);
+ border:2px solid var(--c);box-shadow:0 0 12px 0 var(--c)}
+#rso .so-vs input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#03101c;border:2px solid var(--c);box-shadow:0 0 12px 0 var(--c)}
+#rso .so-hint{margin:3px 1px 0;font-size:9.5px;line-height:1.4;color:#d7ebfa;letter-spacing:.3px}
+#rso.replay .rso-solo{display:none}
+#rso.solo .rso-tag{font-size:10px;padding:2px 4px;background:rgba(3,6,18,.78)}
+#rso .rso-tag.hov{z-index:2;background:color-mix(in srgb,var(--c) 40%,rgba(3,6,18,.9));box-shadow:0 0 10px 1px var(--c);opacity:1!important}
+#rso.solo .rso-tl.open{text-shadow:0 0 8px var(--c),0 0 2px #000,0 1px 2px #000}
+@media (max-width:420px){#rso .so-btns button{font-size:9.5px;letter-spacing:0}#rso .so-r1{flex-wrap:wrap}#rso .so-st{text-align:left;flex-basis:100%}}
+#rso.solo .rso-stage{height:clamp(470px,76vh,760px)}

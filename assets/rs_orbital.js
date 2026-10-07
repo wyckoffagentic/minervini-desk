@@ -8,6 +8,10 @@
            SIM SPEED bar: 0.25-4x + FREEZE. Replay glides: eased Hermite (TRANSITION slider) with arc + overlap.
    Replay: real sessions only (whatever rating_history.json covers at build time), scrub / play / step, Top-50 entry/exit flashes,
            path trails, end-of-window summary.  Touch: drag = rotate, pinch = zoom, tap = select.
+   SOLO ORBIT (7 Oct 2026): bar under the stage (ALL + one button per ring), tap a ring line / its label, or long-press a ring -> only that orbit
+           and its planets stay (every other ring, planet, dust and label hidden). Clear: ALL / SHOW ALL / Esc / tap the same ring button or label.
+           V-STRETCH slider (1-8x, continuous) spreads the solo orbit's planets vertically by rank (best at the top) + nudges overlapping tags apart.
+           cfg.vs (stretch) + cfg.solo (last solo orbit) persist in localStorage ('rso.cfg.v1') and are restored on load.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
 (function(){
 'use strict';
@@ -39,7 +43,7 @@ function newOrbs(){return [0,1,2,3,4].map(function(){return {on:ORB0.on,ring:ORB
 var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
   sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
   tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2,
-  orb:newOrbs(),bhAuto:true,bhMin:3,bhMax:8};
+  orb:newOrbs(),bhAuto:true,bhMin:3,bhMax:8,vs:1,solo:-1};
 var KEY='rso.cfg.v1';
 function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';
     if(Array.isArray(s.orb)&&s.orb.length===5){c.orb=s.orb.map(function(o){return {on:o&&o.on!==false,ring:o&&o.ring!==false,ringOp:clamp(+(o&&o.ringOp!=null?o.ringOp:1),0,1),size:clamp(+(o&&o.size!=null?o.size:1),0.3,3)};});}
@@ -47,6 +51,7 @@ function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(lo
   if(['ring','custom','delta'].indexOf(c.tMode)<0) c.tMode='ring'; if(['solid','dotted','sparkle'].indexOf(c.tStyle)<0) c.tStyle='solid';
   if(!Array.isArray(c.orb)||c.orb.length!==5) c.orb=newOrbs();
   c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4);
+  c.vs=clamp(+c.vs||1,1,8); c.solo=Math.round(+c.solo); if(!(c.solo>=0&&c.solo<=4)) c.solo=-1;
   c.bhMin=clamp(c.bhMin||3,1,30); c.bhMax=clamp(Math.max(c.bhMax||8,c.bhMin),c.bhMin,60);
   if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) c.bhAuto=false;
   return c;}
@@ -188,6 +193,11 @@ function init(D,THREE){
     jit[i]=(hash(s.t)-0.5)*0.05; grp[i]=s.g; ty[i]=s.g; rf[i]=rfrac(s.k,D.universe,s.g)+jit[i]; ang[i]=hash(s.t+'a')*6.2832;
     dia[i]=0.1+0.29*Math.max(0,1-Math.log(s.k)/lnU); al[i]=alT[i]=1; sm[i]=smT[i]=1;});
   var BASE=0.2;
+  // SOLO V-STRETCH: each live sphere gets a vertical slot in its ring, ordered by rank (best on top), -1..1
+  var vslot=new Float32Array(M);
+  function VSUf(){return 0.46*clamp(H/W,1,1.8);}   // world units per 1x of stretch; portrait phones get more (they have spare height)
+  (function(){for(var g=0;g<TIERS.length;g++){var L=[];for(var i=0;i<N;i++){if(S[i].g===g) L.push(i);} L.sort(function(a,b){return S[a].k-S[b].k;});
+    L.forEach(function(i,j){vslot[i]=L.length>1?1-2*j/(L.length-1):0;});}})();
   function omega(i){if(i>=N) return BASE*0.6; var m=info[i].m[wi]; return BASE*(m>=0?1+1.6*m:1+0.78*m);}
   for(var i0=0;i0<N;i0++){om[i0]=omT[i0]=omega(i0);}
   function buf(n,k){return new THREE.BufferAttribute(new Float32Array(n*k),k);}
@@ -239,6 +249,9 @@ function init(D,THREE){
   var op={t:-1,k:0,target:0,E:1.35,focus:false}, PITCH_O=0.8, ea=new Float32Array(M);
   var bh={on:false,k:0,phase:0,dur:10,t:0,x:0,y:0,z:0,next:1e18,arm:function(){},trigger:function(){}};
   function tsc(t){if(op.t<0) return 1; return t===op.t?1+(op.E-1)*op.k:1-0.55*op.k;}
+  function vsF(){return (cfg.vs-1)/7;}                       // 0..1 stretch fraction
+  function yOff(i,tI){return op.t>=0&&tI===op.t&&!rp.on&&i<N?vslot[i]*VSUf()*(cfg.vs-1)*sstep(op.k):0;}
+  function pitchOpen(){return PITCH_O-0.3*vsF();}             // lower the camera a little as the stretch grows
   function orbOn(t){t=clamp(t,0,4); return cfg.orb[t].on;}
   function rsFrac(rs,t){var lo=TIERS[t].lo,hi=TIERS[t].hi; return 0.55+0.85*clamp((rs-lo)/Math.max(1,hi-lo),0,1);}
   var cY=1,sY=0,cT=1,sT=0;
@@ -300,13 +313,13 @@ function init(D,THREE){
       if(rp.on){gEval(i,gu,gq); rf[i]=gq.rf; ty[i]=gq.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=clamp(Math.round(gq.ty),0,4);}
       var tI=clamp(Math.round(ty[i]),0,4), oOn=orbOn(tI), oSz=cfg.orb[tI].size;
       var c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI];
-      var aMul=(op.t<0||tI===op.t?1:1-0.93*op.k)*(oOn?1:0);
+      var aMul=(op.t<0||tI===op.t?1:1-op.k)*(oOn?1:0), yo=yOff(i,tI);
       if(foc&&tI!==op.t) aMul*=1-0.97*op.k;
       var a=al[i]*dm*aMul, sz=dia[i]*sm[i]*SZ*oSz*(i===sel?1.25:1)*(1+fl[i]*0.5);
       // focus: remap radius by RS score within the tier (high RS farther out)
       var rfUse=rf[i], angUse=ang[i];
       if(foc&&tI===op.t){var rsV=i<N?info[i].rs:(rp.on?Math.round(Math.exp(gq.lk||0)):50); rfUse=rf[i]+(rsFrac(rsV,tI)-rf[i])*op.k; angUse=ang[i]+(hash(info[i].t+'f')-0.5)*0.35*op.k;}
-      ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP);
+      ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP); sP[i*3+1]+=yo;
       // black-hole warp: spiral + stretch toward the BH, then restore (positions are computed from live state so exit is exact)
       if(bhk>0.001){var bx=bh.x,by=bh.y,bz=bh.z, px=sP[i*3],py=sP[i*3+1],pz=sP[i*3+2], dx=px-bx,dy=py-by,dz=pz-bz, dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+1e-4;
         var pull=sstep(bhk)*clamp(1.15-dist/14,0,1); var swirl=bhk*bhk*2.4*(0.4+0.6*pull);
@@ -322,7 +335,7 @@ function init(D,THREE){
       if(tOn){var tcol=tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
         var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=grp[i]===0?0.8:1;
         for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
-          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else W3(rf[i],ty[i],ang[i]-f*span,o,tP);
+          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
           tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
         if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
           for(k=0;k<K;k++){var o5=(i*K+k)*3,oa=(i*K+Math.max(0,k-1))*3,ob=(i*K+Math.min(K-1,k+1))*3,
@@ -402,15 +415,15 @@ function init(D,THREE){
   function fit(){var asp=W/H, vf=cfg.fov*Math.PI/180, hf=2*Math.atan(Math.tan(vf/2)*asp), tl=Math.abs(cfg.tilt*Math.PI/180);
     var halfW=R*1.18*Math.max(cfg.sx*Math.cos(tl),cfg.sz*0.75), top=coreY()+0.95+R*Math.sin(tl)*0.6, bot=tierY(4)-R*cfg.sz*Math.sin(pitch)*1.05-R*Math.sin(tl)-0.15, halfH=(top-bot)/2*Math.cos(pitch*0.35)+0.1; cyC=(top+bot)/2;
     dist=Math.max(halfW/Math.tan(hf/2)+R*cfg.sz*0.55*Math.cos(pitch), halfH/Math.tan(vf/2)+R*cfg.sz*0.35);}
-  function fitOpen(){var asp=W/H, vf=cfg.fov*Math.PI/180, hf=2*Math.atan(Math.tan(vf/2)*asp), E0=Math.min(op.E,1.45);
-    var halfW=R*1.1*E0*cfg.sx, hh=R*E0*cfg.sz*Math.sin(PITCH_O)+0.55;
-    return {d:Math.max(halfW/Math.tan(hf/2)+R*E0*cfg.sz*0.55*Math.cos(PITCH_O), hh/Math.tan(vf/2)+R*E0*cfg.sz*0.4), y:tierY(op.t)};}
+  function fitOpen(){var asp=W/H, vf=cfg.fov*Math.PI/180, hf=2*Math.atan(Math.tan(vf/2)*asp), E0=Math.min(op.E,1.45), po=pitchOpen();
+    var halfW=R*1.1*E0*cfg.sx, hh=R*E0*cfg.sz*Math.sin(po)+0.55+VSUf()*(cfg.vs-1)*Math.cos(po);
+    return {d:Math.max(halfW/Math.tan(hf/2)+R*E0*cfg.sz*0.55*Math.cos(po), hh/Math.tan(vf/2)+R*E0*cfg.sz*0.4), y:tierY(op.t)};}
   var camD=14;
   function placeCam(){var k=op.t>=0?sstep(op.k):0, d=dist*zoom, cy=cyC, pt=pitch;
-    if(k>0){var f=fitOpen(); d+=(f.d*zoom-d)*k; cy+=(f.y-cy)*k; pt+=(PITCH_O-pt)*k;}
+    if(k>0){var f=fitOpen(); d+=(f.d*zoom-d)*k; cy+=(f.y-cy)*k; pt+=(pitchOpen()-pt)*k;}
     camD=d; cam.position.set(0,cy+d*Math.sin(pt),d*Math.cos(pt)); cam.lookAt(0,cy,0);
     retic.quaternion.copy(cam.quaternion); for(var t=0;t<spinG.length;t++){spinG[t].rotation.y=yaw; var q=tsc(t); tierG[t].scale.set(cfg.sx*q,1,cfg.sz*q);
-      var od=(op.t<0||t===op.t?1:1-0.9*op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k;
+      var od=(op.t<0||t===op.t?1:1-op.k); var ro=cfg.orb[t].ring?cfg.orb[t].ringOp:0; if(bh.k>0) ro*=1-0.7*bh.k;
       ringMats[t].uniforms.uDim.value=TDIM[t]*(climb&&!rp.on?0.55:1)*od*ro; dustMats[t].uniforms.uDim.value=(climb&&!rp.on?0.35:(rp.on?0.55:1))*od*ro*(orbOn(t)?1:0.15);}
     stars.rotation.y=yaw*0.25;}
   function resize(){var r=stage.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
@@ -437,10 +450,18 @@ function init(D,THREE){
   stage.addEventListener('gesturestart',function(e){e.preventDefault();});
   cv.addEventListener('wheel',function(e){if(!e.ctrlKey) return; e.preventDefault(); zoom=clamp(zoom*(1+e.deltaY*0.01),0.5,1.7); need();},{passive:false});
   cv.setAttribute('tabindex','0');
-  cv.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){yaw-=0.15;need();}else if(e.key==='ArrowRight'){yaw+=0.15;need();}else if(e.key==='Escape'){if(sel>=0) select(-1); else if(op.t>=0) closeTier();} else if(e.key===' '||e.key==='f'){e.preventDefault(); setFreeze(!frozen);}});
-  function pick(x,y){var best=-1,bd=1e9;for(var i=0;i<Mact;i++){if(ea[i]<0.5) continue;var d=Math.hypot(sx[i]-x,sy[i]-y),lim=Math.max(sr[i]+9,15);
+  cv.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){yaw-=0.15;need();}else if(e.key==='ArrowRight'){yaw+=0.15;need();}else if(e.key===' '||e.key==='f'){e.preventDefault(); setFreeze(!frozen);}});
+  function hitAt(x,y){var best=-1,bd=1e9;for(var i=0;i<Mact;i++){if(ea[i]<0.5) continue;var d=Math.hypot(sx[i]-x,sy[i]-y),lim=Math.max(sr[i]+9,15);
       if(d<lim){var sc=d-sdep[i]*2-(sr[i]*0.3);if(sc<bd){bd=sc;best=i;}}}
+    return best;}
+  function pick(x,y){var best=hitAt(x,y);
+    // tap on a ring line (no planet hit, nothing selected, no orbit open) -> SOLO that orbit
+    if(best<0&&sel<0&&op.t<0&&!rp.on){var rt=ringAt(x,y,16); if(rt>=0){soloOrbit(rt); return;}}
     select(best===sel?-1:best);}
+  var hov=-1;
+  cv.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse'||np>0) return; var b=cv.getBoundingClientRect(), h=hitAt(e.clientX-b.left,e.clientY-b.top);
+    if(h!==hov){hov=h; cv.style.cursor=h>=0?'pointer':''; need();}});
+  cv.addEventListener('pointerleave',function(){if(hov>=0){hov=-1; cv.style.cursor=''; need();}});
 
   // ---------------------------------------------------------------- live toggles (1D/1W/4W, CLIMBERS)
   var segB=root.querySelectorAll('.rso-seg button'), clB=root.querySelector('.rso-climb'), clBox=root.querySelector('.rso-cls'), legW=root.querySelector('[data-win]'), ctl=root.querySelector('.rso-ctl');
@@ -497,7 +518,7 @@ function init(D,THREE){
     labels.forEach(function(e,t){e.style.setProperty('--c',cfg.c[t]);}); for(var k in tags) tags[k].style.setProperty('--c',tcss(grp[k]));
     root.style.setProperty('--acc',cfg.beam); root.style.setProperty('--bgc',cfg.bg);
     for(var t=0;t<5;t++) root.style.setProperty('--g'+t,cfg.c[t]);
-    cam.fov=cfg.fov; layoutFixed(); resize(); if(full) setTargets(); if(sel>=0) fillCo(); saveCfg(cfg); need();}
+    cam.fov=cfg.fov; layoutFixed(); resize(); if(full) setTargets(); if(sel>=0) fillCo(); if(typeof soSync==='function'&&sob) soSync(); saveCfg(cfg); need();}
   drHTML();
   dr.addEventListener('input',function(e){var el=e.target,k=el.getAttribute('data-k'),ci=el.getAttribute('data-col'),ok=el.getAttribute('data-orb'),row=el.closest('.orb-row');
     if(ok&&row){var t=+row.getAttribute('data-ot'); cfg.orb[t][ok]=+el.value; var o=row.querySelector('output[data-oo="'+ok+'"]'); if(o) o.textContent=ok==='ringOp'?(cfg.orb[t].ringOp*100|0)+'%':(+cfg.orb[t].size).toFixed(2)+'×'; applyCfg(false); return;}
@@ -626,15 +647,15 @@ function init(D,THREE){
   // ---------------------------------------------------------------- open a tier (tap its label / long-press its ring)
   var tSrc=root.getAttribute('data-tiers'), TL=null;
   var tp=document.createElement('div'); tp.className='rso-tp'; tp.hidden=true; stage.parentNode.insertBefore(tp,ctl);
-  var backB=document.createElement('button'); backB.type='button'; backB.className='rso-cb back'; backB.innerHTML='<i>◂</i>BACK'; backB.hidden=true; cb.insertBefore(backB,hudB);
+  var backB=document.createElement('button'); backB.type='button'; backB.className='rso-cb back'; backB.innerHTML='<i>✕</i>SHOW ALL'; backB.setAttribute('aria-label','Show all orbits'); backB.hidden=true; cb.insertBefore(backB,hudB);
   backB.addEventListener('click',function(){closeTier();});
   labels.forEach(function(e,t){var h=e.querySelector('.hit'); h.setAttribute('role','button'); h.setAttribute('tabindex','0'); h.setAttribute('aria-label','Open '+TIERS[t].label);
     h.insertAdjacentHTML('afterbegin','<u>⊕</u>');
     h.addEventListener('click',function(ev){ev.stopPropagation(); if(op.t===t&&op.target>0) closeTier(); else openTier(t);});
     h.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault(); h.click();}});});
-  function labelsState(){labels.forEach(function(e,t){e.classList.toggle('open',op.t===t&&op.target>0); e.classList.toggle('off',rp.on||(op.t>=0&&op.target>0&&t!==op.t));});}
-  function ringAt(x,y){var best=-1,bd=30,o=new Float32Array(3);cY=Math.cos(yaw);sY=Math.sin(yaw);
-    for(var t=0;t<TIERS.length;t++){for(var j=0;j<72;j++){W3(1.0,t,j/72*6.2832,0,o); v.set(o[0],o[1],o[2]).project(cam); var d=Math.hypot((v.x*0.5+0.5)*W-x,(-v.y*0.5+0.5)*H-y); if(d<bd){bd=d;best=t;}}}
+  function labelsState(){labels.forEach(function(e,t){e.classList.toggle('open',op.t===t&&op.target>0); e.classList.toggle('off',rp.on||(op.t>=0&&op.target>0&&t!==op.t));}); soSync();}
+  function ringAt(x,y,lim){var best=-1,bd=lim||30,o=new Float32Array(3);cY=Math.cos(yaw);sY=Math.sin(yaw);
+    for(var t=0;t<TIERS.length;t++){for(var j=0;j<180;j++){W3(1.0,t,j/180*6.2832,0,o); v.set(o[0],o[1],o[2]).project(cam); var d=Math.hypot((v.x*0.5+0.5)*W-x,(-v.y*0.5+0.5)*H-y); if(d<bd){bd=d;best=t;}}}
     return best;}
   function setE(x){op.E=clamp(x,1,2.6); var sl=tp.querySelector('input[type=range]'), o=tp.querySelector('output'); if(sl) sl.value=String(op.E); if(o) o.textContent=op.E.toFixed(2)+'×'; need();}
   function loadTL(){if(TL) return Promise.resolve(TL); return fetch(tSrc,{cache:'no-cache'}).then(function(r){if(!r.ok) throw new Error('tiers '+r.status); return r.json();}).then(function(J){TL=J.tiers; return TL;});}
@@ -646,7 +667,7 @@ function init(D,THREE){
     return h;}
   function fillTP(t){var T=TIERS[t], col=cfg.c[t];
     tp.style.setProperty('--c',col);
-    tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Close tier">◂ BACK</button><div class="tp-t"><b>'+esc(T.label)+'</b><span>'+T.shown+' SPHERES · '+T.total.toLocaleString()+' NAMES IN TIER · #'+T.rank_lo+'–#'+T.rank_hi+'</span></div></div>'+
+    tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Show all orbits">✕ SHOW ALL</button><div class="tp-t"><b>'+esc(T.label)+'</b><span>'+T.shown+' SPHERES · '+T.total.toLocaleString()+' NAMES IN TIER · #'+T.rank_lo+'–#'+T.rank_hi+'</span></div></div>'+
       '<label class="tp-s"><span>RING STRETCH <em>· or pinch the ring</em></span><output>'+op.E.toFixed(2)+'×</output><input type="range" min="1" max="2.6" step="0.01" value="'+op.E+'" aria-label="Ring stretch"></label>'+
       '<div class="tp-cols"><span>RANK · TICKER</span><span>RS</span><span>1W</span><span></span></div><div class="tp-list" tabindex="0"><div class="tp-ld">LOADING TIER…</div></div>';
     loadTL().then(function(){if(op.t!==t) return; shownN=Math.min(150,TL[t].length); var l=tp.querySelector('.tp-list'); l.innerHTML=rowsHTML(t,0,shownN)+more(t);}).catch(function(){var l=tp.querySelector('.tp-list'); if(l) l.innerHTML='<div class="tp-ld">tier list unavailable</div>';});}
@@ -658,17 +679,42 @@ function init(D,THREE){
   tp.addEventListener('input',function(e){if(e.target.type==='range') setE(+e.target.value);});
   function openTier(t,asFocus){if(rp.on||bh.on) return; if(dr.classList.contains('on')) openDr(false);
     if(sel>=0&&grp[sel]!==t) select(-1);
-    if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; op.focus=!!asFocus; op.E=asFocus?Math.max(op.E,1.85):op.E; if(RM) op.k=1; snd('sel',cfg);
+    if(op.t<0) op.pre={E:op.E,zoom:zoom}; op.t=t; op.target=1; cfg.solo=t; saveCfg(cfg); root.classList.add('solo'); op.focus=!!asFocus; op.E=asFocus?Math.max(op.E,1.85):op.E; if(RM) op.k=1; snd('sel',cfg);
     if(asFocus){cfg.orb.forEach(function(o,i){/* keep user's on-flags; focus dims others in upd */}); fillTPFocus(t);} else fillTP(t);
     tp.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; backB.hidden=false; rpB.hidden=true;
     root.classList.add('tieropen'); root.classList.toggle('tierfocus',!!asFocus); labelsState(); orbSync(); need();}
   function openFocus(t){if(!orbOn(t)){cfg.orb[t].on=true; applyCfg(true);} openTier(t,true);}
   function fillTPFocus(t){var T=TIERS[t], col=cfg.c[t];
     tp.style.setProperty('--c',col);
-    tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Close focus">◂ BACK</button><div class="tp-t"><b>FOCUS · '+esc(T.label)+'</b><span>laid out by RS score · high RS farther out · pinch to stretch</span></div></div>'+      '<label class="tp-s"><span>RING STRETCH <em>· or pinch</em></span><output>'+op.E.toFixed(2)+'×</output><input type="range" min="1" max="2.6" step="0.01" value="'+op.E+'" aria-label="Ring stretch"></label>'+      '<div class="tp-focnote">Every sphere in this orbit is tagged. Tap a planet for its callout. BACK restores the full view.</div>';}
+    tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Show all orbits">✕ SHOW ALL</button><div class="tp-t"><b>FOCUS · '+esc(T.label)+'</b><span>laid out by RS score · high RS farther out · pinch to stretch</span></div></div>'+      '<label class="tp-s"><span>RING STRETCH <em>· or pinch</em></span><output>'+op.E.toFixed(2)+'×</output><input type="range" min="1" max="2.6" step="0.01" value="'+op.E+'" aria-label="Ring stretch"></label>'+      '<div class="tp-focnote">Every sphere in this orbit is tagged. Tap a planet for its callout. SHOW ALL (or Esc) restores the full view.</div>';}
   function opDone(){op.k=0; op.t=-1; op.focus=false; if(op.pre){op.E=op.pre.E; zoom=op.pre.zoom; op.pre=null;} root.classList.remove('tierfocus'); orbSync();}
-  function closeTier(){if(op.t<0) return; op.target=0; if(RM) opDone(); snd('tog',cfg); tp.hidden=true; ctl.hidden=false; backB.hidden=true; rpB.hidden=false;
+  function closeTier(){if(op.t<0) return; op.target=0; cfg.solo=-1; saveCfg(cfg); root.classList.remove('solo'); if(RM) opDone(); snd('tog',cfg); tp.hidden=true; ctl.hidden=false; backB.hidden=true; rpB.hidden=false;
     if(clBox&&climb) clBox.hidden=false; root.classList.remove('tieropen'); root.classList.remove('tierfocus'); labelsState(); need();}
+  // ---------------------------------------------------------------- SOLO ORBIT bar + V-STRETCH (7 Oct 2026)
+  var sob=document.createElement('div'); sob.className='rso-solo'; stage.parentNode.insertBefore(sob,stage.nextSibling);
+  sob.innerHTML='<div class="so-r1"><span class="so-lb">◎ SOLO ORBIT</span><span class="so-st" aria-live="polite">ALL ORBITS</span></div>'+
+    '<div class="so-btns" role="group" aria-label="Show only one orbit"><button type="button" class="all" data-so="-1" aria-pressed="true">ALL</button>'+
+    TIERS.map(function(T,t){return '<button type="button" data-so="'+t+'" aria-pressed="false" aria-label="Solo '+esc(T.label)+'" style="--c:'+cfg.c[t]+'">'+esc(shortLab(t))+'</button>';}).join('')+'</div>'+
+    '<label class="so-vs"><span>↕ V-STRETCH</span><input type="range" min="1" max="8" step="0.01" value="'+cfg.vs+'" aria-label="Vertical stretch of the solo orbit, 1x to 8x"><output>'+cfg.vs.toFixed(2)+'×</output></label>'+
+    '<div class="so-hint"></div>';
+  var soIn=sob.querySelector('input'), soOut=sob.querySelector('output'), soSt=sob.querySelector('.so-st'), soHint=sob.querySelector('.so-hint');
+  function soOpen(){return op.t>=0&&op.target>0?op.t:-1;}
+  function soSync(){var t=soOpen();
+    sob.querySelectorAll('[data-so]').forEach(function(b){var v=+b.getAttribute('data-so'), on=v===t; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); if(v>=0) b.style.setProperty('--c',cfg.c[v]);});
+    sob.style.setProperty('--c',t>=0?cfg.c[t]:cfg.beam); sob.classList.toggle('act',t>=0);
+    soSt.textContent=t>=0?'SOLO · '+TIERS[t].label+' · '+TIERS[t].shown+' PLANETS':'ALL ORBITS';
+    if(document.activeElement!==soIn) soIn.value=String(cfg.vs); soOut.textContent=cfg.vs.toFixed(2)+'×';
+    soHint.textContent=t>=0?'Drag V-STRETCH to pull the planets apart (best rank on top) · clear: ALL · SHOW ALL · Esc · tap '+shortLab(t)+' again':
+      'Pick a ring above, tap a ring line or its label to show only that orbit · V-STRETCH applies to the solo orbit';}
+  function soloOrbit(t){if(rp.on||bh.on) return; if(t<0){closeTier(); return;} if(op.t===t&&op.target>0){closeTier(); return;}
+    if(!orbOn(t)){cfg.orb[t].on=true; applyCfg(true);} if(op.t>=0&&op.t!==t){closeTier(); opDone();} openTier(t);}
+  sob.addEventListener('click',function(e){var b=e.target.closest('button[data-so]'); if(!b) return; soloOrbit(+b.getAttribute('data-so'));});
+  sob.addEventListener('input',function(e){if(e.target!==soIn) return; cfg.vs=clamp(Math.round(+soIn.value*100)/100,1,8); soOut.textContent=cfg.vs.toFixed(2)+'×'; saveCfg(cfg); need();});
+  sob.addEventListener('change',function(e){if(e.target!==soIn) return; try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(_){}});
+  document.addEventListener('keydown',function(e){if(e.key!=='Escape') return; var tg=e.target, tn=tg&&tg.tagName;
+    if(tn==='INPUT'&&tg.type!=='range'||tn==='TEXTAREA') return;
+    if(sel>=0){select(-1); e.preventDefault();} else if(op.t>=0&&op.target>0){closeTier(); e.preventDefault();}});
+  soSync();
   // ---------------------------------------------------------------- BLACK HOLE (fun ride; exact restore)
   bh.next=0; bh.yaw0=bh.pitch0=bh.zoom0=bh.cx=0;
   // accretion disk + event-horizon disc (capped particle count for iPhone)
@@ -721,9 +767,15 @@ function init(D,THREE){
   function project(){var sc=H/(2*Math.tan(cam.fov*Math.PI/360)), mv=cam.matrixWorldInverse, cd=camD;
     for(var i=0;i<Mact;i++){v.set(sP[i*3],sP[i*3+1],sP[i*3+2]); w2.copy(v).applyMatrix4(mv); sdep[i]=clamp((-w2.z-cd)/-R,-1.2,1.2);
       v.project(cam); sx[i]=(v.x*0.5+0.5)*W; sy[i]=(-v.y*0.5+0.5)*H; sr[i]=sS[i]*0.435*2.3*sc/(-w2.z)/2*1.15;}}
+  // SOLO: push overlapping ticker tags apart vertically (a few relaxation passes, capped so each tag stays next to its planet)
+  function nudge(L){var h=18, cap=20+8*(cfg.vs-1), n=L.length; if(n<2) return; L.sort(function(a,b){return a.y-b.y;});
+    for(var pass=0;pass<12;pass++){var moved=false;
+      for(var a=0;a<n;a++){var A=L[a]; for(var b=a+1;b<n;b++){var B=L[b]; if(B.y-A.y>=h) break;
+        if(A.x+A.w+2<=B.x||B.x+B.w+2<=A.x) continue; var ov=h-(B.y-A.y)+0.5; A.y-=ov/2; B.y+=ov/2; moved=true;}}
+      for(var j=0;j<n;j++){var Q=L[j]; Q.y=clamp(Q.y,Q.y0-cap,Q.y0+cap);} L.sort(function(a,b){return a.y-b.y;}); if(!moved) break;}}
   function overlay(){var tl=cfg.tilt*Math.PI/180;
     TIERS.forEach(function(_,t){v.set(-R*Math.cos(tl)*cfg.sx*tsc(t),tierY(t)-R*Math.sin(tl),0).project(cam); var x=(v.x*0.5+0.5)*W, yy2=(-v.y*0.5+0.5)*H; labels[t].style.transform='translate('+Math.max(6,x-4).toFixed(0)+'px,'+(yy2-15).toFixed(0)+'px)';
-      var lo=(op.t<0||t===op.t?1:1-0.95*op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
+      var lo=(op.t<0||t===op.t?1:1-op.k)*(orbOn(t)?1:0.2)*(cfg.orb[t].ring?1:0.35); labels[t].style.opacity=String(lo); labels[t].classList.toggle('offorb',!orbOn(t));});
     var show={}, cl=climb&&!rp.on?(D.climbers[WIN[wi]]||[]):null;
     if(cl) cl.forEach(function(t){show[byT[t]]=1;});
     else if(rp.on&&RP){var d=curDay(),best=[];for(var i=0;i<Mact;i++){var s=rpState(i,d);if(s) best.push([s.rk,i]);} best.sort(function(a,b){return a[0]-b[0];}); best.slice(0,5).forEach(function(x){show[x[1]]=1;});
@@ -733,10 +785,17 @@ function init(D,THREE){
     // hide tags for switched-off orbits
     for(var sj in show){if(!orbOn(grp[+sj])) delete show[sj];}
     if(sel>=0&&orbOn(grp[sel])) show[sel]=1;
-    for(var k in tags){if(!show[k]) tags[k].style.opacity='0';}
-    for(k in show){var i2=+k,e=tag(i2),fr=sdep[i2]; e.classList.toggle('cl',!!cl); e.style.setProperty('--c',tcss(grp[i2]));
-      e.style.opacity=String(al[i2]<0.05?0:(i2===sel?1:clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
-      e.style.transform='translate('+(sx[i2]+sr[i2]*0.75+2).toFixed(0)+'px,'+(sy[i2]-sr[i2]*0.75-12).toFixed(0)+'px)';}
+    if(hov>=0&&ea[hov]>0.5) show[hov]=1;
+    for(var k in tags){if(!show[k]){tags[k].style.opacity='0'; tags[k].classList.remove('hov');}}
+    var solo=op.t>=0&&op.k>0.3&&!rp.on, LB=solo?[]:null;
+    for(k in show){var i2=+k,e=tag(i2),fr=sdep[i2]; e.classList.toggle('cl',!!cl); e.classList.toggle('hov',i2===hov); e.style.setProperty('--c',tcss(grp[i2]));
+      var inSolo=solo&&grp[i2]===op.t;
+      e.style.opacity=String(al[i2]<0.05?0:(i2===sel||i2===hov||inSolo?Math.min(1,al[i2]*1.5)*(inSolo?Math.min(1,op.k*1.4):1):clamp(0.35+0.65*(fr+0.6),0.3,1)*Math.min(1,al[i2]*1.5)));
+      var tx=sx[i2]+sr[i2]*0.75+2, ty2=sy[i2]-sr[i2]*0.75-12;
+      if(inSolo){var tw_=info[i2].t.length*6.6+11; LB.push({e:e,i:i2,x:clamp(tx,2,W-tw_-2),y:ty2,y0:ty2,w:tw_});} else e.style.transform='translate('+tx.toFixed(0)+'px,'+ty2.toFixed(0)+'px)';}
+    if(LB){nudge(LB); LB.forEach(function(L){var pv=L.e._oy==null?L.y-L.y0:L.e._oy, oy=pv+((L.y-L.y0)-pv)*0.35; L.e._oy=oy;
+      L.e.style.transform='translate('+L.x.toFixed(0)+'px,'+(L.y0+oy).toFixed(0)+'px)';});}
+    for(k in tags){if(!(LB&&show[k]&&grp[+k]===op.t)) tags[k]._oy=null;}
     if(sel>=0){ret.style.transform='translate('+sx[sel].toFixed(1)+'px,'+sy[sel].toFixed(1)+'px)'; placeCo(false);}}
   var busyF=true;
   function render(dt){busyF=false;
@@ -759,15 +818,19 @@ function init(D,THREE){
     if(!running||!vis||document.hidden) return; if(RM&&!dirty&&!(rp.on&&rp.play)&&!bh.on) return; if(frozen&&!RM&&!dirty&&!busyF&&!bh.on) return; render(dt);}
   if('IntersectionObserver' in window){new IntersectionObserver(function(en){vis=en[0].isIntersecting; if(vis) need();},{rootMargin:'80px'}).observe(stage);}
   if('ResizeObserver' in window) new ResizeObserver(resize).observe(stage); else window.addEventListener('resize',resize);
-  applyCfg(true); render(0); requestAnimationFrame(loop);
+  applyCfg(true); render(0);
+  if(cfg.solo>=0){var st0=cfg.solo; soloOrbit(st0); if(op.t===st0){op.k=1; render(0);}}   // restore the last SOLO orbit (stretch is in cfg.vs)
+  requestAnimationFrame(loop);
   root.classList.add('live');
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
-    focus:function(t){openFocus(t);}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    focus:function(t){openFocus(t);}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, bh:function(){return {on:bh.on,k:bh.k,t:bh.t,dur:bh.dur,next:bh.next,auto:cfg.bhAuto};}, bhNow:function(){bh.trigger();}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
+    ringPt:function(t,a){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,a,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
+    tickers:function(){var L=[];for(var i=0;i<Mact;i++){if(ea[i]>0.5) L.push(info[i].t);} return L;},
     label:function(t){var r=labels[t].querySelector('.hit').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};}};
 }
 })();
