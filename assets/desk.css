@@ -614,3 +614,19 @@ body.dk .strip>.cat.key,body.dk .strip>.earn.key{flex-basis:320px}
 .dk-clipbtn{margin:8px 0 14px;font-size:12.5px!important}
 .dk-clipbtn b{color:var(--cy)}
 .earn .etn{font-size:11.5px;color:var(--dim);margin:1px 0 2px}
+/* ---- shared style (9 Oct 2026, improvements item 7) ---- */
+/* one colour for every ticker link: the desk cyan */
+body.dk a[href*="stock.html?t="]:not(.dk-btn):not(.hb):not(.go):not(.dk-pill),body.dk a[href*="tickers/"]:not(.dk-btn):not(.hb),
+body.dk a.tc-link,body.dk .tk>a,body.dk .tkc a:not(.dk-btn),body.dk a.rc-tk{color:var(--cy)!important}
+body.dk a[href*="stock.html?t="]:not(.dk-btn):hover,body.dk a.tc-link:hover{color:#7ff3ff!important}
+/* Qullamaggie: desk panels / edges / text instead of the TradingView greys */
+body.dk .qk{--tvbg:var(--panel);--tvp:var(--panel2);--tvl:var(--edge2);--tvt:var(--tx)}
+/* Weekend (email-safe HTML with inline styles): desk background, rows and link colour */
+body.dk-pg-weekend{background:var(--bg)!important}
+body.dk-pg-weekend [style*="hsla(43,75%,55%,0.14)"]{background:var(--rowalt)!important}
+body.dk-pg-weekend [style*="hsla(46,75%,55%,0.14)"]{background:var(--panel2)!important}
+body.dk-pg-weekend a{color:var(--cy)!important}
+/* Squeeze: page width and tables on the desk layout */
+body.dk-pg-squeeze .wrap{max-width:1180px}
+body.dk-pg-squeeze table.top th{color:var(--dim);background:var(--head)}
+body.dk-pg-squeeze table.top td,body.dk-pg-squeeze table.top th{border-bottom:1px solid var(--edge)}
