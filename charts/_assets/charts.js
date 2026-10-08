@@ -107,10 +107,10 @@
   function vsaGet(){if(!VSC||VSC.B!==bars)VSC=vsaPre(bars);return VSC;}
   // the VSA engine's key bars (overlay 'vsa'): sign code / tag text / significance from the item (k, tier, pol) or its tip text
   var VSAN={SC:'SELL CLIMAX',SV:'STOP VOL',BAG:'BAG HOLD',SO:'SHAKEOUT',T:'TEST',TR:'TEST',NS:'NO SUPPLY',ETR:'EFFORT UP',BC:'BUY CLIMAX',UT:'UPTHRUST',
-    PUT:'PSEUDO UT',ND:'NO DEMAND',EORM:'END OF RISE',ETF:'EFFORT DOWN',FT:'FAILED TEST?',SQ:'SQUAT'};
+    PUT:'PSEUDO UT',ND:'NO DEMAND',EORM:'END OF RISE',ETF:'EFFORT DOWN',FT:'FAILED TEST?',SQ:'SQUAT',ABS:'ABSORPTION'};
   var VSAK={'selling climax':'SC','stopping volume':'SV','bag holding':'BAG','shakeout':'SO','test':'T','test in a rising market':'TR','no supply':'NS',
     'effort to rise':'ETR','buying climax':'BC','upthrust':'UT','pseudo-upthrust':'PUT','no demand':'ND','end of a rising market':'EORM','effort to fall':'ETF',
-    'possible failed test':'FT','squat':'SQ'};
+    'possible failed test':'FT','squat':'SQ','squat bar':'SQ','absorption volume':'ABS'};
   function vsaMeta(it){if(it._vk)return it._vk;var m=/^(.+?) \d{4}-\d\d-\d\d - (\w+) significance/.exec(it.tip||''),sh=String(it.label||'').replace(/!$/,''),
     k=it.k||(m&&VSAK[m[1].toLowerCase()])||sh,tier=it.tier||(m&&m[2])||(/!$/.test(it.label||'')?'high':'');
     it._vk={k:k,full:VSAN[k]||sh.toUpperCase(),sh:sh||k,hi:tier==='high',pol:it.pol!=null?it.pol:(it.pos==='below'?1:-1)};return it._vk;}
@@ -226,7 +226,7 @@
   function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;if(it.t==='point'&&!ptShow(o,it))return;var sp=ovlSpan(it);
     if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
   function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2,pb=freeBox(x0,cy-h/2,w,h);x0=pb[0];cy=pb[1]+h/2;
-    x.fillStyle='rgba(0,0,0,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);}
+    x.fillStyle='rgba(0,0,0,.82)';x.fillRect(x0,cy-h/2,w,h);x.fillStyle=c;x.textAlign='left';x.fillText(t,x0+3,cy+fs/2-0.5);return [x0,cy-h/2,w,h];}
   function drawOverlays(x,g){
     var fs=g.narrow?6:7;
     OVL.forEach(function(o){if(!o.on)return;var col=o.color||'#ffd23f';
@@ -243,7 +243,8 @@
         else if(it.t==='hline'){var y=g.Y(it.p),xe=it.d1==null?g.barsEnd:x1;x.beginPath();x.moveTo(x0,y);x.lineTo(xe,y);x.stroke();x.setLineDash([]);
           if(!g.notext&&it.label){x.font=fs+'px '+FONT;var lw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(x0,xe-lw)),y-fs-1,c,'left',fs);}}
         else if(it.t==='point'){var py=g.Y(it.p);x.setLineDash([]);x.fillStyle=c;x.beginPath();x.arc(x0,py,g.narrow?2.5:3.2,0,Math.PI*2);x.fill();
-          if(!g.notext&&it.label)ovlTag(x,it.label,x0,it.pos==='below'?py+fs+4:py-fs-3,c,'center',fs);}
+          var obx=(!g.notext&&it.label)?ovlTag(x,it.label,x0,it.pos==='below'?py+fs+4:py-fs-3,c,'center',fs):null;
+          if(o.id==='vsa'){HB.push({t:'sg',it:it,b:[x0-5,py-5,10,10]});if(obx)HB.push({t:'sg',it:it,b:obx});}}
         else if(it.t==='span'){var yb=it.pane==='vol'?g.vb-g.vh-5:g.pt+4;x.setLineDash([]);x.lineWidth=2;x.beginPath();x.moveTo(x0-g.bw/2,yb+5);x.lineTo(x0-g.bw/2,yb);x.lineTo(x1+g.bw/2,yb);x.lineTo(x1+g.bw/2,yb+5);x.stroke();
           if(!g.notext&&it.label){x.font=fs+'px '+FONT;var tw=x.measureText(it.label).width+6;ovlTag(x,it.label,Math.max(g.pl+2,Math.min(g.barsEnd-tw,x1+g.bw/2-tw)),yb-fs+1,c,'left',fs);}}
         x.restore();});});
@@ -254,7 +255,7 @@
     var S=vsaGet(),V=g.V,off=g.off,n=g.n,top=g.vb-g.vh,TX=g.TX,nw=g.narrow,LY=g.LY,i,k,q;
     var ov=null;OVL.forEach(function(o){if(o.id==='vsa')ov=o;});
     var tg=[];if(TX&&ov&&ov.on&&LY.ovl)ov.items.forEach(function(it){if(it.t!=='point'||!ptShow(ov,it))return;var bi=dix(it.d);if(TF===NATIVE&&(!bars[bi]||bars[bi].d!==it.d))return;
-      var j=bi-off;if(j<0||j>=n)return;var m=vsaMeta(it);tg.push({i:j,m:m,c:m.pol>0?'#39ff88':'#ff3d7f'});});
+      var j=bi-off;if(j<0||j>=n)return;var m=vsaMeta(it);tg.push({i:j,m:m,c:m.pol>0?'#39ff88':'#ff3d7f',it:it});});
     var fsT=nw?6:7,RH=fsT+6,TRH=TX?RH:0,GRH=TX?(nw?8:9):0,bt=top+TRH+GRH,bh=Math.max(10,g.vb-bt-1);
     var smax=1;V.forEach(function(b,j){smax=Math.max(smax,b.vx||b.v,(S.av[j+off]||0)*2.1);});
     function VY(v){return g.vb-Math.min(bh,v/smax*bh);}
@@ -292,7 +293,7 @@
         var y=Math.max(top+TRH+fsT+2,g.vb-L.v/wmax*WH-3);x.fillStyle='rgba(7,6,26,.72)';x.fillRect(cx-tw/2-2,y-fsT-1,tw+4,fsT+3);
         x.fillStyle=L.w.d>0?'#8cffb9':'#ff8ceb';x.fillText(t,cx,y);});}
     // effort vs result glyphs just above the bar
-    if(TX)V.forEach(function(b,j){var gg=S.gl[j+off];if(!gg)return;nG++;var cx=g.X(j),y=Math.max(bt-1,VY(b.v)-3);
+    if(TX)V.forEach(function(b,j){var gg=S.gl[j+off];if(!gg)return;nG++;var cx=g.X(j),y=Math.max(bt-1,VY(b.v)-3);HB.push({t:'gl',g:gg,bi:j+off,b:[cx-5,y-(nw?7:8),10,(nw?8:9)]});
       if(gg==='abs'){var z=nw?3:3.6;x.fillStyle='#72f6ff';x.beginPath();x.moveTo(cx,y-z*1.7);x.lineTo(cx-z,y);x.lineTo(cx+z,y);x.closePath();x.fill();}
       else{x.strokeStyle='#d9ccff';x.lineWidth=1.2;x.beginPath();x.arc(cx,y-(nw?2.8:3.2),nw?2.4:2.8,0,Math.PI*2);x.stroke();}});
     x.restore();
@@ -308,8 +309,8 @@
         x.save();
         if(pl){nT++;var y0=top+1+pl.row*RH,h0=RH-1;x.strokeStyle=t.c;x.globalAlpha=.5;x.lineWidth=1;x.beginPath();x.moveTo(cx+.5,y0+h0);x.lineTo(cx+.5,Math.max(y0+h0,by-2));x.stroke();x.globalAlpha=1;
           x.fillStyle='rgba(7,6,26,.9)';x.fillRect(pl.x0,y0,pl.w,h0);if(t.m.hi){x.shadowColor=t.c;x.shadowBlur=nw?6:9;}x.lineWidth=t.m.hi?1.6:1;x.strokeRect(pl.x0+.5,y0+.5,pl.w-1,h0-1);
-          x.shadowBlur=t.m.hi?(nw?4:6):0;x.fillStyle=t.c;x.textAlign='left';x.fillText(pl.s,pl.x0+3,y0+h0-3);}
-        else{x.fillStyle=t.c;x.fillRect(cx-1.5,top+2,3,3);}
+          x.shadowBlur=t.m.hi?(nw?4:6):0;x.fillStyle=t.c;x.textAlign='left';x.fillText(pl.s,pl.x0+3,y0+h0-3);HB.push({t:'sg',it:t.it,b:[pl.x0,y0,pl.w,h0]});}
+        else{x.fillStyle=t.c;x.fillRect(cx-1.5,top+2,3,3);HB.push({t:'sg',it:t.it,b:[cx-4,top,8,8]});}
         x.restore();});}
     VSTAT={mode:'vsa',tags:nT,signs:tg.length,glyphs:nG,waves:nWv,weis:LY.weis?1:0};}
   var state=(D.alert_state||D.status||'SETUP').toUpperCase(), lvlCls='lvl-'+state.toLowerCase().replace(/[^a-z]+/g,'-');
@@ -495,6 +496,151 @@
   function buyGroups(w){var G=[];w.forEach(function(a){var g=null;G.forEach(function(b){if(!g&&b.side===a.side&&Math.abs(b.v-a.v)/b.v<0.004)g=b;});
     if(g){g.src.push(a.src);if(a.nm&&!g.nms.some(function(q){return q.indexOf(a.nm)===0;})){g.nms=g.nms.filter(function(q){return a.nm.indexOf(q)!==0;});g.nms.push(a.nm);}if(!g.d&&a.d)g.d=a.d;}else G.push({v:a.v,src:[a.src],nms:a.nm?[a.nm]:[],main:a.main||0,side:a.side,d:a.d});});return G;}
   var OVR=[],OVB={l:0,r:1e9};   // placed overlay / BUY label boxes this frame (labels shift instead of covering each other, e.g. 'POWER PLAY BUY' vs 'STOP 24.06')
+  // ---------------------------------------------------------------- VSA SEQUENCES markers + TradeGuider-style pop-up cards (Chris, 8 Oct 2026)
+  // Sequences (overlay 'vsaseq', research-tools/vsa_ui.seq_overlay_for): one tag on the COMPLETING bar only - bearish W codes pink above the
+  // high, bullish S codes cyan below the low; lifted clear of taller neighbours (small dot marks the bar); on the newest bar stacked above the
+  // 1UP / BUY markers. Several fires on one bar = one tag 'S4+2' (best backtest first). Daily (1D) only. Pill 'VSA SEQUENCES' next to
+  // VOL: PLAIN | VSA (localStorage wa.desk.chartseq.v1, default on, shared by every chart). Hover / tap a tag: card (span, trigger,
+  // invalidation, status, plain-English read, backtest verdict) + a faint band over the spanned bars while hovered.
+  // Single-bar VSA tags (overlay 'vsa': VSA volume-pane tags, PLAIN-mode price tags, ▲ / ○ glyphs): hover / tap card with the bar's measured
+  // facts (vsa.py _bar_facts via item.x), the engine's context, every sign on the bar by significance and the library explanation
+  // (charts/_assets/vsa_explanations.json, research-tools/build_vsa_explanations.py; fetched once, on the first pointer move).
+  // Display only: nothing here touches the VSA balance, Setup Master or the A+++ alert. Cards are built lazily (one DOM node, reused).
+  var SQO=(D.overlays||[]).filter(function(o){return o&&o.id==='vsaseq'&&o.seq&&o.seq.length;})[0]||null;
+  var SQK='wa.desk.chartseq.v1',SQON=true;try{SQON=localStorage.getItem(SQK)!=='0';}catch(e){}
+  var HB=[],SQAV=[],SQH=null,SQCK='',SQC=null,VX=null,VXP=null,SQST={on:0,tags:0,fires:0,hb:0};
+  var DOWS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function sqd(d){return d?(+d.slice(8,10))+' '+MONS[+d.slice(5,7)-1]:'?';}
+  function sqdl(d){if(!d)return '?';var t=new Date(d+'T12:00:00Z');return DOWS[t.getUTCDay()]+' '+sqd(d)+' '+d.slice(0,4);}   // EOD bar date (US session = Sydney next morning)
+  function vxLoad(){if(VX||VXP)return VXP;var m=/[?&]v=([^&#]+)/.exec(TFROOT),u=TFROOT?TFROOT.replace(/charts\.js(\?.*)?$/,'vsa_explanations.json'):'_assets/vsa_explanations.json';
+    VXP=fetch(u+(m?'?v='+m[1]:'')).then(function(r){return r.ok?r.json():{};}).then(function(j){VX=j||{};if(SQC&&!SQC.hidden&&SQC._h)sqCard(SQC._h,1);return VX;}).catch(function(){VX={};return VX;});return VXP;}
+  function sqCSS(){if(document.getElementById('tc-sq-css'))return;var st=document.createElement('style');st.id='tc-sq-css';st.textContent=[
+    ".tcz .tcg .tcseq{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;min-height:40px;padding:0 6px 0 12px;border-radius:999px!important;border:2px solid #b9fff0!important;background:#07061a!important;color:#ffffff!important;font:400 8px var(--tc-px,'Press Start 2P',monospace)!important;box-shadow:2px 2px 0 #000,0 0 10px rgba(110,255,230,.35)!important;cursor:pointer;letter-spacing:.5px}",
+    ".tcseq .dots{display:inline-flex;gap:3px}.tcseq .dots i{display:block;width:8px;height:8px;border-radius:50%}.tcseq .dots i.b{background:#ff9cbc}.tcseq .dots i.u{background:#8ffff0}",
+    ".tcseq .sw{display:inline-flex;align-items:center;justify-content:flex-end;width:48px;height:24px;border-radius:999px;background:#7cffe6;color:#07061a;padding:0 3px;box-sizing:border-box;font:400 8px var(--tc-px,'Press Start 2P',monospace)}",
+    ".tcseq .sw b{font-weight:400;margin-right:4px}.tcseq .sw u{display:block;width:18px;height:18px;border-radius:50%;background:#07061a;text-decoration:none}",
+    ".tcz .tcg .tcseq[aria-pressed=false]{border-color:#d9d4ff!important;box-shadow:2px 2px 0 #000!important}.tcseq[aria-pressed=false] .sw{background:#2a2350;color:#ffffff;justify-content:flex-start;border:1px solid #d9d4ff}",
+    ".tcseq[aria-pressed=false] .sw b{margin:0 0 0 4px;order:2}.tcseq[aria-pressed=false] .sw u{background:#d9d4ff}",
+    ".sq-card{position:absolute;z-index:6;pointer-events:none;box-sizing:border-box;width:396px;max-width:calc(100% - 8px);background:#0a0820f2;border:2px solid #ff8fb1;border-radius:8px;box-shadow:0 0 16px rgba(255,120,160,.45),3px 3px 0 #000;padding:10px 12px 11px;color:#f6f4ff;font:13px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:left}",
+    ".sq-card.bull{border-color:#5ff5d6;box-shadow:0 0 16px rgba(80,255,220,.4),3px 3px 0 #000}.sq-card.neu{border-color:#d9ccff;box-shadow:0 0 14px rgba(200,190,255,.35),3px 3px 0 #000}",
+    ".sq-card .h{display:flex;align-items:center;gap:8px;font:400 9px/1.6 'Press Start 2P',monospace;color:#ffffff;margin-bottom:6px}",
+    ".sq-card .c{flex:0 0 auto;font:400 8px/1 'Press Start 2P',monospace;color:#ffd0dd;border:1.5px solid #ff8fb1;background:#2b0717;border-radius:6px;padding:4px 5px}",
+    ".sq-card .c.bull{color:#c8fff6;border-color:#5ff5d6;background:#04241f}.sq-card .c.neu{color:#f0ebff;border-color:#d9ccff;background:#1b1638}",
+    ".sq-card .dir{display:block;font:400 8px/1.5 'Press Start 2P',monospace;color:#ffc4d6;margin:0 0 8px}.sq-card.bull .dir{color:#b9fff0}.sq-card.neu .dir{color:#e6e0ff}",
+    ".sq-card table{border-collapse:collapse;width:100%}.sq-card td{padding:2px 0;vertical-align:top;color:#ffffff}.sq-card td.k{font:400 7px/2.2 'Press Start 2P',monospace;color:#ffc4d6;width:104px;letter-spacing:.3px}.sq-card.bull td.k{color:#b9fff0}.sq-card.neu td.k{color:#e6e0ff}",
+    ".sq-card .rd{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,143,177,.45);color:#ffffff}.sq-card.bull .rd{border-top-color:rgba(95,245,214,.45)}.sq-card.neu .rd{border-top-color:rgba(217,204,255,.45)}",
+    ".sq-card .rd b{font:400 7px 'Press Start 2P',monospace;color:#ffc4d6;margin-right:6px}.sq-card.bull .rd b{color:#b9fff0}.sq-card.neu .rd b{color:#e6e0ff}",
+    ".sq-card .sg{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.22)}.sq-card .sg .h{margin-bottom:3px}.sq-card .sg p{margin:3px 0 0;color:#ffffff}",
+    ".sq-card .tier{font:400 7px 'Press Start 2P',monospace;color:#fff4c8}.sq-card .ref{margin-top:4px;font-size:11.5px;color:#e8e4ff}.sq-card .sqm{color:#ece8ff}",
+    ".sq-card .bt{color:#fff4c8}.sq-card .also{margin-top:6px;font-size:12px;color:#f2efff}.sq-card .also .c{display:inline-block;margin-right:4px;padding:2px 4px;font-size:7px}",
+    "@media (max-width:640px){.sq-card{font-size:12px;padding:8px 9px}.sq-card td.k{width:86px;font-size:6px}.sq-card .h{font-size:8px}}",
+    ".tc-ovl .sq-leg{font:400 7px/1.6 'Press Start 2P',monospace;color:#f2efff;white-space:normal}.tc-ovl .sq-leg b{font-weight:400;color:#ffffff}.tc-ovl .sq-leg .pk{color:#ffb3c9}.tc-ovl .sq-leg .cy{color:#a8fff0}"
+  ].join('\n');document.head.appendChild(st);}
+  if(SQO)sqCSS();
+  function sqBT(c){var b=SQO&&SQO.bt&&SQO.bt[c];if(!b||!b[0])return null;return 'Backtest: '+b[0]+(b[1]!=null?', '+(b[1]>=0?'+':'')+(+b[1]).toFixed(2)+'R avg':'')+(b[2]!=null?', '+b[2]+' trades':'')+', 1y';}
+  function sqGroups(){if(!SQO)return [];if(SQO._g)return SQO._g;var G={},out=[];
+    SQO.seq.forEach(function(f){var k=f.d+'|'+f.dir;if(!G[k]){G[k]={d:f.d,dir:f.dir,f:[]};out.push(G[k]);}G[k].f.push(f);});
+    out.forEach(function(g){g.f.sort(function(a,b){var ra=(SQO.bt&&SQO.bt[a.code]||[])[1],rb=(SQO.bt&&SQO.bt[b.code]||[])[1];return (rb==null?-9:rb)-(ra==null?-9:ra);});
+      g.d0=g.f.reduce(function(m,f){var s=(f.span||[])[0]||f.d;return s<m?s:m;},g.d);g.lab=g.f[0].code+(g.f.length>1?'+'+(g.f.length-1):'');});
+    SQO._g=out;return out;}
+  function sqRR(x,x0,y0,w,h,r){x.beginPath();x.moveTo(x0+r,y0);x.lineTo(x0+w-r,y0);x.quadraticCurveTo(x0+w,y0,x0+w,y0+r);x.lineTo(x0+w,y0+h-r);x.quadraticCurveTo(x0+w,y0+h,x0+w-r,y0+h);
+    x.lineTo(x0+r,y0+h);x.quadraticCurveTo(x0,y0+h,x0,y0+h-r);x.lineTo(x0,y0+r);x.quadraticCurveTo(x0,y0,x0+r,y0);x.closePath();}
+  // faint band over the hovered sequence's bars (drawn under the price bars)
+  function sqBand(x,g){if(!SQH||!SQON||TF!=='D')return;var a=dix(SQH.d0)-g.off,b=dix(SQH.d)-g.off;if(b<0||a>g.n-1)return;a=Math.max(0,a);b=Math.min(g.n-1,b);
+    var x0=g.X(a)-g.bw/2-2,x1=g.X(b)+g.bw/2+2;x.save();x.fillStyle=SQH.dir==='bear'?'rgba(255,143,177,.17)':'rgba(95,245,214,.15)';x.fillRect(x0,g.pt-2,x1-x0,g.yb-g.pt+2);x.restore();}
+  // the tags (after the 1UP sprite, so they sit on top). g: draw0 geometry + the 1UP top (newest bar)
+  function drawSeq(x,g){SQST={on:SQON?1:0,tags:0,fires:0,hb:HB.length,tf:TF};window.TC_SEQ=SQST;if(!SQO||!SQON||TF!=='D'||!g.TX||!g.LY.bars)return;
+    var fz=g.narrow?6:8,ph2=g.narrow?3:4,TH=fz+ph2*2,V=g.V;x.save();x.font=fz+'px '+FONT;x.textBaseline='alphabetic';
+    var placed=[];
+    sqGroups().forEach(function(G){var bi=DIX[G.d];if(bi==null)return;var j=bi-g.off;if(j<0||j>=g.n)return;var b=bars[bi],cx=g.X(j),bear=G.dir==='bear',hv=SQH===G;
+      var tw=x.measureText(G.lab).width+ph2*2+1,half=Math.max(0,Math.floor(tw/2/g.bw+.6)),ext=bear?b.h:b.l;
+      for(var k=Math.max(0,j-half);k<=Math.min(g.n-1,j+half);k++){var q=V[k];ext=bear?Math.max(ext,q.h):Math.min(ext,q.l);}
+      var own=bear?g.Y(b.h):g.Y(b.l),latest=bi===bars.length-1,y0,lifted;
+      if(bear){var yb=Math.min(own-8,g.Y(ext)-6);if(latest&&g.top1>0)yb=Math.min(yb,g.top1-6);
+        g.ovr.forEach(function(o){if(cx+tw/2>o[0]&&cx-tw/2<o[0]+o[2]&&yb>o[1]&&yb-TH<o[1]+o[3]&&o[1]<own)yb=Math.min(yb,o[1]-5);});   // BUY / overlay labels on this bar
+        placed.forEach(function(p){if(Math.abs(p[0]-cx)<(tw+p[2])/2+2&&yb>p[1]&&yb-TH<p[1]+TH)yb=p[1]-3;});
+        yb=Math.max(yb,g.pt-6+TH);y0=yb-TH;lifted=own-yb>12;}
+      else{var yt=Math.max(own+8,g.Y(ext)+6);placed.forEach(function(p){if(Math.abs(p[0]-cx)<(tw+p[2])/2+2&&yt<p[1]+TH&&yt+TH>p[1])yt=p[1]+TH+3;});
+        yt=Math.min(yt,g.pt+g.ph+8);y0=yt;lifted=yt-own>12;}
+      placed.push([cx,y0,tw]);
+      var x0=Math.max(g.pl,Math.min(g.R-tw,cx-tw/2)),cb=bear?'#ff8fb1':'#5ff5d6';
+      if(lifted){x.fillStyle=bear?'#ff9cbc':'#8ffff0';x.shadowColor=cb;x.shadowBlur=4;x.beginPath();x.arc(cx,bear?own-5:own+5,2,0,Math.PI*2);x.fill();}
+      x.shadowColor=bear?'rgba(255,120,160,.7)':'rgba(80,255,220,.7)';x.shadowBlur=hv?14:6;sqRR(x,x0,y0,tw,TH,g.narrow?4:6);x.fillStyle=bear?'#2b0717':'#04241f';x.fill();
+      x.shadowBlur=0;x.lineWidth=hv?2.4:1.5;x.strokeStyle=hv?'#ffffff':cb;x.stroke();
+      x.fillStyle=cb;x.beginPath();if(bear){x.moveTo(cx-4,y0+TH);x.lineTo(cx+4,y0+TH);x.lineTo(cx,y0+TH+4);}else{x.moveTo(cx-4,y0);x.lineTo(cx+4,y0);x.lineTo(cx,y0-4);}x.closePath();x.fill();
+      x.fillStyle=hv?'#ffffff':bear?'#ffd0dd':'#c8fff6';x.textAlign='left';x.fillText(G.lab,x0+ph2+.5,y0+TH-ph2);
+      HB.push({t:'seq',g:G,b:[x0,y0-(bear?0:4),tw,TH+4],bi:bi});SQST.tags++;SQST.fires+=G.f.length;});
+    x.restore();SQST.hb=HB.length;window.TC_SEQ=SQST;}
+  // ---- hit test + cards
+  function sqHit(px,py,tap){var pad=tap?7:3,best=null,bd=1e9;HB.forEach(function(h){var b=h.b;if(px>=b[0]-pad&&px<=b[0]+b[2]+pad&&py>=b[1]-pad&&py<=b[1]+b[3]+pad){
+      var d=Math.abs(px-(b[0]+b[2]/2))+Math.abs(py-(b[1]+b[3]/2))+(h.t==='seq'?0:2);if(d<bd){bd=d;best=h;}}});return best;}
+  function sqKey(h){return h?h.t+'|'+(h.t==='seq'?h.g.d+h.g.dir:h.t==='gl'?h.bi:(h.it&&h.it.d)+'|'+(h.it&&h.it.k)):'';}
+  function sqPos(el,h){var W=host.clientWidth,H=host.clientHeight,cw=el.offsetWidth,ch=el.offsetHeight,b=h.b,gp=geo||{pt:30,pl:4};
+    if(h.t==='seq'&&geo){var a0=Math.max(0,dix(h.g.d0)-geo.off),xa=geo.X(a0)-geo.bw/2-4;if(xa<b[0])b=[xa,b[1],b[0]+b[2]-xa,b[3]];}   // keep the spanned bars (band) visible too
+    var cxm=b[0]+b[2]/2;
+    var C=[[b[0]-cw-14,gp.pt+6],[b[0]+b[2]+14,gp.pt+6],[b[0]-cw-14,b[1]-ch/2],[b[0]+b[2]+14,b[1]-ch/2],[cxm-cw/2,b[1]-ch-12],[cxm-cw/2,b[1]+b[3]+12]],best=null,bs=1e18;
+    C.forEach(function(c,ci){var l=Math.max(4,Math.min(W-cw-4,c[0])),t=Math.max(4,Math.min(H-ch-4,c[1])),s=0;
+      HB.forEach(function(o){if(o===h)return;var ob=o.b,ix=Math.max(0,Math.min(l+cw,ob[0]+ob[2])-Math.max(l,ob[0])),iy=Math.max(0,Math.min(t+ch,ob[1]+ob[3])-Math.max(t,ob[1]));s+=ix*iy*(o.t==='seq'?3:1);});
+      SQAV.forEach(function(ob){var ix=Math.max(0,Math.min(l+cw,ob[0]+ob[2])-Math.max(l,ob[0])),iy=Math.max(0,Math.min(t+ch,ob[1]+ob[3])-Math.max(t,ob[1]));s+=ix*iy*0.5;});
+      var hb0=h.b,ix=Math.max(0,Math.min(l+cw,hb0[0]+hb0[2]+6)-Math.max(l,hb0[0]-6)),iy=Math.max(0,Math.min(t+ch,hb0[1]+hb0[3]+6)-Math.max(t,hb0[1]-6));s+=ix*iy*50+ci;   // never over the hovered tag
+      if(b!==hb0){ix=Math.max(0,Math.min(l+cw,b[0]+b[2])-Math.max(l,b[0]));s+=ix*Math.min(ch,gp.ph||200)*2;}   // ...nor over its spanned bars
+      if(s<bs){bs=s;best=[l,t];}});
+    el.style.left=Math.round(best[0])+'px';el.style.top=Math.round(best[1])+'px';}
+  function sqPol(p){return p>0?['bull','▲ BULLISH']:p<0?['','▼ BEARISH']:['neu','◆ NEUTRAL (READ BY CONTEXT)'];}
+  function sqSeqHTML(G){var f=G.f[0],bull=G.dir!=='bear',n=(f.span||[]).length||1,nm=String(f.name||'').toUpperCase(),X2=(VX&&VX.seq)||{};
+    var st=f.st==='triggered'?'TRIGGERED '+sqd(f.sd):f.st==='invalidated'?'INVALIDATED '+sqd(f.sd):f.st==='expired'?'EXPIRED (no trigger within 3 bars)':'ARMED (waiting for the trigger)';
+    var steps=(f.steps||[]).map(function(s){return sqd(s[1])+' '+esc(String(s[2]||'').toLowerCase());}).join(' · ');
+    var h='<div class="h"><span class="c'+(bull?' bull':'')+'">'+esc(f.code)+'</span>'+esc(nm)+'</div><span class="dir">'+(bull?'▲ BULLISH':'▼ BEARISH')+' · TRADEGUIDER SET-UP SEQUENCE</span>'+
+      '<table><tr><td class="k">COMPLETED</td><td>'+sqdl(f.d)+' (EOD)</td></tr><tr><td class="k">SPANNED</td><td>'+sqd((f.span||[f.d])[0])+' → '+sqd(f.d)+', '+n+' bar'+(n===1?'':'s')+(steps?'<br><span class="sqm">'+steps+'</span>':'')+'</td></tr>'+
+      '<tr><td class="k">TRIGGER</td><td>'+(bull?'buy stop above ':'sell stop below ')+(f.trigger!=null?(+f.trigger).toFixed(2):'?')+'</td></tr>'+
+      '<tr><td class="k">INVALIDATION</td><td>close '+(bull?'below ':'above ')+(f.stop!=null?(+f.stop).toFixed(2):'?')+'</td></tr>'+
+      '<tr><td class="k">STATUS</td><td>'+st+'</td></tr>'+(sqBT(f.code)?'<tr><td class="k">BACKTEST</td><td class="bt">'+esc(sqBT(f.code).replace(/^Backtest: /,''))+'</td></tr>':'')+'</table>'+
+      '<div class="rd"><b>READ</b>'+esc(X2[f.code]||(VX?nm.toLowerCase():'loading…'))+'</div>'+(f.ref?'<div class="ref">Ref: '+esc(String(f.ref).split('; glossary')[0])+'</div>':'');
+    if(G.f.length>1)h+='<div class="also">ALSO COMPLETING ON THIS BAR:'+G.f.slice(1).map(function(o){return '<br><span class="c'+(bull?' bull':'')+'">'+esc(o.code)+'</span>'+esc(o.name)+' · '+esc(o.st||'')+(sqBT(o.code)?' · <span class="bt">'+esc(sqBT(o.code))+'</span>':'');}).join('')+'</div>';
+    return h;}
+  function sqCls(v,e,names){if(v==null||!e)return '';return v>=e[0]?names[0]:v>=e[1]?names[1]:v>e[2]?names[2]:v>e[3]?names[3]:names[4];}
+  function sqFacts(bi,x){var S=vsaGet(),b=bars[bi],p1=bars[bi-1],p2=bars[bi-2],cl=(VX&&VX.cls)||{},f=x&&x.f,vr,sr,c,v2,up,vp;
+    if(f){vr=f[0];sr=f[1];c=f[2];v2=f[3];up=f[4];vp=f[5];}else{vr=S.rv[bi];sr=S.sr[bi];c=S.cp[bi];v2=p1&&p2?(b.v>p1.v&&b.v>p2.v?1:b.v<p1.v&&b.v<p2.v?-1:0):0;up=p1?(b.c>p1.c?1:b.c<p1.c?-1:0):0;vp=p1&&p1.v?b.v/p1.v:null;}
+    var vc=cl.vol?sqCls(vr,[cl.vol.ultra_high,cl.vol.high,cl.vol.low,cl.vol.ultra_low],['ultra high','high','average','low','ultra low']):'',
+      sc=cl.spread?sqCls(sr,[cl.spread.ultra_wide,cl.spread.wide,cl.spread.narrow,cl.spread.ultra_narrow],['ultra wide','wide','average','narrow','ultra narrow']):'',
+      cc=c==null?'':c>=((cl.close||{}).high||.7)?'near the high':c<=((cl.close||{}).low||.3)?'near the low':'mid-range';
+    return '<tr><td class="k">SPREAD</td><td>'+(sr==null?'n/a':(+sr).toFixed(2)+'× the 20-bar average'+(sc?' ('+sc+')':''))+'</td></tr>'+
+      '<tr><td class="k">VOLUME</td><td>'+(vr==null?'n/a':(+vr).toFixed(2)+'× the 20-day average'+(vc?' ('+vc+')':''))+'<br>'+(v2>0?'above both of the prior 2 bars':v2<0?'below both of the prior 2 bars':'between the prior 2 bars')+(vp!=null?' · '+(+vp).toFixed(2)+'× the prior bar':'')+'</td></tr>'+
+      '<tr><td class="k">CLOSE</td><td>'+cc+(c!=null?' ('+Math.round(c*100)+'% of the range)':'')+' · '+(up>0?'up on':up<0?'down on':'level with')+' the prior close</td></tr>';}
+  function sqCtx(x){if(!x||!x.c)return '';var c=x.c,T=(VX&&VX.trend)||{},CX=(VX&&VX.ctx)||{},fl=c[2]||'',loc=[],SN=(VX&&VX.signs)||{},bg=x.bg||[];
+    if(fl.indexOf('H')>=0)loc.push('new 20-bar high');if(fl.indexOf('L')>=0)loc.push('new 20-bar low');
+    if(fl.indexOf('R')>=0)loc.push('near resistance'+(c[4]!=null?' '+(+c[4]).toFixed(2):'')+(c[3]==='range'?' (range top)':' (20-bar high)'));
+    if(fl.indexOf('S')>=0)loc.push('near support'+(c[5]!=null?' '+(+c[5]).toFixed(2):'')+(c[3]==='range'?' (range bottom)':' (20-bar low)'));
+    var nm=function(k){return k?((SN[k]&&SN[k].name)||VSAN[k]||k).toLowerCase():'';};
+    return '<tr><td class="k">TREND</td><td>'+esc(T[c[0]]||c[0]||'n/a')+(c[1]&&CX[c[1]]&&c[1]!==c[0]?' · read as '+esc(CX[c[1]]):'')+'</td></tr>'+
+      '<tr><td class="k">LOCATION</td><td>'+(loc.length?esc(loc.join(' · ')):'not at a support / resistance level')+'</td></tr>'+
+      '<tr><td class="k">BACKGROUND</td><td>'+(bg[1]?'strength: '+esc(nm(bg[0])||'sign of strength')+' '+sqd(bg[1]):'no prior strength')+' · '+(bg[3]?'weakness: '+esc(nm(bg[2])||'sign of weakness')+' '+sqd(bg[3]):'no prior weakness')+' (30 bars)</td></tr>';}
+  function sqSignSec(s,cx,first){var SN=(VX&&VX.signs)||{},e=SN[s[0]],P=sqPol(s[1]),M=(VX&&VX.matrix&&VX.matrix[s[0]]&&VX.matrix[s[0]][cx])||null;
+    var nm=e?e.name:(VSAN[s[0]]||s[0]);
+    return '<div class="'+(first?'':'sg')+'"><div class="h"><span class="c '+P[0]+'">'+esc(MARKS(s[0]))+'</span>'+esc(String(nm).toUpperCase())+'</div>'+
+      '<span class="dir">'+P[1]+(s[3]?' · <span class="tier">'+esc(String(s[3]).toUpperCase())+' SIGNIFICANCE</span>':'')+'</span>'+
+      (e?'<p>'+esc(e.pro)+' '+esc(e.next)+'</p>':(VX?'':'<p class="sqm">loading the explanation…</p>'))+
+      (M&&M[1]?'<p class="sqm">In this context: '+esc(M[1])+'</p>':'')+(s[5]?'<p class="sqm">Engine modifiers: '+esc(s[5])+'</p>':'')+
+      (e||M?'<div class="ref">Ref: '+esc([e&&e.ref,M&&M[2]&&M[2]!==(e&&e.ref)?M[2]:''].filter(Boolean).join(' · '))+'</div>':'')+'</div>';}
+  var VSAM={BAG:'BH',TR:'T',ETR:'ER',PUT:'PU',EORM:'EM',ETF:'EF',ABS:'AB'};function MARKS(k){return VSAM[k]||k;}
+  function sqSignHTML(h){var it=h.it,x=it.x,bi=dix(it.d),b=bars[bi];if(!b)return '';
+    var sl=(x&&x.s&&x.s.length)?x.s.slice():[[it.k,it.pol,null,it.tier,null,'']];
+    var top=sl[0],P=sqPol(top[1]),cx=(x&&x.c&&x.c[1])||it.cx;
+    var hd='<table><tr><td class="k">BAR</td><td>'+sqdl(it.d)+' (EOD)'+(sl.length>1?' · '+sl.length+' signs, most significant first':'')+'</td></tr>'+sqFacts(bi,x)+sqCtx(x)+'</table>';
+    return {cls:P[0]||'',html:sl.map(function(s,k){return k===0?sqSignSec(s,cx,1)+hd:sqSignSec(s,cx,0);}).join('')};}
+  function sqGlHTML(h){var bi=h.bi,g=h.g,SN=(VX&&VX.signs)||{},e=SN[g==='abs'?'ABS':'NE'],R=(VX&&VX.glyphs&&VX.glyphs[g])||{},b=bars[bi];
+    return '<div class="h"><span class="c neu">'+(g==='abs'?'▲':'○')+'</span>'+(g==='abs'?'ABSORPTION (EFFORT, LITTLE RESULT)':'NO EFFORT (EASE OF MOVEMENT)')+'</div><span class="dir">◆ VOLUME-PANEL GLYPH · READ BY CONTEXT</span>'+
+      (e?'<p>'+esc(e.pro)+' '+esc(e.next)+'</p>':'<p class="sqm">loading the explanation…</p>')+
+      '<table><tr><td class="k">BAR</td><td>'+sqdl(b.d)+(TF==='D'?' (EOD)':' ('+TFW[TF]+' bar)')+'</td></tr>'+sqFacts(bi,null)+'</table>'+(R.rule?'<div class="ref">Rule: '+esc(R.rule)+'</div>':'')+(e?'<div class="ref">Ref: '+esc(e.ref)+'</div>':'');}
+  function sqCard(h,force){var k=sqKey(h);if(!h){if(SQC&&!SQC.hidden){SQC.hidden=true;SQC._h=null;}SQCK='';var was=SQH;SQH=null;return was;}
+    if(!force&&k===SQCK&&SQC&&!SQC.hidden){return 0;}
+    if(!SQC){sqCSS();SQC=document.createElement('div');SQC.className='sq-card';SQC.setAttribute('role','tooltip');host.appendChild(SQC);}
+    var cls='',html;
+    if(h.t==='seq'){cls=h.g.dir==='bear'?'':'bull';html=sqSeqHTML(h.g);}
+    else if(h.t==='gl'){cls='neu';html=sqGlHTML(h);}
+    else{var r=sqSignHTML(h);cls=r.cls;html=r.html;}
+    SQC.className='sq-card'+(cls?' '+cls:'');SQC.innerHTML=html;SQC.hidden=false;SQC._h=h;SQCK=k;sqPos(SQC,h);
+    var was=SQH;SQH=h.t==='seq'?h.g:null;window.TC_CARD={t:h.t,key:k,left:SQC.style.left,top:SQC.style.top,w:SQC.offsetWidth,h:SQC.offsetHeight};return was!==SQH;}
   function freeBox(x0,y0,w,h,dxs){var tries=[],best=null,bo=Infinity;dxs=dxs||[0];for(var q=0;q<=6;q++)(q?[-q,q]:[0]).forEach(function(r){dxs.forEach(function(dx){tries.push([dx,r*(h+1)]);});});
     for(var k=0;k<tries.length;k++){var xx=Math.max(OVB.l,Math.min(OVB.r-w,x0+tries[k][0])),yy=y0+tries[k][1],ov=0;
       OVR.forEach(function(r){var ox=Math.min(xx+w,r[0]+r[2])-Math.max(xx,r[0]),oy=Math.min(yy+h,r[1]+r[3])-Math.max(yy,r[1]);if(ox>0&&oy>0)ov+=ox*oy;});
@@ -577,6 +723,7 @@
   function draw0(now){
     var W=Math.round(host.getBoundingClientRect().width), H=Math.round(host.getBoundingClientRect().height);
     if(W<50||H<50) return;
+    HB=[];window.TC_HB=HB;   // pop-up card hit boxes for this frame (VSA tags, glyphs, sequence tags)
     var x=setup(cv,W,H), narrow=W<700, LY=LS.L, TX=!!LS.text, AX=!!LS.axis, RSP=hasRT&&!!LY.rsp;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
     var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=34+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
@@ -742,6 +889,7 @@
         gr=x.createLinearGradient(0,pt,0,pt+ph),f=Math.max(0.0001,Math.min(0.9999,(sqm-pt)/ph));gr.addColorStop(0,c+(al*0.2).toFixed(3)+')');gr.addColorStop(f,c+al.toFixed(3)+')');gr.addColorStop(1,c+(al*0.2).toFixed(3)+')');
         x.fillStyle=gr;x.fillRect(x0,pt,Math.max(1,xe-x0),ph);});   // whole-pixel edges, no overlap seams
       x.restore();window.TC_SQI={n:Object.keys(SQV).length,max:Object.keys(SQV).reduce(function(a,k){return Math.max(a,SQV[k]);},0)};}else window.TC_SQI={n:0,max:0};
+    sqBand(x,{X:X,off:off,n:n,bw:bw,pt:pt,yb:H-pb});   // hovered VSA sequence: faint band over its bars
     // price bars. CANDLES (default, 4 Oct 2026 pro polish): colour = close vs the prior close (the desk's up / down, same as volume), HOLLOW body =
     // close ≥ open, FILLED = close < open; 1px wick on the half-pixel, odd body widths on whole pixels (crisp at any zoom). HLC = the old style.
     // Older 1W / 1M bars from the server history have no open: the prior close stands in.
@@ -871,6 +1019,9 @@
     x.fillStyle=C.r3;x.shadowColor=C.r3;x.shadowBlur=10;
     spr.forEach(function(r,ry){r.split('').forEach(function(ch,cx){if(ch=='#')x.fillRect(spx+(cx-2.5)*P,spy-(spr.length-ry)*P,P,P);});});
     x.shadowBlur=0;x.fillStyle='#fff';x.font=fs+'px '+FONT;x.textAlign='center';if(TX)x.fillText('1UP',spx,spy-spr.length*P-6);}
+    var _t1=0;if(LY.oneup&&LY.bars&&atLatest){var _P1=narrow?2:3,_s1=Math.max(Y(lastV.h)-8,pt+6*_P1+(TX?11:1));_t1=_s1-6*_P1-6-fs-4;}   // top of the 1UP sprite + label
+    drawSeq(x,{V:V,X:X,Y:Y,off:off,n:n,bw:bw,pl:pl,pt:pt,ph:ph,R:sx0-2,narrow:narrow,TX:TX,LY:LY,top1:_t1,ovr:OVR});
+    SQAV=[[sx0-2,pt-4,W-sx0+2,ph+8]];if(_t1)SQAV.push([X(n-1)-16,_t1,32,Y(lastV.h)-_t1]);   // pop-up cards keep off the level tags + 1UP
     // crosshair
     // crosshair (pro): vertical snapped to the bar, horizontal at the pointer inside the price pane; price box on the right axis, date box on the date axis
     window.TC_XH=null;
@@ -897,25 +1048,29 @@
     tip.hidden=false;var w=host.clientWidth,ty=geo&&geo.pt!=null?geo.pt+4:py-40;tip.style.left=(px>w/2?Math.max(4,Math.min(px-tip.offsetWidth-14,geo?geo.pl+4:4)):Math.max(px+14,(geo?geo.barsEnd:w)-tip.offsetWidth-4))+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,ty))+'px';   // pinned to the top corner away from the pointer
   }
   function onMove(e){if(!geo)return;var r=cv.getBoundingClientRect(),p=e.touches?e.touches[0]:e,px=p.clientX-r.left,py=p.clientY-r.top;
-    var i=Math.floor((px-geo.pl)/geo.bw);hoverY=py;if(px>geo.barsEnd||i<0||i>=geo.n){hover=-1;showTip(-1);}else{hover=i;showTip(i+geo.off,px,py);}if(!HRAF)HRAF=requestAnimationFrame(function(){HRAF=0;draw(performance.now());});}
+    if(SQO||OVL.some(function(o){return o.id==='vsa';}))vxLoad();   // explanation library: fetched once, on the first pointer move
+    var hb=TL.mode?null:sqHit(px,py,!!(e.touches||e.tap));
+    var i=Math.floor((px-geo.pl)/geo.bw);hoverY=py;if(px>geo.barsEnd||i<0||i>=geo.n){hover=-1;if(!hb)showTip(-1);}else{hover=i;if(!hb)showTip(i+geo.off,px,py);}
+    if(hb){showTip(-1);sqCard(hb);}else sqCard(null);if(!HRAF)HRAF=requestAnimationFrame(function(){HRAF=0;draw(performance.now());});}
   cv.addEventListener('mousemove',function(e){if(window.TCZoom&&TCZoom.dragging){return;}onMove(e);});
   if(window.TCZoom) TCZoom.mount({host:host,canvas:cv,total:bars.length,redraw:function(){draw(performance.now());},
-    tap:function(cx,cy){onMove({clientX:cx,clientY:cy});},clearTip:function(){hover=-1;showTip(-1);}});
+    tap:function(cx,cy){onMove({clientX:cx,clientY:cy,tap:1});},clearTip:function(){hover=-1;showTip(-1);sqCard(null);}});
   else {cv.addEventListener('touchstart',onMove,{passive:true});cv.addEventListener('touchmove',onMove,{passive:true});}
   // overlay toggle + legend bar (between the zoom toolbar and the chart)
   var OBAR=null,OBTN=null;
-  if(OVL.length){var ob=document.createElement('div');ob.className='tc-ovl';ob.setAttribute('role','group');ob.setAttribute('aria-label','Detector overlays');
+  if(OVL.length||SQO){var ob=document.createElement('div');ob.className='tc-ovl';ob.setAttribute('role','group');ob.setAttribute('aria-label','Detector overlays');
     function obtn(o){return (o.on?'◉ ':'○ ')+esc(o.label)+(o.on?' · ON':' · OFF');}
-    function oleg(o){return (o.id==='vsa'&&VM==='vsa'&&LS.L.vol)?[['#39ff88','STRENGTH TAG'],['#ff3d7f','WEAKNESS TAG'],['#ffffff','SHOWN AS TAGS IN THE VSA VOLUME PANEL · GLOW = HIGH SIGNIFICANCE · TAP A BAR FOR WHY']]:(o.legend||[]);}
+    function oleg(o){return (o.id==='vsa'&&VM==='vsa'&&LS.L.vol)?[['#39ff88','STRENGTH TAG'],['#ff3d7f','WEAKNESS TAG'],['#ffffff','SHOWN AS TAGS IN THE VSA VOLUME PANEL · GLOW = HIGH SIGNIFICANCE · HOVER / TAP A TAG FOR THE FULL READ']]:(o.legend||[]);}
     window._tcObHTML=function(){return OVL.map(function(o,k){return '<div class="ovr"><button type="button" data-o="'+k+'" aria-pressed="'+o.on+'" title="Show / hide the detector drawing">'+obtn(o)+'</button>'+
       '<span class="ol">'+oleg(o).map(function(l){return '<span><i style="background:'+esc(l[0])+'"></i>'+esc(l[1])+'</span>';}).join('')+
-      (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span>'+(o.note?'<details class="onote"><summary>STORY</summary><p>'+esc(o.note)+'</p></details>':'')+'</div>';}).join('');};
+      (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span>'+(o.note?'<details class="onote"><summary>STORY</summary><p>'+esc(o.note)+'</p></details>':'')+'</div>';}).join('')+
+      (SQO&&SQON?'<div class="ovr sq-row"><span class="sq-leg"><b>VSA SEQ:</b> <span class="pk">▼ PINK TAG ABOVE HIGH = BEARISH</span> · <span class="cy">▲ CYAN TAG BELOW LOW = BULLISH</span> · ON THE COMPLETING BAR ONLY · '+(TF==='D'?'HOVER / TAP FOR DETAIL':'1D CHART ONLY')+'</span></div>':'');};
     ob.innerHTML=window._tcObHTML();
     host.parentNode.insertBefore(ob,host);OBAR=ob;OBTN=obtn;
     ob.addEventListener('click',function(e){var b=e.target.closest('button[data-o]');if(!b)return;var o=OVL[+b.getAttribute('data-o')];o.on=!o.on;
       OLS.set('tc_ovl_'+o.id,o.on?'1':'0');b.setAttribute('aria-pressed',String(o.on));b.innerHTML=obtn(o);draw(performance.now());if(window._tcLaySync)_tcLaySync();});
   }
-  cv.addEventListener('mouseleave',function(){hover=-1;hoverY=-1;TL.hov=null;showTip(-1);draw(performance.now());});
+  cv.addEventListener('mouseleave',function(){hover=-1;hoverY=-1;TL.hov=null;showTip(-1);sqCard(null);draw(performance.now());});
   // ---------------------------------------------------------------- ✎ LINE: trend lines (4 Oct 2026, Chris: draws them the David Weis way)
   // ✎ LINE in the chart toolbar = draw mode (pan / tap-inspect are off while it is on; the page still scrolls outside the chart). Tap / click
   // 2 points; MAGNET snaps a point to the bar's high / low / close when within ~10px (18px on touch). Each point is stored as {bar date,
@@ -1074,6 +1229,14 @@
     vg.addEventListener('click',function(e){var b=e.target.closest('button[data-vm]');if(b&&b.getAttribute('data-vm')!==VM)window._tcSetVM(b.getAttribute('data-vm'));});
     window.addEventListener('storage',function(e){if(e.key===VKEY&&(e.newValue||'vsa')!==VM)window._tcSetVM(e.newValue||'vsa',1);});
     vmLab();
+    // VSA SEQUENCES pill (right after VOL: PLAIN | VSA): localStorage wa.desk.chartseq.v1, default on, shared by every chart (other tabs follow)
+    if(SQO){var sqb=document.createElement('button');sqb.type='button';sqb.className='tcseq';sqb.title='VSA Trade Set-Up Sequences: tags on the completing bar (saved for every chart)';
+      var sqLab=function(){sqb.setAttribute('aria-pressed',SQON?'true':'false');sqb.setAttribute('aria-label','VSA sequences '+(SQON?'on':'off'));
+        sqb.innerHTML='<span class="dots"><i class="b"></i><i class="u"></i></span>VSA SEQUENCES<span class="sw"><b>'+(SQON?'ON':'OFF')+'</b><u></u></span>';};
+      window._tcSetSeq=function(on,nosave){SQON=!!on;if(!nosave){try{localStorage.setItem(SQK,SQON?'1':'0');}catch(e){}}if(!SQON&&SQH)sqCard(null);sqLab();legRe();setTimeout(redraw,0);};
+      sqb.addEventListener('click',function(){window._tcSetSeq(!SQON);});
+      window.addEventListener('storage',function(e){if(e.key===SQK&&(e.newValue!=='0')!==SQON)window._tcSetSeq(e.newValue!=='0',1);});
+      vg.parentNode.insertBefore(sqb,vg.nextSibling);sqLab();}
     function syncOvl(){if(OBAR)OBAR.querySelectorAll('button[data-o]').forEach(function(b){var o=OVL[+b.getAttribute('data-o')];b.setAttribute('aria-pressed',String(o.on));b.innerHTML=OBTN(o);});}
     window._tcLaySync=function(){if(!pn.hidden)render();};
     function open(v){pn.hidden=!v;bl.setAttribute('aria-expanded',String(v));if(v)render();}
