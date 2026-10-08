@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-08T15:50:08+11:00",
+  "generated": "2026-10-08T16:12:27+11:00",
   "ref_session": "2026-10-07",
   "ref_src": "feeds/rs/cache/grouped newest completed session",
   "pages": [
@@ -144,7 +144,7 @@
     }
   ],
   "charts": {
-    "total": 1108,
+    "total": 1113,
     "stale": [
       {
         "ticker": "PSKY",
@@ -156,7 +156,7 @@
       }
     ],
     "by_date": {
-      "2026-10-07": 1106,
+      "2026-10-07": 1111,
       "2026-10-05": 2
     }
   },
