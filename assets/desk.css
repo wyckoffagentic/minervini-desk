@@ -617,7 +617,8 @@ body.dk .strip>.cat.key,body.dk .strip>.earn.key{flex-basis:320px}
 /* ---- shared style (9 Oct 2026, improvements item 7) ---- */
 /* one colour for every ticker link: the desk cyan */
 body.dk a[href*="stock.html?t="]:not(.dk-btn):not(.hb):not(.go):not(.dk-pill),body.dk a[href*="tickers/"]:not(.dk-btn):not(.hb),
-body.dk a.tc-link,body.dk .tk>a,body.dk .tkc a:not(.dk-btn),body.dk a.rc-tk{color:var(--cy)!important}
+body.dk a.tc-link:not(.hb),body.dk .tk>a:not(.hb),body.dk .tkc a:not(.dk-btn):not(.hb),body.dk a.rc-tk:not(.hb),
+body.dk b.rc-tk:not(#rso *),body.dk span.rc-tk:not(.chip):not(#rso *){color:var(--cy)!important}
 body.dk a[href*="stock.html?t="]:not(.dk-btn):hover,body.dk a.tc-link:hover{color:#7ff3ff!important}
 /* Qullamaggie: desk panels / edges / text instead of the TradingView greys */
 body.dk .qk{--tvbg:var(--panel);--tvp:var(--panel2);--tvl:var(--edge2);--tvt:var(--tx)}
