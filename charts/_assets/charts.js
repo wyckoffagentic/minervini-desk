@@ -61,6 +61,7 @@
   var RSD=D.rs||{}, RSL=mapS(RSD.line), RSM=RSD.marks||{}, RSC={lead:'#2f7bff',hi:'#9fc4ff',line:'#8ec5ff'};
   // RS rating panel (Deepvue-style, above price): D.rs.hist.rows = [[date, rating|null, ma21|null, band S/F/N/W|null, cross U/D|null]]
   var RTH=RSD.hist||null, hasRT=!!RTH, RTM={}; ((RTH&&RTH.rows)||[]).forEach(function(r){RTM[r[0]]=r;});
+  var RTF=RTH&&((RTH.rows||[]).some(function(r){return r[1]!=null;}))?RTH.from:null;   // first rated session (null: never ranked, e.g. ETF / foreign / illiquid)
   var RTC={r:'#39ff88',ma:'#ffa630',up:'rgba(57,255,136,.20)',dn:'rgba(255,96,64,.24)',area:'rgba(57,255,136,.13)',
     band:{S:'rgba(24,170,80,.36)',F:'rgba(18,96,58,.48)',N:'rgba(130,118,28,.40)',W:'rgba(150,22,34,.48)'},
     bandName:{S:'STRONG',F:'FIRM',N:'NEUTRAL',W:'WEAK'}};
@@ -867,7 +868,7 @@
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});x.stroke();});x.shadowBlur=0;
       vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#000';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),narrow?2.2:2.7,0,Math.PI*2);x.fill();x.stroke();});
       // where the stored history starts / blank before it
-      var f0=RTH.from, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&(b.de||b.d)>=f0)fi=i;});
+      var f0=RTF, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&(b.de||b.d)>=f0)fi=i;});
       x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';
       function rsNote(t,x0,y0,al){var tw=x.measureText(t).width;var bx=al==='center'?x0-tw/2:al==='right'?x0-tw:x0;bx=Math.max(pl+2,Math.min(barsEnd-tw-4,bx));
         x.fillStyle='rgba(0,0,0,.78)';x.fillRect(bx-3,y0-8,tw+6,11);x.fillStyle='#d6d2f5';x.textAlign='left';x.fillText(t,bx,y0);}   // light text on a dark plate (readable over the line)
@@ -1172,7 +1173,7 @@
     (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>'+rtMaLbl()+' OF RATING</span>'+
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
-      '<span>'+(RTH.from?'RS RATING FROM '+esc(sday(RTH.from))+' '+esc(RTH.from.slice(0,4))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY')+'</span>'+
+      '<span>'+(RTF?'RS RATING FROM '+esc(sday(RTF))+' '+esc(RTF.slice(0,4))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY (NOT RANKED)')+'</span>'+
       ((RSD.line||[]).length?'<span><i style="background:'+RSC.line+'"></i>RS LINE ÷'+esc(RSD.bench||'SPY')+' (PANEL, OWN SCALE, EVERY BAR)</span>':''):'')+
     ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+volKey()+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
     PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+esc(plPos(x))+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}

@@ -106,7 +106,7 @@ function chartFrom(kind){
     var NEON={'#1f9d3a':'#39ff88','#d62828':'#ff3d7f'};   // VSA sign colours -> desk neon (dark background)
     (c.tc.overlays||[]).forEach(function(o){if(o.id!=='vsa')return;o.color=NEON[o.color]||o.color;(o.items||[]).forEach(function(it){if(NEON[it.c])it.c=NEON[it.c];});(o.legend||[]).forEach(function(l){if(NEON[l[0]])l[0]=NEON[l[0]];});});
     window.TC_DATA=c.tc;window.TC_RSB=c.rsb||'';var box=$('stk-chart');box.hidden=false;   // charts.js builds the module in #tc-mount (RS box included)
-    return loadScript('charts/_assets/chart_zoom.js?v=9db37881').then(function(){return loadScript('charts/_assets/charts.js?v=9db37881');}).then(function(){postH();return c;});
+    return loadScript('charts/_assets/chart_zoom.js?v=27fcbab1').then(function(){return loadScript('charts/_assets/charts.js?v=27fcbab1');}).then(function(){postH();return c;});
   }).catch(function(e){return null;});
 }
 function noChart(msg){var b=$('stk-chart');b.hidden=false;b.innerHTML='<div class="dk-note">'+msg+'</div>';postH();}
