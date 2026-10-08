@@ -19,7 +19,14 @@ if(Q.get('mini')==='1')B.classList.add('tc-mini');
 
 // ------------------------------------------------------------------ nav: centre the active pill
 var nav=D.querySelector('.dk-nav'),on=nav&&nav.querySelector('a.on');
-if(nav&&on&&nav.scrollWidth>nav.clientWidth){nav.scrollLeft=on.offsetLeft-nav.clientWidth/2+on.offsetWidth/2;}
+if(nav&&on&&nav.scrollWidth>nav.clientWidth&&!nav.querySelector('.dk-grp')){nav.scrollLeft=on.offsetLeft-nav.clientWidth/2+on.offsetWidth/2;}
+// grouped nav (9 Oct 2026): one menu open at a time; click outside / Esc closes
+if(nav&&nav.querySelector('.dk-grp')){
+  var grps=[].slice.call(nav.querySelectorAll('.dk-grp'));
+  grps.forEach(function(g){g.addEventListener('toggle',function(){if(g.open)grps.forEach(function(o){if(o!==g)o.open=false;});});});
+  D.addEventListener('click',function(e){if(!nav.contains(e.target))grps.forEach(function(g){g.open=false;});});
+  D.addEventListener('keydown',function(e){if(e.key==='Escape')grps.forEach(function(g){if(g.open){g.open=false;g.querySelector('summary').focus();}});});
+}
 
 // ------------------------------------------------------------------ ticker index (shared by search + watchlists page)
 var TK=null,TKP=null;
@@ -220,7 +227,7 @@ if(XP_ON){
   var KEY='wa.desk.springs.tf.v1',TFN={d:'Daily',w:'Weekly',m:'Monthly'},IDX={'0':'d','1':'w','2':'m'};
   function readUrl(){var q=(location.hash||'').replace(/^#/,'').split('&').concat((location.search||'').replace(/^\?/,'').split('&')),o={};
     q.forEach(function(kv){var p=kv.split('=');if(p[0]==='tf'&&/^(all|d|w|m)$/.test(p[1]))o.tf=p[1];if(p[0]==='act')o.act=p[1]==='1'?1:0;if(p[0]==='ph'&&/^(all|[A-F])$/.test(p[1]))o.ph=p[1];});return o;}
-  var st={tf:'all',act:0};try{var sv=JSON.parse(localStorage.getItem(KEY)||'{}');if(/^(all|d|w|m)$/.test(sv.tf))st.tf=sv.tf;st.act=sv.act?1:0;}catch(e){}
+  var st={tf:'all',act:0},GA=0,GAH=null;try{var sv=JSON.parse(localStorage.getItem(KEY)||'{}');if(/^(all|d|w|m)$/.test(sv.tf))st.tf=sv.tf;st.act=sv.act?1:0;}catch(e){}
   var U=readUrl(),fromUrl=('tf' in U)||('act' in U);if(U.tf)st.tf=U.tf;if('act' in U)st.act=U.act;
   function save(){try{localStorage.setItem(KEY,JSON.stringify({tf:st.tf,act:st.act}));}catch(e){}}
   function hashFor(){return 'tf='+st.tf+(st.act?'&act=1':'')+(st.ph&&st.ph!=='all'?'&ph='+st.ph:'');}
@@ -230,10 +237,10 @@ if(XP_ON){
     return b;}
   function paint(b,c){b.querySelectorAll('[data-tf]').forEach(function(x){var k=x.getAttribute('data-tf');x.setAttribute('aria-pressed',String(st.tf===k));
       var n=c(k,st.act);x.querySelector('b').textContent=n==null?'':n;x.classList.toggle('zero',n===0);});
-    var a=b.querySelector('[data-act]');if(a){a.setAttribute('aria-pressed',String(!!st.act));var na=c(st.tf,1);a.querySelector('b').textContent=na==null?'':na;}}
+    var a=b.querySelector('[data-act]');if(a){a.setAttribute('aria-pressed',String(!!(st.act||GA)));var na=c(st.tf,1);a.querySelector('b').textContent=na==null?'':na;}}
   function closeCharts(){OPEN.slice().forEach(closeX);}
   function wire(b,apply){b.addEventListener('click',function(e){var x=e.target.closest('button');if(!x)return;
-    if(x.hasAttribute('data-act'))st.act=st.act?0:1;else st.tf=x.getAttribute('data-tf');save();closeCharts();apply(true);});}
+    if(x.hasAttribute('data-act')){if(GA&&GAH){GAH(0);return;}st.act=st.act?0:1;}else st.tf=x.getAttribute('data-tf');save();closeCharts();apply(true);});}
   function emptyRow(tb,n,show,label){var r=tb.querySelector('tr.dk-tfempty');if(show&&!r){r=el('tr','dk-tfempty');var td=el('td');td.colSpan=n;r.appendChild(td);tb.appendChild(r);}
     if(r){r.hidden=!show;if(show)r.firstChild.textContent=label;}}
   var lbl=function(){return 'No '+(st.tf==='all'?'':TFN[st.tf].toLowerCase()+' ')+'springs in this list.';};
@@ -246,8 +253,11 @@ if(XP_ON){
       // Shareable: #min=C&spr=D&epb=N (+ tf=w&act=1 for the springs family, which also gets the D/W/M + actionable bar). Phase is URL-only.
       var FH={};(location.hash||'').replace(/^#/,'').split('&').forEach(function(kv){var p=kv.split('=');if(p[1]&&/^(all|[A-FN])$/.test(p[1]))FH[p[0]]=p[1];});
       if(FH.ph&&!FH.spr)FH.spr=FH.ph;   // old springs links (#ph=C)
-      var FS={},anyTf=0;
-      var fullHash=function(){var h=[];if(anyTf){if(st.tf!=='all')h.push('tf='+st.tf);if(st.act)h.push('act=1');}
+      var FS={},anyTf=0,APPLY=[];
+      // 9 Oct 2026 (improvements item 5): the page opens on actionable rows only (data-act="1"); one bar on top switches to every row.
+      // #all=1 opens the full list. Not remembered between visits on purpose: the default view is always the actionable one.
+      GA=/(^|[#&])all=1(&|$)/.test(location.hash||'')?0:1;
+      var fullHash=function(){var h=[];if(!GA)h.push('all=1');if(anyTf){if(st.tf!=='all')h.push('tf='+st.tf);if(st.act)h.push('act=1');}
         fams.forEach(function(f){var k=f.getAttribute('data-fam');if(FS[k]&&FS[k]!=='all')h.push(k+'='+FS[k]);});return h.join('&');};
       var mixTxt=function(rows,ord){var a=0,c={},n=0;rows.forEach(function(r){n++;if(r.getAttribute('data-act')==='1')a++;(r.getAttribute('data-mx')||'').split(' ').forEach(function(t){if(t)c[t]=(c[t]||0)+1;});});
         var keys=ord.length?ord:Object.keys(c).sort(),p=[];if(a)p.push('⚡ '+a+' actionable');keys.forEach(function(k){if(c[k])p.push(k.replace(/_/g,' ')+' '+c[k]);});
@@ -258,9 +268,9 @@ if(XP_ON){
         FS[fid]=FH[fid]||'all';if(tfb)anyTf=1;
         var rows=[].slice.call(fam.querySelectorAll('table.pg-tbl tbody tr[data-ph]'));
         var cntRows=[].slice.call(fam.querySelectorAll('.pg-blk[data-pgc="1"] table.pg-tbl tbody tr[data-ph]'));
-        var okTf=function(r,tf,act){if(!tfb)return true;return (tf==='all'||IDX[r.getAttribute('data-tf')]===tf)&&(!act||r.getAttribute('data-act')==='1');};
+        var okTf=function(r,tf,act){var a=act||GA;if(!tfb)return !a||r.getAttribute('data-act')==='1';return (tf==='all'||IDX[r.getAttribute('data-tf')]===tf)&&(!a||r.getAttribute('data-act')==='1');};
         var b=null;
-        var apply=function(user){var ph=FS[fid],filt=ph!=='all'||(tfb&&(st.tf!=='all'||!!st.act));
+        var apply=function(user){var ph=FS[fid],filt=!!GA||ph!=='all'||(tfb&&(st.tf!=='all'||!!st.act));
           rows.forEach(function(r){var ok=okTf(r,st.tf,st.act)&&(ph==='all'||r.getAttribute('data-ph')===ph);r.classList.toggle('dk-tfhide',!ok);});
           fam.querySelectorAll('.pg-blk').forEach(function(bk){var ord=(bk.getAttribute('data-mxo')||'').split(' ').filter(Boolean),bv=0,tot=0;
             bk.querySelectorAll('details.pg-ph').forEach(function(pd){var pv=0,show=ph==='all'||ph===pd.getAttribute('data-ph'),pr=[];
@@ -286,8 +296,15 @@ if(XP_ON){
           var blk=sb.parentNode.querySelector('.pg-blk')||sb.nextElementSibling;if(!blk)return;
           blk.querySelectorAll('table.pg-tbl').forEach(function(t){var th=t.querySelector('th[data-k="'+k+'"]');if(!th)return;th.classList.remove('asc','desc');th.classList.add(k==='ov'?'asc':'desc');th.click();});
           sb.querySelectorAll('button').forEach(function(y){y.classList.toggle('on',y===x);});});});
-        apply(false);
+        APPLY.push(apply);apply(false);
       });
+      (function(){var all=0,act=0,seen={};fams.forEach(function(f){f.querySelectorAll('.pg-blk[data-pgc="1"] table.pg-tbl tbody tr[data-ph]').forEach(function(r){all++;if(r.getAttribute('data-act')==='1')act++;});});
+        var ab=el('div','dk-actbar');ab.setAttribute('role','group');ab.setAttribute('aria-label','Actionable or all setups');
+        var paintA=function(){ab.innerHTML=GA?'<span>⚡ Showing <b>actionable setups only</b> · '+act+' of '+all+' rows</span><button type="button" class="dk-btn" data-ga="0">Show all '+all+' setups ▾</button>'
+          :'<span>Showing <b>all '+all+'</b> setup rows</span><button type="button" class="dk-btn" data-ga="1">⚡ Actionable only ('+act+')</button>';};
+        GAH=function(v){GA=v;paintA();closeCharts();APPLY.forEach(function(f){f(true);});};
+        ab.addEventListener('click',function(e){var x=e.target.closest('button[data-ga]');if(x)GAH(+x.getAttribute('data-ga'));});
+        paintA();fams[0].parentNode.insertBefore(ab,fams[0]);})();
       var tgt=null;fams.forEach(function(f){var k=f.getAttribute('data-fam');if(!tgt&&FH[k])tgt=f;});
       if(!tgt&&fromUrl)tgt=D.querySelector('section.pg-fam[data-tfbar]');
       if(tgt)setTimeout(function(){D.documentElement.style.scrollBehavior='auto';var hh=tgt.querySelector('h2')||tgt;window.scrollTo(0,hh.getBoundingClientRect().top+window.scrollY-8);},60);
@@ -375,6 +392,26 @@ if(XP_ON){
   setTimeout(run,1500);setTimeout(run,4000);
   if(MQ&&MQ.addEventListener)MQ.addEventListener('change',run);
   document.addEventListener('click',function(){setTimeout(run,60);},true);
+})();
+/* 9 Oct 2026 (improvements item 5): long lists on VSA / Structure / Weekend open on their most notable rows (each list is already
+   sorted most-significant first); a button under the list shows every row. Rows hidden by the page's own filters are not counted. */
+(function(){
+  var CFG={'vsa.html':[{s:'#vt',n:25},{s:'#vr5',n:20},{s:'#vb',n:40}],'wyckoff_structure.html':[{s:'#wyl',n:40,it:'li.row'}],'weekend.html':[{s:'table',n:30,min:60}]};
+  var cf=CFG[PAGE];if(!cf)return;var U=[];
+  function vis(r){return !r.hidden&&getComputedStyle(r).display!=='none';}
+  function run(u){var it=u.items();it.forEach(function(r){r.classList.remove('dk-clipped');});var v=it.filter(vis);
+    if(!u.open)v.slice(u.n).forEach(function(r){r.classList.add('dk-clipped');});var extra=v.length-u.n;u.btn.hidden=extra<=0;
+    u.btn.innerHTML=u.open?'Showing all '+v.length+' · <b>show the top '+u.n+' only ▴</b>':'Showing the top '+u.n+' of '+v.length+' · <b>show all ▾</b>';}
+  cf.forEach(function(c){D.querySelectorAll(c.s).forEach(function(box){
+    var items=c.it?function(){return [].slice.call(box.querySelectorAll(c.it));}:function(){return [].filter.call(box.rows||[],function(r){return !r.classList.contains('dk-tfempty')&&[].some.call(r.cells,function(x){return x.tagName==='TD';});});};
+    if(items().length<=(c.min||c.n+5))return;
+    var u={items:items,n:c.n,open:false,btn:el('button','dk-btn ghost dk-clipbtn')};u.btn.type='button';
+    var wrap=box.closest('.tscroll')||box;wrap.parentNode.insertBefore(u.btn,wrap.nextSibling);
+    u.btn.addEventListener('click',function(){u.open=!u.open;run(u);if(!u.open){var r=wrap.getBoundingClientRect();if(r.top<0)window.scrollTo(0,r.top+window.scrollY-60);}});
+    U.push(u);});});
+  function all(){U.forEach(run);}all();
+  D.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.dk-clipbtn'))return;setTimeout(all,150);},true);
+  D.addEventListener('change',function(){setTimeout(all,150);},true);
 })();
 window.DKXP={scan:scan,open:openX,close:closeX};
 })();
