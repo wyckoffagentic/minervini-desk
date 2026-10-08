@@ -357,5 +357,24 @@ if(XP_ON){
     var t=(b.getAttribute('title')||'').replace(/; last completed US session.*$/,'');
     b.setAttribute('title',t+'; last completed US session '+lab(ref)+(n?' ('+n+' session'+(n>1?'s':'')+' behind)':''));});
 })();
+/* 9 Oct 2026 (improvements item 4): under 600px every data table becomes stacked rows. Each cell gets data-label = its column
+   header (CSS shows it as a small caption); re-run for tables / rows that scripts insert later. Opt out with class dk-nostack. */
+(function(){
+  var MQ=window.matchMedia?matchMedia('(max-width:600px)'):null;
+  function lab(t){
+    if(t.classList.contains('dk-nostack')||t.closest('.dk-nostack,.tc-embed,.tc-mini,#rso,svg'))return;
+    var hr=t.tHead&&t.tHead.rows.length?t.tHead.rows[t.tHead.rows.length-1]:null;
+    if(!hr&&t.rows.length&&[].every.call(t.rows[0].cells,function(c){return c.tagName==='TH';})){hr=t.rows[0];hr.classList.add('dk-hrow');hr.dataset.dkl=1;}
+    if(!hr||hr.cells.length<2)return;
+    var L=[];[].forEach.call(hr.cells,function(h){var n=h.colSpan||1,x=(h.textContent||'').replace(/[\u21c5\u2191\u2193\u25b2\u25bc\u2195]/g,'').replace(/\s+/g,' ').trim();for(var i=0;i<n;i++)L.push(i?'':x);});
+    [].forEach.call(t.tBodies,function(b){[].forEach.call(b.rows,function(r){if(r.dataset.dkl)return;var i=0;[].forEach.call(r.cells,function(c){if(!c.hasAttribute('data-label'))c.setAttribute('data-label',c.colSpan>1?'':(L[i]||''));if((c.textContent||'').length>48)c.classList.add('dk-long');i+=c.colSpan||1;});r.dataset.dkl=1;});});
+    t.classList.add('dk-stack');
+  }
+  function run(){if(MQ&&!MQ.matches)return;document.querySelectorAll('table').forEach(lab);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
+  setTimeout(run,1500);setTimeout(run,4000);
+  if(MQ&&MQ.addEventListener)MQ.addEventListener('change',run);
+  document.addEventListener('click',function(){setTimeout(run,60);},true);
+})();
 window.DKXP={scan:scan,open:openX,close:closeX};
 })();

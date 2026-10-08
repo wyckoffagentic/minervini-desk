@@ -8,5 +8,4 @@ body.dk .arw.dn{color:#ff8fa3;background:rgba(255,61,127,.10);border-color:rgba(
 body.dk .arw.eq{color:#d6d2f5}
 body.dk .idx .c{color:#cfc9ff}
 body.dk .idx.up .c{color:#7dffb0}
-body.dk a.hb,body.dk .hb{color:#120f22!important;border-color:rgba(0,0,0,.35)!important;text-shadow:none}
-body.dk .hb.ath{background:#ffd23f}body.dk .hb.h52{background:#7dff8a}
+/* ATH / 52wH badges: light text on a tinted chip (desk.css carries the same rule site-wide since 9 Oct 2026) */
