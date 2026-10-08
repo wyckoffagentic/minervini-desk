@@ -606,3 +606,136 @@ body.party [class*=play-] .gfx .speed{opacity:0;animation:none}
  .burst{animation:lt-fade 1.6s var(--d,0s) both!important;transform:none}
  @keyframes lt-fade{0%{opacity:0}10%,80%{opacity:1}100%{opacity:0}}
 }
+
+/* ---------- FLOOR ROWS (9 Oct 2026, layout only): every setup list on the Floor = one aligned row table ----------
+   Setup Master card (research-tools/unify.py), 🎯 Setups / 🌱 Springs / 🏔️ New highs / 📉 EMA pullback lists (build.py fl_list),
+   🃏 Today's setups (.fl-cards: the same setup_card markup, laid out as rows). Ticker first, fixed columns, numbers right-aligned
+   in tabular figures, same row height, thin row separators; phones drop to two/three neat lines per row. Light text only. */
+.fl-list{--fl-tkw:80px;max-width:820px;margin:12px 0 4px;font-size:13.5px;line-height:1.3;color:var(--tx,#e9e6ff)}
+.fl-list .fl-cap{font-size:14.5px;margin:0 0 3px;color:var(--tx,#e9e6ff)}
+.fl-list small,.fl-list .fl-more{opacity:1;color:var(--tx2,#cfc9ff)}
+.fl-list .fl-more{padding:5px 8px 0;font-size:12.5px}
+.fl-r{display:grid;grid-template-columns:var(--fl-gt);column-gap:14px;align-items:center;min-height:32px;padding:3px 8px;box-sizing:border-box;
+ border-bottom:1px solid rgba(107,92,255,.24)}
+.fl-r[hidden]{display:none!important}
+.fl-r:not(.fl-hd):hover{background:rgba(0,229,255,.06)}
+.fl-r.fl-hd{min-height:24px;padding-top:0;padding-bottom:2px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+ color:var(--tx2,#cfc9ff);border-bottom:1px solid var(--edge2,#3b2f7a)}
+.fl-r .fl-c{min-width:0;color:var(--tx,#e9e6ff);white-space:nowrap}
+.fl-r.fl-hd .fl-c{color:var(--tx2,#cfc9ff)}
+.fl-r .fl-c.t{white-space:normal}
+.fl-r .fl-c.n{text-align:right;font-family:var(--f-mono,ui-monospace,Menlo,Consolas,monospace);font-variant-numeric:tabular-nums;font-weight:600}
+.fl-r.fl-hd .fl-c.n{font-family:inherit;font-weight:700}
+.fl-r .fl-tk{font:700 14px var(--f-mono,ui-monospace,Menlo,Consolas,monospace);color:#fff;white-space:nowrap;text-align:left}
+.fl-r .fl-tkc{text-align:left}
+.fl-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px;max-width:820px}
+@media (max-width:600px){
+ .fl-list{--fl-tkw:52px;font-size:12.5px}
+ .fl-r{grid-template-columns:var(--fl-gtm);column-gap:5px;padding:3px 2px}
+ .fl-r>.fl-w{grid-column:2/-1;grid-row:2;white-space:normal;color:var(--tx2,#cfc9ff)}
+ .fl-r.fl-hd>.fl-w{display:none}
+ .fl-r .fl-tk{font-size:13px}
+ .fl-pair{grid-template-columns:1fr}
+}
+
+/* Setup Master card rows (li.row stays li.row[data-tk]: desk.js still adds the ▸ inline chart, charts-link.js the 🕹) */
+.dk-sm .dk-sm-list li.row,.dk-sm .dk-sm-list li.sm-hd{display:grid;grid-template-columns:20px 150px 46px 56px 150px 78px 78px 58px minmax(0,1fr);
+ grid-template-areas:"n tk sc st pg en sp rk bd";column-gap:12px;align-items:center;min-height:40px;padding:4px 6px;box-sizing:border-box;
+ border-bottom:1px solid rgba(107,92,255,.24)}
+.dk-sm .dk-sm-list li.row:hover{background:rgba(0,229,255,.06)}
+.dk-sm .dk-sm-list li.sm-hd{min-height:22px;padding-top:0;padding-bottom:2px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+ color:var(--tx2,#cfc9ff);border-bottom:1px solid var(--edge2,#3b2f7a)}
+.dk-sm .dk-sm-list li.sm-hd .h-n{grid-area:n}.dk-sm .dk-sm-list li.sm-hd .h-tk{grid-area:tk}.dk-sm .dk-sm-list li.sm-hd .h-sc{grid-area:sc}
+.dk-sm .dk-sm-list li.sm-hd .h-st{grid-area:st}.dk-sm .dk-sm-list li.sm-hd .h-pg{grid-area:pg}.dk-sm .dk-sm-list li.sm-hd .h-bd{grid-area:bd}
+.dk-sm .dk-sm-list li.sm-hd .h-en{grid-area:en;text-align:right}.dk-sm .dk-sm-list li.sm-hd .h-sp{grid-area:sp;text-align:right}
+.dk-sm .dk-sm-list li.sm-hd .h-rk{grid-area:rk;text-align:right}
+.dk-sm .dk-sm-list li.row>.n{grid-area:n;width:auto;color:var(--tx2,#cfc9ff)}
+.dk-sm .dk-sm-list li.row>.tk{grid-area:tk;min-width:0}
+.dk-sm .dk-sm-list li.row>.sc{grid-area:sc;justify-self:start}
+.dk-sm .dk-sm-list li.row>.st{grid-area:st;justify-self:start}
+.dk-sm .dk-sm-list li.row>.pg{grid-area:pg;min-width:0;white-space:nowrap;font-size:13px}
+.dk-sm .dk-sm-list li.row>.pg .tp-pend{color:var(--tx2,#cfc9ff)}
+.dk-sm .dk-sm-list li.row>.lv{display:contents}
+.dk-sm .dk-sm-list li.row>.lv>*{text-align:right;font:600 13px var(--f-mono,ui-monospace,Menlo,Consolas,monospace);font-variant-numeric:tabular-nums;font-style:normal;white-space:nowrap}
+.dk-sm .dk-sm-list li.row>.lv>.en{grid-area:en;color:#fff}
+.dk-sm .dk-sm-list li.row>.lv>i{grid-area:sp;color:#ff8fa3}
+.dk-sm .dk-sm-list li.row>.lv>.rk{grid-area:rk;color:#ffe3a3}
+.dk-sm .dk-sm-list li.row>.bd{grid-area:bd;flex-basis:auto;padding-left:0;min-width:0}
+body .dk-sm .mut,body .dk-sm .dk-sm-hd .mut{color:var(--tx2,#cfc9ff)!important}
+@media (max-width:759px){
+ .dk-sm .dk-sm-list li.row,.dk-sm .dk-sm-list li.sm-hd{grid-template-columns:16px minmax(0,1fr) 62px 62px 50px;column-gap:8px;row-gap:3px;padding:6px 2px;
+  grid-template-areas:"n tk tk sc st" ". pg en sp rk" ". bd bd bd bd"}
+ .dk-sm .dk-sm-list li.sm-hd{grid-template-areas:"n tk tk sc st" ". pg en sp rk";padding-top:0}
+ .dk-sm .dk-sm-list li.sm-hd .h-bd{display:none}
+ .dk-sm .dk-sm-list li.row>.pg{font-size:12px}
+ .dk-sm .dk-sm-list li.row>.lv>*{font-size:12.5px}
+ .dk-sm .dk-sm-list li.row>.sc,.dk-sm .dk-sm-list li.row>.st{justify-self:end}
+ .dk-sm .dk-sm-list li.sm-hd .h-sc,.dk-sm .dk-sm-list li.sm-hd .h-st{text-align:right}
+}
+
+/* 🃏 Today's setups: setup_card markup unchanged; .head/.body/.setup/.foot dissolve (display:contents) into one grid row */
+.fl-cards{display:block;margin-top:6px}
+.fl-cards .fl-cards-hd,body .fl-cards article.card{display:grid;grid-template-columns:44px minmax(120px,170px) 84px minmax(150px,1fr) 316px 116px 136px;
+ column-gap:12px;align-items:center;box-sizing:border-box;padding:8px 10px}
+.fl-cards .fl-cards-hd{grid-template-areas:"rk tk sc su nu st ln";padding-top:0;padding-bottom:4px;font-size:10.5px;font-weight:700;text-transform:uppercase;
+ letter-spacing:.06em;color:var(--tx2,#cfc9ff);border-bottom:1px solid var(--edge2,#3b2f7a)}
+.fl-cards .fl-cards-hd .h-rk{grid-area:rk}.fl-cards .fl-cards-hd .h-tk{grid-area:tk}.fl-cards .fl-cards-hd .h-sc{grid-area:sc}.fl-cards .fl-cards-hd .h-su{grid-area:su}
+.fl-cards .fl-cards-hd .h-st{grid-area:st}.fl-cards .fl-cards-hd .h-ln{grid-area:ln;text-align:right}
+.fl-cards .fl-cards-hd .h-nu{grid-area:nu;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.fl-cards .fl-cards-hd .h-nu i{font-style:normal;text-align:right}
+body.dk .fl-cards article.card,body .fl-cards article.card{grid-template-areas:"rk tk sc su nu st ln" "rk co sr tp vd vd vd";grid-template-rows:minmax(34px,auto) minmax(26px,auto);
+ row-gap:2px;margin:0;min-height:72px;background:transparent;border:0;border-bottom:1px solid rgba(107,92,255,.24);border-radius:0;
+ box-shadow:inset 3px 0 0 var(--c,#ffd23f);overflow:visible;transition:background .15s;transform:none;animation:none}
+body .fl-cards article.card:hover{transform:none;box-shadow:inset 3px 0 0 var(--c,#ffd23f);background:rgba(0,229,255,.06)}
+body .fl-cards article.card.hot,body .fl-cards article.card.hot:hover{box-shadow:inset 4px 0 0 #ffd23f;background:rgba(255,210,63,.07)}
+body .fl-cards article.card.alert,body .fl-cards article.card.anvil,body .fl-cards article.card.pratfall,
+body.party .fl-cards article.card,body.party .fl-cards article.card.hot,body.party .fl-cards article.card.alert{animation:none;transform:none}
+body .fl-cards article.card .head,body .fl-cards article.card .body,body .fl-cards article.card .setup,body .fl-cards article.card .foot{display:contents}
+body .fl-cards article.card .rank{grid-area:rk;align-self:center;justify-self:start;margin:0;font:700 12px var(--f-mono,ui-monospace,Menlo,Consolas,monospace);
+ font-variant-numeric:tabular-nums;color:var(--tx,#e9e6ff);background:var(--panel3,#17113f);border:1px solid var(--edge2,#3b2f7a);border-radius:6px;padding:1px 6px}
+body .fl-cards article.card .tk{grid-area:tk;align-self:end;justify-self:start;font:700 18px/1.1 var(--f-mono,ui-monospace,Menlo,Consolas,monospace);letter-spacing:.5px;
+ color:#fff;-webkit-text-stroke:0;text-shadow:none;white-space:nowrap}
+body .fl-cards article.card .tk .tc-joy{font-size:11px;min-width:22px;height:22px}
+body .fl-cards article.card .co{grid-area:co;align-self:start;margin:0;padding:0;font-size:12px;font-weight:600;line-height:1.2;color:var(--tx2,#cfc9ff)}
+body .fl-cards article.card>.score-badge{grid-area:sc;position:relative;top:auto;right:auto;width:50px;height:50px;justify-self:start;align-self:center}
+body .fl-cards article.card>.score-badge .score-num b{font-size:19px;color:var(--bg,hsl(243,75%,68%));text-shadow:none;-webkit-text-stroke:0}
+body .fl-cards article.card>.score-badge .score-num small{font-size:8px;color:var(--bg,hsl(243,75%,68%))}
+body .fl-cards article.card .setup>span:first-child{grid-area:su;align-self:end;font-size:13.5px;font-weight:700;line-height:1.25;color:var(--tx,#e9e6ff)}
+body .fl-cards article.card .stars{grid-area:sr;align-self:start;justify-self:start;font-size:13px}
+body .fl-cards article.card .nums{grid-area:nu;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0;align-self:end}
+body .fl-cards article.card .nums div{background:transparent;border:0;border-radius:0;padding:0;text-align:right;box-shadow:none}
+body .fl-cards article.card .nums small{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+body .fl-cards article.card .nums b{font:600 14px var(--f-mono,ui-monospace,Menlo,Consolas,monospace);font-variant-numeric:tabular-nums;color:#fff}
+body .fl-cards article.card .nums b.sm{font-size:12px}
+body .fl-cards article.card .nums .pv b{color:#9ff3ff}
+body .fl-cards article.card .nums .sp b{color:#ff8fa3}
+body .fl-cards article.card .nums .rk b{color:#ffe3a3}
+body .fl-cards article.card .topiv{grid-area:tp;align-self:start;margin:0;font-size:12.5px;font-weight:600;color:var(--tx,#e9e6ff)}
+body .fl-cards article.card .verdict{grid-area:vd;align-self:start;justify-self:start;margin:0;padding:2px 10px;border-radius:8px;font-size:13px;line-height:1.3;color:var(--tx,#e9e6ff)}
+body .fl-cards article.card .verdict:before{display:none}
+body .fl-cards article.card .sticker{grid-area:st;justify-self:start;align-self:end;margin:0}
+body .fl-cards article.card .footlinks{grid-area:ln;justify-self:end;align-self:end;display:flex;gap:12px;align-items:center;white-space:nowrap}
+body .fl-cards article.card .foot a{font-size:13px}
+body .fl-cards article.card .card-prop,body .fl-cards article.card.pratfall .card-prop{top:8px;bottom:auto;left:306px;right:auto;width:24px}
+/* the cartoon gags still play, on the ticker instead of tilting the whole row */
+body .fl-cards article.card.hot .tk{animation:wobble 2.4s ease-in-out infinite}
+body .fl-cards article.card.alert .tk{animation:lt-cardtake 8s linear infinite}
+body .fl-cards article.card.anvil .tk{animation:lt-cardbonk 8s linear infinite;transform-origin:50% 100%}
+body .fl-cards article.card.pratfall .tk{animation:lt-cardslip 8s linear infinite}
+body.party .fl-cards article.card .tk{animation:partycard 1.2s ease-in-out infinite}
+@media (max-width:899px){
+ .fl-cards .fl-cards-hd{display:none}
+ body.dk .fl-cards article.card,body .fl-cards article.card{grid-template-columns:30px repeat(4,minmax(0,1fr));column-gap:8px;row-gap:4px;padding:10px 6px 10px 8px;
+  grid-template-rows:auto;grid-template-areas:"rk tk tk tk sc" "rk co co co sr" ". su su su su" ". nu nu nu nu" ". tp tp tp tp" ". vd vd vd vd" ". st st ln ln"}
+ body .fl-cards article.card>.score-badge{justify-self:end;width:42px;height:42px}
+ body .fl-cards article.card .stars{justify-self:end}
+ body .fl-cards article.card .tk{align-self:center}
+ body .fl-cards article.card .nums{gap:6px}
+ body .fl-cards article.card .nums div{text-align:left;background:var(--panel2,#120c33);border:1px solid var(--edge,var(--edge2));border-radius:6px;padding:2px 6px}
+ body .fl-cards article.card .nums small{position:static;width:auto;height:auto;overflow:visible;clip:auto;display:block;font-size:9.5px;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--tx2,#cfc9ff);opacity:1}
+ body .fl-cards article.card .nums b{font-size:13px}
+ body .fl-cards article.card .sticker{align-self:center}
+ body .fl-cards article.card .footlinks{align-self:center}
+ body .fl-cards article.card .card-prop,body .fl-cards article.card.pratfall .card-prop{top:12px;left:auto;right:58px}
+}
