@@ -879,7 +879,7 @@
         if(X(fi)-bw/2-pl>htw+12){rsNote(ht,X(fi)-bw/2-4,ry0+RH-5,'right');}else{rsNote(ht,X(fi)+4,ry0+RH-5,'left');}}
       x.restore();
       x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(TX){var rtt='RS RATING · '+rtMaLbl();x.fillText(rtt,pl+5,ry0+10);
-        if(hasRL){x.fillStyle=RSC.line;x.fillText(' · RS LINE (PRICE / '+(RSD.bench||'SPY')+')',pl+5+x.measureText(rtt).width,ry0+10);}}
+        if(hasRL){x.fillStyle=RSC.line;x.fillText(narrow?' · RS LINE':' · RS LINE (PRICE / '+(RSD.bench||'SPY')+')',pl+5+x.measureText(rtt).width,ry0+10);}}
       x.strokeStyle='rgba(57,255,136,.35)';x.lineWidth=1;x.strokeRect(pl+.5,ry0+.5,rw-1,RH-1);
       // right column: value tags (rating green, MA orange) + scale labels that don't collide with them
       var lr=null;for(var k=vis.length-1;k>=0;k--){if(vis[k]&&vis[k][1]!=null){lr=vis[k];break;}}
