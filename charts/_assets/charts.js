@@ -1051,7 +1051,7 @@
     if(SQO||OVL.some(function(o){return o.id==='vsa';}))vxLoad();   // explanation library: fetched once, on the first pointer move
     var hb=TL.mode?null:sqHit(px,py,!!(e.touches||e.tap));
     var i=Math.floor((px-geo.pl)/geo.bw);hoverY=py;if(px>geo.barsEnd||i<0||i>=geo.n){hover=-1;if(!hb)showTip(-1);}else{hover=i;if(!hb)showTip(i+geo.off,px,py);}
-    if(hb){showTip(-1);sqCard(hb);}else sqCard(null);if(!HRAF)HRAF=requestAnimationFrame(function(){HRAF=0;draw(performance.now());});}
+    if(hb){var hj=(hb.t==='seq'?hb.bi:hb.t==='gl'?hb.bi:dix(hb.it.d))-geo.off;if(hj>=0&&hj<geo.n)hover=hj;showTip(-1);sqCard(hb);}else sqCard(null);if(!HRAF)HRAF=requestAnimationFrame(function(){HRAF=0;draw(performance.now());});}
   cv.addEventListener('mousemove',function(e){if(window.TCZoom&&TCZoom.dragging){return;}onMove(e);});
   if(window.TCZoom) TCZoom.mount({host:host,canvas:cv,total:bars.length,redraw:function(){draw(performance.now());},
     tap:function(cx,cy){onMove({clientX:cx,clientY:cy,tap:1});},clearTip:function(){hover=-1;showTip(-1);sqCard(null);}});
