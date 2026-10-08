@@ -413,5 +413,155 @@ if(XP_ON){
   D.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('.dk-clipbtn'))return;setTimeout(all,150);},true);
   D.addEventListener('change',function(){setTimeout(all,150);},true);
 })();
+/* 9 Oct 2026 (Chris): scanner jump links. The Setups page scanner tiles (a.scan-link -> #scan-<key>), the Floor chips
+   (setups.html#scan-<key>[&all=1], site/build.py) and any same-page #scan-* / #t-* link on setups.html: open the target section, reveal
+   rows that the actionable-only view (or a phase / springs timeframe filter) hides when needed, then smooth-scroll the section title
+   clear of any fixed / sticky header (scroll-margin + measured offset). Also runs on a fresh load with such a hash (setups.html#scan-vcp).
+   data-scan="all" on a link (watching tiles) = show every row of that section; otherwise the actionable view is kept unless the section
+   would show nothing. Anchors come from research-tools/setups_page.py SCAN_ID (+ the old t-<key> ids). */
+(function(){
+  if(PAGE!=='setups.html')return;
+  var RX=/^(scan-[\w-]+|t-[\w-]+|fam-[\w-]+|ema-pullback)$/,H=D.documentElement;
+  var RM=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function idOf(h){var t=String(h||'').replace(/^#/,'').split('&');for(var i=0;i<t.length;i++){var x;try{x=decodeURIComponent(t[i]);}catch(e){x=t[i];}if(RX.test(x)&&D.getElementById(x))return x;}return null;}
+  function wantAll(h){return /(^|[#&])all=1(&|$)/.test(String(h||''));}
+  // height of anything fixed / sticky pinned to the top of the viewport (none today; future-proof for a sticky header / regime bar)
+  function stick(){var m=0,seen=[];
+    if(D.elementsFromPoint)[0.2,0.5,0.8].forEach(function(f){D.elementsFromPoint(innerWidth*f,1).forEach(function(e){
+      for(var n=e;n&&n!==B&&n!==H;n=n.parentElement){if(seen.indexOf(n)>=0)break;seen.push(n);var p=getComputedStyle(n).position;
+        if((p==='fixed'||p==='sticky')&&!n.closest('table')){var r=n.getBoundingClientRect();if(r.top<=2&&r.bottom>0&&r.bottom<innerHeight*0.5)m=Math.max(m,r.bottom);}}});});
+    H.style.setProperty('--dk-stick',Math.round(m)+'px');return m+14;}
+  function rows(s){return s?[].slice.call(s.querySelectorAll('table.pg-tbl tbody tr[data-ph]')):[];}
+  function vis(s){return rows(s).filter(function(r){return !r.classList.contains('dk-tfhide');}).length;}
+  function scope(t){return t.closest('details.pg-sec')||t.closest('section.pg-fam');}
+  function press(b){if(b)b.click();}
+  function reveal(t,all){
+    var s=scope(t),fam=t.closest('section.pg-fam'),tot=rows(s).length;
+    var need=function(){return tot&&(all?vis(s)<tot:!vis(s));};
+    if(need())press(D.querySelector('.dk-actbar button[data-ga="0"]'));                                  // actionable-only -> all setups
+    if(fam&&need())press(fam.querySelector('.pg-phbar button[data-ph="all"][aria-pressed="false"]'));     // phase tab -> All
+    if(fam&&need())press(fam.querySelector('.pg-tfbar button[data-act][aria-pressed="true"]'));           // springs "Actionable only" off
+    if(fam&&tot&&!vis(s))press(fam.querySelector('.pg-tfbar button[data-tf="all"][aria-pressed="false"]')); // springs D/W/M -> All
+    for(var n=t;n&&n!==B;n=n.parentElement){if(n.tagName==='DETAILS'&&!n.open)n.open=true;if(n.hidden)n.hidden=false;}
+  }
+  function jump(y,smooth){y=Math.max(0,Math.round(y));
+    if(smooth&&!RM){window.scrollTo({top:y,behavior:'smooth'});return;}
+    var prev=H.style.scrollBehavior;H.style.scrollBehavior='auto';window.scrollTo(0,y);H.style.scrollBehavior=prev;}
+  var timers=[];function cancel(){timers.forEach(clearTimeout);timers=[];}
+  ['wheel','touchstart','keydown'].forEach(function(ev){window.addEventListener(ev,cancel,{passive:true});});
+  function settle(t,left){   // wait for the (smooth) scroll to stop, then correct for late layout moves (fonts, charts, phone table stacking)
+    var last=-1,still=0,n=0;
+    (function poll(){timers.push(setTimeout(function(){var y=window.scrollY;still=(y===last)?still+1:0;last=y;n++;
+      if(still<2&&n<40){poll();return;}
+      var d=t.getBoundingClientRect().top-stick();if(Math.abs(d)>6)jump(window.scrollY+d,false);
+      if(left>0)timers.push(setTimeout(function(){settle(t,left-1);},700));},100));})();}
+  function land(id,o){var t=D.getElementById(id);if(!t)return;cancel();
+    if(o.push)try{history.pushState(null,'',location.pathname+location.search+'#'+id);}catch(e){}
+    reveal(t,o.all);
+    var showAll=!!D.querySelector('.dk-actbar button[data-ga="1"]');
+    try{history.replaceState(null,'',location.pathname+location.search+'#'+id+(showAll?'&all=1':''));}catch(e){}   // shareable: the anchor + the view it landed in
+    jump(t.getBoundingClientRect().top+window.scrollY-stick(),o.smooth);
+    if(!/^(A|BUTTON|SUMMARY|INPUT|SELECT|TEXTAREA)$/.test(t.tagName)&&!t.hasAttribute('tabindex'))t.setAttribute('tabindex','-1');
+    try{t.focus({preventScroll:true});}catch(e){}
+    var hl=t.matches('section')?(t.querySelector('h2')||t):t;hl.classList.remove('scan-hit');void hl.offsetWidth;hl.classList.add('scan-hit');
+    setTimeout(function(){hl.classList.remove('scan-hit');},2200);
+    settle(t,2);}
+  D.addEventListener('click',function(e){
+    if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+    var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;
+    var href=a.getAttribute('href'),id=idOf(href);if(!id)return;
+    e.preventDefault();land(id,{all:a.getAttribute('data-scan')==='all'||wantAll(href),smooth:true,push:true});});
+  window.addEventListener('hashchange',function(){var id=idOf(location.hash);if(id)land(id,{all:wantAll(location.hash),smooth:true,push:false});});
+  var id0=idOf(location.hash);
+  if(id0){try{history.scrollRestoration='manual';}catch(e){}
+    var go0=function(){land(id0,{all:wantAll(location.hash),smooth:false,push:false});};
+    if(D.readyState==='loading')D.addEventListener('DOMContentLoaded',function(){setTimeout(go0,30);});else setTimeout(go0,30);}
+})();
+/* 9 Oct 2026 (Chris): scanner names are links, site-wide. Every setup-scanner name a page shows (tags / chips / "Setup" columns) opens
+   that scanner's section: setups.html#scan-<key> (SEPA, VCP, Power Play, High Tight Flag, Flat Base, Wyckoff springs; anchors from
+   research-tools/setups_page.py SCAN_ID), setups.html#ema-pullback / #t-first_pullback, ma_stack.html#p-<tab>, qullamaggie.html#breakouts|#ep.
+   Covers: Highs (Setups / lists tags), Setup Master + Floor card badges, Today's Trades chips, Floor Today / New highs / Setups lists,
+   EMA pullback "Signal" column, VSA "Setup · window", Report + Watchlist "Setup" column, Weekend setup labels, MA Stack spring tags,
+   the report card "In the scanners" box and stock.html "Setup scanners" (both drawn later: a MutationObserver links them as they appear).
+   Generated pages stay untouched (presentation only, no data); the Setups tiles and Floor chips are real links from their generators. */
+(function(){
+  var ONS=PAGE==='setups.html';
+  function S(id){return (ONS?'':BASE+'setups.html')+'#'+id;}
+  function MS(p){return BASE+'ma_stack.html'+(p?'#'+p:'');}
+  var KEY={sepa:'scan-sepa',vcp:'scan-vcp',powerplay:'scan-powerplay',htf:'scan-htf',flatbase:'scan-flatbase',springs:'scan-springs',ema:'ema-pullback'};
+  var NAME={sepa:'SEPA',vcp:'VCP',powerplay:'Power Play',htf:'High Tight Flag',flatbase:'Flat Base',springs:'Wyckoff springs',ema:'EMA pullback'};
+  var KW=/\b(SEPA|VCPs?|power[ -]?plays?|high[ -]tight[ -]flags?|HTF|flat[ -]?bases?|EMA pullback|(?:Wyckoff )?springs?)\b/gi;
+  function kwKey(w){w=w.toLowerCase();
+    if(w==='sepa')return 'sepa';if(/^vcps?$/.test(w))return 'vcp';if(/^power[ -]?plays?$/.test(w))return 'powerplay';
+    if(/^(high[ -]tight[ -]flags?|htf)$/.test(w))return 'htf';if(/^flat[ -]?bases?$/.test(w))return 'flatbase';if(w==='ema pullback')return 'ema';
+    if(/springs?$/.test(w))return 'springs';return null;}
+  function firstKey(txt){KW.lastIndex=0;var m=KW.exec(txt);KW.lastIndex=0;return m?kwKey(m[1]):null;}
+  // a whole tag / chip -> its scanner section ([href, label]); null = not a scanner name (left as it is)
+  function tagHref(txt,el){var t=txt.toLowerCase(),c=' '+(el.className||'')+' ';
+    if(/ (dsk|warn) /.test(c))return null;
+    if(/ sbs /.test(c))return /spring/.test(t)?[S(KEY.springs),'Wyckoff springs']:null;     // MA Stack status tags: only the spring ones
+    if((/ tt-c /.test(c)&&/ ma /.test(c))||/ mastack /.test(c)||/spring\s*→\s*bull|ma stack|\bgud\b|hi-rs|w→d|ma flip|ema10 cross/.test(t))
+      return [MS(/spring\s*→\s*bull/.test(t)?'p-springbull':/\bgud\b/.test(t)?'p-gud':/hi-rs|w→d/.test(t)?'p-hirs':/ma flip|ema10 cross/.test(t)?'p-flip':/pullback|\bpb\b/.test(t)?'p-pullback':''),'MA Stack'];
+    if(/ qull /.test(c)||/\bqull|episodic|\bep\b/.test(t))return [BASE+'qullamaggie.html#'+(/episodic|\bep\b/.test(t)?'ep':'breakouts'),'Qullamaggie'];
+    if(/first\b.*\b(pb|pullback)/.test(t)&&/a\+/.test(t))return [S('t-first_pullback'),'First pullback A+'];
+    if(/leader launch/.test(t))return [S('t-launch'),'Leader Launch'];
+    if(/big-?base/.test(t))return [S('t-bigbase'),'Big-base breakout'];
+    if(/ ema /.test(c)||/\bema\b/.test(t))return [S(KEY.ema),NAME.ema];
+    var k=firstKey(txt);return k?[S(KEY[k]),NAME[k]]:null;}
+  function mk(href,label){var a=D.createElement('a');a.className='scan-link scan-nm scan-auto';a.href=href;a.title='Open the '+label+' scanner section';return a;}
+  function skip(el){return !el||el.closest('a,button,summary,select,textarea,.dk-nav,.dk-hd,nav,header,footer,#rso');}
+  function linkTag(el){if(el.getAttribute('data-scanl'))return;el.setAttribute('data-scanl','1');if(skip(el))return;
+    var txt=(el.textContent||'').replace(/\s+/g,' ').trim();if(!txt)return;var h=tagHref(txt,el);if(!h)return;
+    var a=mk(h[0],h[1]);while(el.firstChild)a.appendChild(el.firstChild);el.appendChild(a);}
+  function linkText(root){if(root.getAttribute('data-scanl'))return;root.setAttribute('data-scanl','1');if(skip(root))return;
+    var tw=D.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),nodes=[],n;while((n=tw.nextNode()))nodes.push(n);
+    nodes.forEach(function(tn){var s=tn.nodeValue,p=tn.parentElement;if(!s||!p||p.closest('a,button,script,style,summary,select,textarea'))return;
+      KW.lastIndex=0;var f=null,last=0,m;
+      while((m=KW.exec(s))){var k=kwKey(m[1]);if(!k)continue;f=f||D.createDocumentFragment();f.appendChild(D.createTextNode(s.slice(last,m.index)));
+        var a=mk(S(KEY[k]),NAME[k]);a.textContent=m[0];f.appendChild(a);last=m.index+m[0].length;}
+      KW.lastIndex=0;if(!f)return;f.appendChild(D.createTextNode(s.slice(last)));tn.parentNode.replaceChild(f,tn);});}
+  var TAGS='.hs-s,.sm-b,.tt-c,.tdy-sc,.sbs';
+  function cell(c){var tg=c.querySelectorAll(TAGS);if(tg.length)[].forEach.call(tg,linkTag);else linkText(c);}
+  // Setup Master family names (Paper Trades "Families" column: "base · spring · mastack")
+  var FAM={base:[function(){return S('fam-min');},'Minervini base patterns'],spring:[function(){return S(KEY.springs);},NAME.springs],
+    mastack:[function(){return MS('');},'MA Stack'],qull:[function(){return BASE+'qullamaggie.html#breakouts';},'Qullamaggie'],
+    ema:[function(){return S(KEY.ema);},NAME.ema],squeeze:[function(){return BASE+'squeeze.html';},'Squeeze']};
+  function famCell(c){if(c.getAttribute('data-scanl'))return;c.setAttribute('data-scanl','1');if(skip(c)||c.querySelector('a'))return;
+    var tw=D.createTreeWalker(c,NodeFilter.SHOW_TEXT,null),nodes=[],n;while((n=tw.nextNode()))nodes.push(n);
+    nodes.forEach(function(tn){var s=tn.nodeValue,rx=/\b(base|spring|mastack|qull|ema|squeeze)\b/g,m,last=0,f=null;
+      while((m=rx.exec(s))){var F=FAM[m[1]];f=f||D.createDocumentFragment();f.appendChild(D.createTextNode(s.slice(last,m.index)));
+        var a=mk(F[0](),F[1]);a.textContent=m[0];f.appendChild(a);last=m.index+m[0].length;}
+      if(f){f.appendChild(D.createTextNode(s.slice(last)));tn.parentNode.replaceChild(f,tn);}});}
+  var FHDR=/^(families|fam)$/i;
+  var HDR=/^(setups?|setup type|setup · window|setups \/ lists|setup \/ note|signal|scanners?)$/i;
+  function hx(t){return (t||'').replace(/[\u21c5\u2191\u2193\u25b2\u25bc\u2195]/g,'').replace(/\s+/g,' ').trim();}
+  function idx(cells){var ix=[],i=0;[].forEach.call(cells,function(h){if(HDR.test(hx(h.textContent)))ix.push(i);i+=h.colSpan||1;});return ix;}
+  function at(r,i){var k=0;for(var j=0;j<r.cells.length;j++){if(k===i)return r.cells[j];k+=r.cells[j].colSpan||1;if(k>i)return null;}return null;}
+  function table(t){if(t.getAttribute('data-scanc'))return;t.setAttribute('data-scanc','1');if(skip(t))return;
+    var hr=t.tHead&&t.tHead.rows.length?t.tHead.rows[t.tHead.rows.length-1]:(t.rows[0]&&t.rows[0].cells.length&&[].every.call(t.rows[0].cells,function(c){return c.tagName==='TH';})?t.rows[0]:null);
+    if(!hr)return;var ix=idx(hr.cells),fx=[],k=0;[].forEach.call(hr.cells,function(h){if(FHDR.test(hx(h.textContent)))fx.push(k);k+=h.colSpan||1;});
+    if(!ix.length&&!fx.length)return;
+    [].forEach.call(t.rows,function(r){if(r===hr||r.parentNode.tagName==='THEAD')return;ix.forEach(function(i){var c=at(r,i);if(c&&c.tagName==='TD')cell(c);});
+      fx.forEach(function(i){var c=at(r,i);if(c&&c.tagName==='TD')famCell(c);});});}
+  function flist(l){if(l.getAttribute('data-scanc'))return;l.setAttribute('data-scanc','1');var hd=l.querySelector('.fl-hd');if(!hd)return;
+    var ix=[];[].forEach.call(hd.children,function(h,i){if(HDR.test(hx(h.textContent)))ix.push(i);});if(!ix.length)return;
+    [].forEach.call(l.querySelectorAll('.fl-r:not(.fl-hd)'),function(r){ix.forEach(function(i){var c=r.children[i];if(c)cell(c);});});}
+  function run(root){root=root||D;if(!root.querySelectorAll)return;
+    [].forEach.call(root.querySelectorAll(TAGS),linkTag);
+    [].forEach.call(root.querySelectorAll('table'),table);
+    [].forEach.call(root.querySelectorAll('.fl-list'),flist);
+    [].forEach.call(root.querySelectorAll('.rc-box'),function(b){var h=b.querySelector('h4');if(h&&/scanner/i.test(h.textContent))[].forEach.call(b.querySelectorAll('.rc-kv>span:first-child'),linkTag);});
+    [].forEach.call(root.querySelectorAll('.stk-dk'),function(b){var h=b.querySelector('h4');if(h&&/setup scanner/i.test(h.textContent))[].forEach.call(b.querySelectorAll('li>b'),linkTag);});
+    if(PAGE==='weekend.html')[].forEach.call(root.querySelectorAll('td>span'),function(s){if(!s.children.length&&/^(SEPA|VCP|power ?play|HTF|high tight flag|flat ?base|(?:wyckoff )?spring.*)$/i.test((s.textContent||'').trim()))linkTag(s);});
+    if(ONS)[].forEach.call(root.querySelectorAll('#vsa + .panel td.tkc small'),linkText);}
+  function go(){try{run(D);}catch(e){}
+    if(window.MutationObserver){var q=[],pend=0;new MutationObserver(function(ms){ms.forEach(function(m){[].forEach.call(m.addedNodes,function(n){if(n.nodeType===1&&!(n.classList&&n.classList.contains('scan-auto')))q.push(n);});});
+      if(q.length&&!pend){pend=1;setTimeout(function(){var x=q;q=[];pend=0;x.forEach(function(n){if(!n.isConnected)return;try{if(n.matches&&n.matches(TAGS))linkTag(n);if(n.tagName==='TABLE')table(n);run(n);
+        var t=n.closest&&n.closest('table');if(t&&t.getAttribute('data-scanc')){t.removeAttribute('data-scanc');table(t);}}catch(e){}});},120);}}).observe(B,{childList:true,subtree:true});}}
+  if(D.readyState==='loading')D.addEventListener('DOMContentLoaded',go);else go();
+  // MA Stack: a #p-<tab> link opens that tab, then scrolls to it (the panels are hidden tabs)
+  if(PAGE==='ma_stack.html'&&/^#p-[\w-]+$/.test(location.hash)){var pid=location.hash.slice(1);setTimeout(function(){var tb=D.querySelector('[aria-controls="'+pid+'"]'),p=D.getElementById(pid);
+    if(tb&&p&&p.hidden)tb.click();var tg=tb||p;if(tg){var y=tg.getBoundingClientRect().top+window.scrollY-14;var h=D.documentElement,pv=h.style.scrollBehavior;h.style.scrollBehavior='auto';window.scrollTo(0,Math.max(0,y));h.style.scrollBehavior=pv;}},80);}
+})();
 window.DKXP={scan:scan,open:openX,close:closeX};
 })();

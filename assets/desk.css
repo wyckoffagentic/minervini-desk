@@ -631,3 +631,22 @@ body.dk-pg-weekend a{color:var(--cy)!important}
 body.dk-pg-squeeze .wrap{max-width:1180px}
 body.dk-pg-squeeze table.top th{color:var(--dim);background:var(--head)}
 body.dk-pg-squeeze table.top td,body.dk-pg-squeeze table.top th{border-bottom:1px solid var(--edge)}
+/* ---- scanner jump links (9 Oct 2026, Chris): setups.html scanner tiles + Floor "Setups" chips / scanner names -> setups.html#scan-<key>
+   (anchors: research-tools/setups_page.py SCAN_ID; reveal + scroll: desk.js "scanner jump links"). Names in the desk cyan, text light. */
+body.dk [id^="scan-"],body.dk details.pg-sec[id],body.dk section.pg-fam[id],body.dk h2.bigsec[id]{scroll-margin-top:calc(var(--dk-stick,0px) + 14px)}
+body.dk a.scan-link .scan-nm,body.dk a.scan-link.scan-nm{color:var(--cy)!important;font-weight:700;opacity:1;text-decoration:underline;
+ text-decoration-color:rgba(0,229,255,.6);text-decoration-thickness:1.5px;text-underline-offset:3px}
+body.dk a.scan-link:hover .scan-nm,body.dk a.scan-link.scan-nm:hover{color:#7ff3ff!important;text-decoration-color:#7ff3ff}
+body.dk a.scan-link:focus-visible{outline:2px solid var(--cy);outline-offset:2px;box-shadow:0 0 0 4px rgba(0,229,255,.22)}
+body.dk a.idx-link.scan-link small.scan-nm{font-size:12.5px;letter-spacing:.4px}
+body.dk a.idx-link.scan-link b.v{color:#fff}
+body.dk a.idx-link.scan-link .c{color:var(--tx)!important;opacity:1}
+body.dk a.idx-link.scan-link:hover,body.dk a.idx-link.scan-link:focus-visible{border-color:var(--cy)}
+body.dk a.stp-c.scan-link{display:inline-flex;align-items:baseline;gap:5px;color:var(--tx)!important;text-decoration:none;cursor:pointer;min-height:30px}
+body.dk a.stp-c.scan-link b{color:#fff}
+body.dk a.stp-c.scan-link:hover{border-color:var(--cy);box-shadow:0 0 8px rgba(0,229,255,.35)}
+/* the landed section flashes once so the eye finds it */
+body.dk .scan-hit{animation:dkScanHit 2s ease-out 1;border-radius:8px}
+@keyframes dkScanHit{0%,35%{box-shadow:0 0 0 2px var(--cy),0 0 18px rgba(0,229,255,.55);background-color:rgba(0,229,255,.10)}100%{box-shadow:0 0 0 0 rgba(0,229,255,0);background-color:transparent}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}body.dk .scan-hit{animation:none;outline:2px solid var(--cy)}}
+body.dk .q-panel[id],body.dk .ms-p[id]{scroll-margin-top:calc(var(--dk-stick,0px) + 14px)}
