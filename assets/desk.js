@@ -337,5 +337,25 @@ if(XP_ON){
     wire(b3,apply3);apply3(false);
   }
 })();
+// ------------------------------------------------------------------ as-of badges (research-tools/desk_today.py, 9 Oct 2026)
+// .dk-asof[data-asof] = the US session a section's data covers. Re-checked against the viewer's clock: ok = covers the last completed
+// US session (4:15pm New York), amber = one session older, red = more than one. Holidays mirror desk_today.HOLIDAYS / rs_rank.HOLIDAYS.
+(function(){
+  var HOL='2025-01-01 2025-01-09 2025-01-20 2025-02-17 2025-04-18 2025-05-26 2025-06-19 2025-07-04 2025-09-01 2025-11-27 2025-12-25 2026-01-01 2026-01-19 2026-02-16 2026-04-03 2026-05-25 2026-06-19 2026-07-03 2026-09-07 2026-11-26 2026-12-25 2027-01-01 2027-01-18 2027-02-15 2027-03-26 2027-05-31 2027-06-18 2027-07-05 2027-09-06 2027-11-25 2027-12-24'.split(' ');
+  var bs=D.querySelectorAll('.dk-asof[data-asof]');if(!bs.length)return;
+  function iso(d){return d.toISOString().slice(0,10);}
+  function isS(d){var w=d.getUTCDay();return w>0&&w<6&&HOL.indexOf(iso(d))<0;}
+  function prev(d){d=new Date(d.getTime()-864e5);while(!isS(d))d=new Date(d.getTime()-864e5);return d;}
+  var ny;try{var p={};new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).forEach(function(x){p[x.type]=x.value;});ny=p;}catch(e){return;}
+  var today=new Date(Date.UTC(+ny.year,+ny.month-1,+ny.day)),hm=(+ny.hour)*60+(+ny.minute);
+  var ref=(isS(today)&&hm>=16*60+15)?today:prev(today);
+  function behind(a){var d=new Date(ref.getTime()),n=0;while(iso(d)>a&&n<400){if(isS(d))n++;d=new Date(d.getTime()-864e5);}return n;}
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],W=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  function lab(d){return W[d.getUTCDay()]+' '+d.getUTCDate()+' '+M[d.getUTCMonth()]+' '+d.getUTCFullYear();}
+  [].forEach.call(bs,function(b){var a=b.getAttribute('data-asof');if(!/^\d{4}-\d{2}-\d{2}$/.test(a))return;var n=behind(a);
+    b.classList.remove('ok','amber','red');b.classList.add(n>=2?'red':n===1?'amber':'ok');
+    var t=(b.getAttribute('title')||'').replace(/; last completed US session.*$/,'');
+    b.setAttribute('title',t+'; last completed US session '+lab(ref)+(n?' ('+n+' session'+(n>1?'s':'')+' behind)':''));});
+})();
 window.DKXP={scan:scan,open:openX,close:closeX};
 })();
