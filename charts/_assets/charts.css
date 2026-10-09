@@ -127,7 +127,7 @@ body.tc-embed .tc-chart{height:clamp(300px,calc(100vh - 330px),600px)}
 .tc-rsb .pos{color:#39ff88}.tc-rsb .neg{color:#ff3d7f}.tc-rsb .na{color:#6f6a9c}.tc-rsb .warn{color:#ffd700}
 .tc-rsb .t50{color:#07061a;background:#ffd700;padding:0 4px}
 .tc-rsb .lead{color:#5d9bff;text-shadow:0 0 6px #2f7bff}.tc-rsb .hi{color:#9fc4ff}
-.tc-rsb .r3{font-size:6.5px;color:#8f89c4;margin-top:2px}.tc-rsb .r3.stale{color:#ff9f1c}
+.tc-rsb .r3{font-size:6.5px;color:#c4beef;margin-top:2px}.tc-rsb .r3.stale{color:#ff9f1c}
 @media (max-width:760px){.tc-rsb{padding:6px 8px;font-size:7px}.tc-rsb .rsv{font-size:11px}.tc-rsb .r3{font-size:6px}}
 .tc-rsb i.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 5px currentColor;margin-right:5px;vertical-align:0}
 /* open-trade P/L (research-tools/trade_pct.py via charts.py "pnl") */
