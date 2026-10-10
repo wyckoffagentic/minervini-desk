@@ -663,6 +663,9 @@
   // more professional" + "detailed volume profiles", Deepvue as the reference, the desk's dark-neon look kept)
   // HLC is the default (Chris 4 Oct 21:43 "HLC is to be the default"); only an explicit CANDLES pick in LAYERS (saved under the v2 key) switches.
   // The v1 key (candles era) is dropped so nobody keeps candles just because they were the default for a few hours.
+  // RS DOTS size (10 Oct 2026, Chris): OFF / S / M / L scale for every RS dot (rating x MA21 up/down dots + blue RS-line 52w-high dots);
+  // shared by every chart (localStorage wa.desk.rsdot.v1), default M = the original size
+  var RDK='wa.desk.rsdot.v1',RDS={off:0,s:.75,m:1,l:1.6},RDM='m';try{var _rd=localStorage.getItem(RDK);if(_rd&&RDS[_rd]!=null)RDM=_rd;}catch(e){}
   var BSK='wa.desk.chartstyle.v2',BST='hlc';try{if(localStorage.getItem(BSK)==='candle')BST='candle';localStorage.removeItem('wa.desk.chartstyle.v1');}catch(e){}
   // VOLUME PROFILE - method. A horizontal histogram of traded volume by price on the right of the price pane, always built from DAILY
   // sessions (also on 1W / 1M: finer than the period bars; where the daily history does not reach - older 1W / 1M bars - those period bars
@@ -867,7 +870,7 @@
       vis.forEach(function(r,i){if(!r||r[2]==null){on=0;return;}var y=RY(r[2]);on?x.lineTo(X(i),y):x.moveTo(X(i),y);on=1;});x.stroke();
       x.strokeStyle=RTC.r;x.lineWidth=narrow?1.4:1.8;x.shadowColor=RTC.r;x.shadowBlur=narrow?0:5;
       segs.forEach(function(sg){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][1]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});x.stroke();});x.shadowBlur=0;
-      vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#000';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),narrow?2.2:2.7,0,Math.PI*2);x.fill();x.stroke();});
+      if(RDS[RDM])vis.forEach(function(r,i){if(!r||!r[4])return;x.fillStyle=r[4]==='U'?RTC.r:RTC.ma;x.strokeStyle='#000';x.lineWidth=1;x.beginPath();x.arc(X(i),RY(r[1]),(narrow?2.2:2.7)*RDS[RDM],0,Math.PI*2);x.fill();x.stroke();});
       // where the stored history starts / blank before it
       var f0=RTF, fi=-1;V.forEach(function(b,i){if(fi<0&&f0&&(b.de||b.d)>=f0)fi=i;});
       x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';
@@ -944,8 +947,8 @@
       x.lineWidth=tLW;x.beginPath();x.moveTo(cx-bLW/2,yc);x.lineTo(cx+bLW/2+tLen,yc);x.stroke();
       if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
-    if(LY.rsl)V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var cy=Y(b.l)+(narrow?6:7);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
-      x.beginPath();x.arc(X(i),cy,narrow?2.4:2.9,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
+    if(LY.rsl&&RDS[RDM])V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var r0=narrow?2.4:2.9,rr=r0*RDS[RDM],cy=Y(b.l)+(narrow?6:7)+Math.max(0,rr-r0);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
+      x.beginPath();x.arc(X(i),cy,rr,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
     OVR=[];OVB={l:pl+2,r:barsEnd+2};
     // BUY lines: 5 bars from the trigger bar (open) / the last bar (pending); a trigger bar out of view -> from the newest visible bar
     var BUYD=[],BUYL=[],BFS=narrow?6:7;
@@ -1239,6 +1242,7 @@
       pn.innerHTML='<div class="tclh"><b>LAYERS</b><span class="pp">'+['full','levels','clean'].map(function(p){return '<button type="button" data-p="'+p+'" aria-pressed="'+(pre===p)+'">'+p.toUpperCase()+'</button>';}).join('')+'</span>'+
         '<button type="button" class="x" aria-label="Close layers">✕</button></div>'+
         '<div class="tcvp" role="radiogroup" aria-label="Bar style"><b>BARS</b>'+[['candle','CANDLES'],['hlc','HLC']].map(function(q){return '<button type="button" role="radio" data-bst="'+q[0]+'" aria-checked="'+(BST===q[0])+'" aria-pressed="'+(BST===q[0])+'">'+q[1]+'</button>';}).join('')+'</div>'+
+        ((HAS.rsp||HAS.rsl)?'<div class="tcvp" role="radiogroup" aria-label="RS dot size"><b>RS DOTS</b>'+[['off','OFF'],['s','S'],['m','M'],['l','L']].map(function(q){return '<button type="button" role="radio" data-rd="'+q[0]+'" aria-checked="'+(RDM===q[0])+'" aria-pressed="'+(RDM===q[0])+'" title="RS panel dot size (saved for every chart)">'+q[1]+'</button>';}).join('')+'</div>':'')+
         '<div class="tclg">'+LAYK.filter(function(k){return HAS[k];}).map(function(k){return tb(k,NAMES[k],LS.L[k]);}).join('')+'</div>'+
         '<div class="tcls">VOLUME PROFILE</div><div class="tclg">'+'<button type="button" class="tg" data-vp="on" aria-pressed="'+(VP.on?'true':'false')+'"><i></i><span>Volume profile (right side · POC · value area 70% · HVN / LVN · up / down split)</span></button></div>'+
         '<div class="tcvp" role="radiogroup" aria-label="Volume profile range"><b>RANGE</b>'+VPM.map(function(m){var dis=m==='tr'&&!vpTR();return '<button type="button" role="radio" data-vpm="'+m+'" aria-checked="'+(VP.m===m)+'" aria-pressed="'+(VP.m===m)+'"'+(dis?' disabled title="No Wyckoff trading range on this chart"':'')+'>'+{vis:'VISIBLE','20':'20','50':'50','100':'100',tr:'TR'}[m]+'</button>';}).join('')+'</div>'+
@@ -1292,6 +1296,7 @@
       if(b.getAttribute('data-tip')){TIPON=!TIPON;try{localStorage.setItem(TIPK,TIPON?'1':'0');}catch(e){}if(!TIPON)showTip(-1);render();return;}
       var vpa=b.getAttribute('data-vp'),vpm=b.getAttribute('data-vpm'),vpb=b.getAttribute('data-vpb'),bst=b.getAttribute('data-bst');
       if(vpa||vpm||vpb){if(vpa)VP.on=VP.on?0:1;if(vpm){VP.m=vpm;VP.on=1;}if(vpb){VP.b=+vpb;VP.on=1;}vpSave();legRe();redraw();render();return;}
+      var rd=b.getAttribute('data-rd');if(rd&&RDS[rd]!=null){RDM=rd;try{localStorage.setItem(RDK,RDM);}catch(e){}redraw();render();return;}
       if(bst){BST=bst==='candle'?'candle':'hlc';try{localStorage.setItem(BSK,BST);}catch(e){}legRe();redraw();render();return;}
       var k=b.getAttribute('data-k'),o=b.getAttribute('data-o'),p=b.getAttribute('data-p'),a=b.getAttribute('data-a');
       if(k==='text'||k==='axis')LS[k]=LS[k]?0:1;else if(k)LS.L[k]=LS.L[k]?0:1;
@@ -1303,7 +1308,7 @@
     document.addEventListener('pointerdown',function(e){if(!pn.hidden&&!pn.contains(e.target)&&!bl.contains(e.target))open(false);},true);
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pn.hidden){open(false);bl.focus();}});
     window.addEventListener('storage',function(e){if(e.key===LKEY){LS=loadLay();lab();legRe();draw(performance.now());}});   // other open charts / tabs
-    window.addEventListener('storage',function(e){if(e.key===VPK){vpLoad();legRe();if(!pn.hidden)render();draw(performance.now());}else if(e.key===BSK){BST=e.newValue==='candle'?'candle':'hlc';legRe();if(!pn.hidden)render();draw(performance.now());}});
+    window.addEventListener('storage',function(e){if(e.key===VPK){vpLoad();legRe();if(!pn.hidden)render();draw(performance.now());}else if(e.key===RDK){RDM=RDS[e.newValue]!=null?e.newValue:'m';if(!pn.hidden)render();draw(performance.now());}else if(e.key===BSK){BST=e.newValue==='candle'?'candle':'hlc';legRe();if(!pn.hidden)render();draw(performance.now());}});
     zb.appendChild(pn);lab();
     // ✎ LINE draw bar
     var bd=g.querySelector('.tcd'),dr=document.createElement('div');dr.className='tcdr';dr.hidden=true;dr.setAttribute('role','toolbar');dr.setAttribute('aria-label','Trend line tools');
