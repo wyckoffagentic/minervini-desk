@@ -128,3 +128,16 @@ body.dk.dk-pg-rs table.mini td{line-height:1.3}
  body.dk.dk-pg-rs table.mini td .tagc{font-size:9.5px;padding:0 4px;margin-left:3px}
  body.dk.dk-pg-rs table.mini td:has(>.tagc){white-space:nowrap}
 }
+/* 10 Oct 2026 PM: a box in the stock's CURRENT RS band colour around every stock item (cards, chips, orbit chips; desktop rows = band bar + faint wash) */
+body.dk.dk-pg-rs .b0{--bc:#ffd23f}body.dk.dk-pg-rs .b1{--bc:#a8ff3e}body.dk.dk-pg-rs .b2{--bc:#00e5ff}body.dk.dk-pg-rs .b3{--bc:#b06bff}body.dk.dk-pg-rs .b4{--bc:#ff2bd6}
+body.dk.dk-pg-rs .chip.bc{border:1.5px solid var(--bc)!important;box-shadow:0 0 6px -1px var(--bc),inset 0 0 6px -3px var(--bc)!important;background:rgba(10,10,28,.85)!important}
+body.dk.dk-pg-rs .chip.bc.today{background:rgba(255,210,63,.16)!important}
+body.dk.dk-pg-rs .oc{border:1.2px solid var(--bc);box-shadow:0 0 5px -1px var(--bc);background:rgba(10,10,28,.8)}
+@media (min-width:601px){
+ body.dk.dk-pg-rs table.mini tr.bx>td:first-child{box-shadow:inset 3px 0 0 var(--bc)}
+ body.dk.dk-pg-rs table.mini tr.bx>td{border-top:1px solid color-mix(in srgb,var(--bc) 22%,transparent)}
+}
+@media (max-width:600px){
+ body.dk.dk-pg-rs table.dk-stack tr.bx,body.dk.dk-pg-rs table.dk-stack tr.bx.mine{border:1.5px solid var(--bc)!important;box-shadow:0 0 7px -2px var(--bc),inset 0 0 8px -5px var(--bc)!important;background:rgba(12,10,32,.92)!important}
+ body.dk.dk-pg-rs table.dk-stack tr.bx.mine{background:rgba(40,34,20,.6)!important}
+}
