@@ -196,7 +196,7 @@
 #rso .tp-s span{font-size:9.5px;color:#cfe0f0;letter-spacing:1px}#rso .tp-s em{font-style:normal;color:#6f86a0;letter-spacing:.3px}
 #rso .tp-s output{color:#fff;font-size:10px}
 #rso .tp-s input[type=range]{grid-column:1/3;-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0;--acc:var(--c)}
-#rso .tp-cols,#rso .tp-list .tr{display:grid;grid-template-columns:1fr 30px 50px 58px;align-items:center;gap:6px}
+#rso .tp-cols,#rso .tp-list .tr{display:grid;grid-template-columns:1fr 26px 44px 44px 54px;align-items:center;gap:6px}
 #rso .tp-cols{padding:4px 2px 4px;border-bottom:1px solid rgba(255,255,255,.1);font-size:8.5px;color:#7f97b0;letter-spacing:1.2px}
 #rso .tp-cols span:nth-child(2),#rso .tp-cols span:nth-child(3){text-align:right}
 #rso .tp-list{max-height:min(46vh,340px);overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin:0 -2px;padding:0 2px}
@@ -323,3 +323,5 @@
 #rso .mv-rd .u{color:#8dffbe;font-weight:700}
 #rso .mv-rd .d{color:#ffa3b8;font-weight:700}
 #rso .dr-sub.sc-sub{color:#e6f3ff;font-size:9.5px;font-weight:700}
+
+#rso .tp-list .dy{text-align:right;color:#d8e6f5;font-size:10.5px;letter-spacing:.3px;white-space:nowrap}   /* sessions in the current RS band (11 Oct 2026) */

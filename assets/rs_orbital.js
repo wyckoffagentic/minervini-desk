@@ -767,18 +767,19 @@ function init(D,THREE){
     for(var t=0;t<TIERS.length;t++){if(!maskOn(t)) continue; for(var j=0;j<180;j++){W3(1.0,t,j/180*6.2832,0,o); v.set(o[0],o[1],o[2]).project(cam); var d=Math.hypot((v.x*0.5+0.5)*W-x,(-v.y*0.5+0.5)*H-y); if(d<bd){bd=d;best=t;}}}
     return best;}
   function setE(x){op.E=clamp(x,1,2.6); var sl=tp.querySelector('input[type=range]'), o=tp.querySelector('output'); if(sl) sl.value=String(op.E); if(o) o.textContent=op.E.toFixed(2)+'×'; need();}
-  function loadTL(){if(TL) return Promise.resolve(TL); return fetch(tSrc,{cache:'no-cache'}).then(function(r){if(!r.ok) throw new Error('tiers '+r.status); return r.json();}).then(function(J){TL=J.tiers; return TL;});}
+  function loadTL(){if(TL) return Promise.resolve(TL); return fetch(tSrc,{cache:'no-cache'}).then(function(r){if(!r.ok) throw new Error('tiers '+r.status); return r.json();}).then(function(J){TL=J.tiers; var nw=false; try{nw=localStorage.getItem('rsDibOrder')==='new';}catch(e){}   // builder sorts longest-in-band first; rs.html toggle can flip it
+    if(nw&&TL[0]&&TL[0][0]&&TL[0][0].length>5) TL.forEach(function(L){L.sort(function(a,b){return a[5]-b[5]||b[2]-a[2]||(a[0]<b[0]?-1:a[0]>b[0]?1:0);});}); return TL;});}
   var shownN=0;
   function rowsHTML(t,from,to){var L=TL[t]||[],h='';for(var j=from;j<Math.min(to,L.length);j++){var r=L[j],i=byT[r[0]],c=r[3];
       h+='<div class="tr'+(i!=null&&i<N?' sp':'')+'"><button type="button" class="tsel"'+(i!=null&&i<N?' data-i="'+i+'"':' disabled')+'><span class="rk">#'+r[1]+'</span><b>'+esc(r[0])+'</b><small>'+esc(r[4])+'</small></button>'+
-        '<span class="rs">'+r[2]+'</span><span class="cg '+(c==null?'nw':c>0?'up':c<0?'dn':'eq')+'">'+(c==null?'NEW':c>0?'▲'+c:c<0?'▼'+(-c):'=')+'</span>'+
+        '<span class="rs">'+r[2]+'</span><span class="dy">'+(r[5]!=null?(r[6]?'≥':'')+r[5]+'D':'')+'</span><span class="cg '+(c==null?'nw':c>0?'up':c<0?'dn':'eq')+'">'+(c==null?'NEW':c>0?'▲'+c:c<0?'▼'+(-c):'=')+'</span>'+
         '<a class="ch" href="stock.html?t='+encodeURIComponent(r[0])+'" aria-label="Chart '+esc(r[0])+'">CHART ›</a></div>';}
     return h;}
   function fillTP(t){var T=TIERS[t], col=cfg.c[t];
     tp.style.setProperty('--c',col);
     tp.innerHTML='<div class="tp-hd"><button type="button" class="tp-back" aria-label="Show all orbits">✕ SHOW ALL</button><div class="tp-t"><b>'+esc(T.label)+'</b><span>'+T.shown+' SPHERES · '+T.total.toLocaleString()+' NAMES IN TIER · #'+T.rank_lo+'–#'+T.rank_hi+'</span></div></div>'+
       '<label class="tp-s"><span>RING STRETCH <em>· or pinch the ring</em></span><output>'+op.E.toFixed(2)+'×</output><input type="range" min="1" max="2.6" step="0.01" value="'+op.E+'" aria-label="Ring stretch"></label>'+
-      '<div class="tp-cols"><span>RANK · TICKER</span><span>RS</span><span>1W</span><span></span></div><div class="tp-list" tabindex="0"><div class="tp-ld">LOADING TIER…</div></div>';
+      '<div class="tp-cols"><span>RANK · TICKER</span><span>RS</span><span>IN BAND</span><span>1W</span><span></span></div><div class="tp-list" tabindex="0"><div class="tp-ld">LOADING TIER…</div></div>';
     loadTL().then(function(){if(op.t!==t) return; shownN=Math.min(150,TL[t].length); var l=tp.querySelector('.tp-list'); l.innerHTML=rowsHTML(t,0,shownN)+more(t);}).catch(function(){var l=tp.querySelector('.tp-list'); if(l) l.innerHTML='<div class="tp-ld">tier list unavailable</div>';});}
   function more(t){var n=TL[t].length-shownN; return n>0?'<button type="button" class="tp-more">SHOW '+Math.min(150,n)+' MORE · '+n.toLocaleString()+' LEFT</button>':'';}
   tp.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;

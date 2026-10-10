@@ -141,3 +141,13 @@ body.dk.dk-pg-rs .oc{border:1.2px solid var(--bc);box-shadow:0 0 5px -1px var(--
  body.dk.dk-pg-rs table.dk-stack tr.bx,body.dk.dk-pg-rs table.dk-stack tr.bx.mine{border:1.5px solid var(--bc)!important;box-shadow:0 0 7px -2px var(--bc),inset 0 0 8px -5px var(--bc)!important;background:rgba(12,10,32,.92)!important}
  body.dk.dk-pg-rs table.dk-stack tr.bx.mine{background:rgba(40,34,20,.6)!important}
 }
+
+/* days in current RS band (11 Oct 2026): compact light tag + longest/newest toggle */
+body.dk.dk-pg-rs .dib{color:#e2ecf8!important;font-size:11px;font-weight:600;margin-left:4px;white-space:nowrap;letter-spacing:.2px}
+body.dk.dk-pg-rs .oc small{white-space:nowrap}
+body.dk.dk-pg-rs .dsw{display:inline-flex;gap:4px;flex-wrap:wrap;margin:0 0 6px}
+body.dk.dk-pg-rs .filters .dsw{margin:0 0 0 auto}
+body.dk.dk-pg-rs .dsw button{font:600 12px/1.2 inherit;font-family:inherit;padding:4px 9px;border-radius:12px;border:1px solid rgba(160,190,230,.45);background:rgba(14,16,40,.85);color:#dfe9f6;cursor:pointer}
+body.dk.dk-pg-rs .dsw button.on{border-color:#00e5ff;color:#fff;background:rgba(0,229,255,.16);box-shadow:0 0 6px -2px #00e5ff}
+@media (max-width:600px){body.dk.dk-pg-rs .filters .dsw{margin:4px 0 0}}
+@media (max-width:600px){body.dk.dk-pg-rs table.dk-stack .dib{font-size:10px;margin-left:3px;margin-right:4px}}
