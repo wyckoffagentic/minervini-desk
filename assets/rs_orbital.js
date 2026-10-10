@@ -20,6 +20,12 @@
            and its gravity draws the gas back in on swirling paths (~21 s), condensing into the planets exactly on their live orbit slots.  ~53 s total.
            Particles capped per planet (20 on phones / 36 desktop).  Only the shown rings take part; V-STRETCH respected.  Skipped in replay, while
            frozen (the event pauses), with a tier panel open and with prefers-reduced-motion.  cfg.scOn persists.
+  NEBULA STYLE (cfg.neb 'drift' | 'clouds', HUD 08 switch, persisted; URL ?nebula=clouds|drift overrides for that visit): CLOUDS = after the dissolve
+           the gas flows and coalesces into 3-5 pillar-like nebula clouds placed around the view away from the core (1-3 fingers each, wide billowing
+           base, bright dense spines, soft edges, head bulges; tinted by the ring colours of the planets that formed it), with twinkling stars in and
+           around them, a few newborn-star glints (4-point spikes), gas wisps orbiting each cloud and streams circulating between them; held ~18 s
+           with slow churn, then drawn out into spiral streamers round the core axis and condensed back onto the live orbit slots (~60 s total).
+           Plus 14 cheap big soft 'puff' sprites per cloud for volume.  Clouds live in the camera plane through the stack centre.
   MOVERS (10 Oct 2026 PM): ORBITS bar "⇅ SHOW MOVERS" (cfg.mv, persisted, off by default).  Window = the 1D / 1W / 4W buttons under the stage (the same
            window CLIMBERS uses).  A mover = a shown stock whose RS band changed over that window: old RS = its RS-rating history (h) 1 / 5 / 20 sessions
            back (= the 1D / 1W / 4W session dates), old band by RS score, old slot from its rank then (p).  It starts in its OLD ring in the OLD colour,
@@ -56,7 +62,7 @@ function newOrbs(){return [0,1,2,3,4].map(function(){return {on:ORB0.on,ring:ORB
 var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
   sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
   tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2,
-  orb:newOrbs(),vs:1,solo:-1,on5:[true,true,true,true,true],scOn:true,mv:false};
+  orb:newOrbs(),vs:1,solo:-1,on5:[true,true,true,true,true],scOn:true,mv:false,neb:'drift'};
 var KEY='rso.cfg.v1';
 function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';
     if(Array.isArray(s.orb)&&s.orb.length===5){c.orb=s.orb.map(function(o){return {on:o&&o.on!==false,ring:o&&o.ring!==false,ringOp:clamp(+(o&&o.ringOp!=null?o.ringOp:1),0,1),size:clamp(+(o&&o.size!=null?o.size:1),0.3,3)};});}
@@ -64,7 +70,7 @@ function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(lo
   if(['ring','custom','delta'].indexOf(c.tMode)<0) c.tMode='ring'; if(['solid','dotted','sparkle'].indexOf(c.tStyle)<0) c.tStyle='solid';
   if(!Array.isArray(c.orb)||c.orb.length!==5) c.orb=newOrbs();
   c.gspd=clamp(c.gspd,0.1,4); c.glide=clamp(c.glide,0.6,4);
-  c.vs=clamp(+c.vs||1,1,8); c.solo=-1;
+  c.vs=clamp(+c.vs||1,1,8); c.solo=-1; if(c.neb!=='clouds') c.neb='drift';
   if(!Array.isArray(c.on5)||c.on5.length!==5) c.on5=[true,true,true,true,true]; c.on5=c.on5.map(function(x){return x!==false;}); if(!c.on5.some(Boolean)) c.on5=[true,true,true,true,true];
   return c;}
 var saveT=0; function saveCfg(cfg){clearTimeout(saveT);saveT=setTimeout(function(){try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}},250);}
@@ -275,22 +281,24 @@ function init(D,THREE){
   bPts.frustumCulled=false;
   scene.add(pSeg); scene.add(rMesh); scene.add(tPts); scene.add(sPts); scene.add(bPts);
   // NEBULA particles: NP per live planet; soft additive gas sprites (aK 0) + small bright specks (aK 1). CPU-animated in nebUpd (only during the event)
-  var NP=(window.matchMedia&&matchMedia('(pointer: coarse)').matches)||window.innerWidth<700?20:36, NB=N*NP;
-  var ng=new THREE.BufferGeometry(); ng.setAttribute('position',buf(NB,3)); ng.setAttribute('aS',buf(NB,1)); ng.setAttribute('aC',buf(NB,3));
-  var nbO=new Float32Array(NB*3), nbE=new Float32Array(NB), nbPh=new Float32Array(NB), nbSw=new Float32Array(NB), nbB=new Float32Array(NB), nbI=new Float32Array(NB), nbK=new Float32Array(NB);
+  var NP=(window.matchMedia&&matchMedia('(pointer: coarse)').matches)||window.innerWidth<700?20:36, NB=N*NP, NPF=14, KMAX=5, NBT=NB+KMAX*NPF;
+  var ng=new THREE.BufferGeometry(); ng.setAttribute('position',buf(NBT,3)); ng.setAttribute('aS',buf(NBT,1)); ng.setAttribute('aC',buf(NBT,3));
+  var nbO=new Float32Array(NB*3), nbE=new Float32Array(NB), nbPh=new Float32Array(NB), nbSw=new Float32Array(NB), nbB=new Float32Array(NB), nbI=new Float32Array(NB), nbK=new Float32Array(NBT), nbK0;
   (function(){for(var j=0;j<NB;j++){var u=Math.random()*2-1, th=Math.random()*6.2832, q=Math.sqrt(1-u*u), rr=Math.pow(Math.random(),0.6);
       nbO[j*3]=Math.cos(th)*q*rr; nbO[j*3+1]=u*rr; nbO[j*3+2]=Math.sin(th)*q*rr; nbE[j]=Math.random(); nbPh[j]=Math.random()*6.2832; nbSw[j]=(0.8+1.6*Math.random())*(Math.random()<0.8?1:-1);
       var spk=Math.random()<0.28; nbK[j]=spk?1:0; nbB[j]=spk?0.05+0.06*Math.random():0.55+0.8*Math.random(); nbI[j]=spk?0.55+0.45*Math.random():0.05+0.06*Math.random();}
-    ng.setAttribute('aK',new THREE.BufferAttribute(nbK,1));})();
+    nbK0=nbK.slice(); ng.setAttribute('aK',new THREE.BufferAttribute(nbK,1));})();
   var nbP=ng.attributes.position.array, nbS=ng.attributes.aS.array, nbC=ng.attributes.aC.array;
   var nebPts=new THREE.Points(ng,mat('attribute float aS;attribute vec3 aC;attribute float aK;uniform float uScale;varying vec3 vC;varying float vK;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(aS*uScale/(-mv.z),1.0,110.0);vC=aC;vK=aK;gl_Position=projectionMatrix*mv;}',
-    'varying vec3 vC;varying float vK;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;float g=mix(exp(-r*2.6)*(1.0-r),exp(-r*14.0)*1.3+exp(-r*3.5)*0.25,vK);gl_FragColor=vec4(vC*g,1.0);}'));
+    'varying vec3 vC;varying float vK;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;float g=vK>2.5?(1.0-r)*(1.0-r)*0.85:vK>1.5?exp(-r*22.0)*1.8+(exp(-abs(p.x)*28.0)+exp(-abs(p.y)*28.0))*(1.0-sqrt(r))*0.55+exp(-r*4.0)*0.18:mix(exp(-r*2.6)*(1.0-r),exp(-r*14.0)*1.3+exp(-r*3.5)*0.25,vK);gl_FragColor=vec4(vC*g,1.0);}'));
   nebPts.frustumCulled=false; nebPts.visible=false; scene.add(nebPts);
   var sel=-1, yaw=0.5, pitch=0.34, zoom=1;
   // opened tier: op.t = tier (-1 none), op.k = 0..1 animation, op.E = ring stretch (slider / pinch)
   var op={t:-1,k:0,target:0,E:1.35,focus:false}, PITCH_O=0.8, ea=new Float32Array(M);
   // SCATTER & REGATHER (nebula) state: dissolve (SC1 s) -> nebula (SC2 s) -> condense (SC3 s); per-planet gas-cloud slot + timing (seeded per ticker)
-  var SC1=13, SC2=18, SC3=21, SCEND=SC1+SC2+SC3+0.8;
+  var SC1=13, SC2=18, SC3=21, SCEND=SC1+SC2+SC3+0.8, nebOv=null, scMode='drift';
+  try{var nq=new URLSearchParams(location.search).get('nebula'); if(nq==='clouds'||nq==='drift') nebOv=nq;}catch(e){}
+  function nebMode(){return nebOv||cfg.neb;}
   var sc={on:false,t:0,next:90+Math.random()*60,wait:0,G:0,ring:1,tag:1,wob:0,hw:4,hh:4,cy:0,force:-1};
   var scRs=new Float32Array(M),scYs=new Float32Array(M),scDa=new Float32Array(M),scDr=new Float32Array(M),scD=new Float32Array(M),scD2=new Float32Array(M),scTw=new Float32Array(M),scA0=new Float32Array(M),scZ=new Float32Array(M);
   var hpX=new Float32Array(M),hpY=new Float32Array(M),hpZ=new Float32Array(M),scBA=new Float32Array(M),scBC=new Float32Array(M*3);   // planet home pose + base alpha / colour this frame
@@ -581,15 +589,16 @@ function init(D,THREE){
     for(var t=0;t<5;t++){var o=cfg.orb[t]; h+='<div class="orb-row" data-ot="'+t+'" style="--c:'+cfg.c[t]+'">'+'<div class="orb-hd"><b style="color:'+cfg.c[t]+'">'+esc(shortLab(t))+'</b>'+'<button type="button" class="orb-tog'+(o.on?' on':'')+'" data-orb="on" aria-pressed="'+o.on+'">STOCKS</button>'+'<button type="button" class="orb-tog'+(o.ring?' on':'')+'" data-orb="ring" aria-pressed="'+o.ring+'">RING</button>'+'<button type="button" class="orb-foc'+(op.t===t&&op.focus?' on':'')+'" data-foc="'+t+'">FOCUS</button></div>'+'<label class="orb-s"><span>RING FADE</span><output data-oo="ringOp">'+(o.ringOp*100|0)+'%</output>'+'<input type="range" data-orb="ringOp" min="0" max="1" step="0.01" value="'+o.ringOp+'"'+(o.ring?'':' disabled')+'></label>'+'<label class="orb-s"><span>PLANET SIZE</span><output data-oo="size">'+(+o.size).toFixed(2)+'×</output>'+'<input type="range" data-orb="size" min="0.3" max="3" step="0.01" value="'+o.size+'"></label></div>';}
     h+='<div class="orb-acts"><button type="button" class="orb-all" data-all="on">ALL ON</button><button type="button" class="orb-all" data-all="off">ALL OFF</button><button type="button" class="orb-all" data-all="solo" title="Leave only the focused / first-on orbit">SOLO FOCUS</button></div>'; return h;}
   function scHTML(){return '<label class="ck row"><input type="checkbox" data-k="scOn"'+(cfg.scOn?' checked':'')+'><span>AUTO · every 2–4 min</span></label>'+
+    '<div class="dr-sub sc-sub">NEBULA STYLE</div>'+seg('neb',[['drift','DRIFT'],['clouds','CLOUDS']]).replace(' tl-x','')+
     '<button type="button" class="sc-now">✦ SCATTER NOW</button>'+
-    '<div class="sc-ft">The planets slowly dissolve into gas and drift as a nebula, then the blue core\'s gravity draws the gas back and it condenses into the planets on their orbits (~50 s). Only the shown rings take part. Skipped in replay, while frozen and with reduced motion. Link: add ?scatter=1 to the page address.</div>';}
+    '<div class="sc-ft">The planets slowly dissolve into gas and drift as a nebula, then the blue core\'s gravity draws the gas back and it condenses into the planets on their orbits (~50 s). CLOUDS: the gas gathers into 3–5 pillar-shaped nebula clouds with stars and drifting gas streams, then is drawn back in long spiral streamers (~60 s). Only the shown rings take part. Skipped in replay, while frozen and with reduced motion. Link: add ?scatter=1 (and &amp;nebula=clouds) to the page address.</div>';}
   function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
   function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
     '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
     '<div class="dr-tc tl-x"><label class="cp"><input type="color" data-k="trailCol" value="'+cfg.trailCol+'"><span>CUSTOM</span></label><span class="dr-grad" title="gradient by rank change"><i>▼ FALLING</i><i>FLAT</i><i>CLIMBING ▲</i></span></div>'+
     '<div class="dr-sub tl-x">STYLE</div>'+seg('tStyle',[['solid','SOLID'],['dotted','DOTTED'],['sparkle','✦ SPARKLE']]);}
   function fmt(k,v,u){return (k==='tilt'||k==='fov'?Math.round(v):(+v).toFixed(2))+(u||'');}
-  function segSync(){dr.querySelectorAll('.dr-seg').forEach(function(g){var gp=g.getAttribute('data-grp'); g.querySelectorAll('button').forEach(function(b){var on=cfg[gp]===b.getAttribute('data-tv'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));});});
+  function segSync(){dr.querySelectorAll('.dr-seg').forEach(function(g){var gp=g.getAttribute('data-grp'); g.querySelectorAll('button').forEach(function(b){var on=(gp==='neb'?nebMode():cfg[gp])===b.getAttribute('data-tv'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));});});
     dr.classList.toggle('toff',!cfg.tOn); dr.setAttribute('data-tm',cfg.tMode);}
   function applyCfg(full){TC=cfg.c.map(hex); TU.uTG.value=cfg.tGlow; TU.uMode.value=cfg.tStyle==='dotted'?1:2; segSync(); sbSync(); orbSync(); scSync(); var rgt=rpBar&&rpBar.querySelector('.rp-gt'); if(rgt){rgt.value=String(cfg.glide); rgt.parentNode.querySelector('output').textContent=cfg.glide.toFixed(1)+' s/day';} trailRGB=hex(cfg.trailCol); U.uGlow.value=cfg.glow; U.uBeam.value=hex(cfg.beam); bgU.uBg.value=hex(cfg.bg); bgU.uT1.value=TC[2]; bgU.uT2.value=TC[4];
     nodeG.material.uniforms.uTC.value=flat(TC);
@@ -613,7 +622,7 @@ function init(D,THREE){
   function scSync(){var el=dr.querySelector('[data-k=scOn]'); if(el) el.checked=!!cfg.scOn; var bn=dr.querySelector('.sc-now'); if(bn) bn.classList.toggle('busy',!!(typeof sc!=='undefined'&&sc.on));}
   dr.addEventListener('click',function(e){var b=e.target.closest('button'); if(!b) return;
     if(b.classList.contains('dr-x')){openDr(false);return;}
-    var tv=b.getAttribute('data-tv'); if(tv){var gp=b.parentNode.getAttribute('data-grp'); cfg[gp]=tv; snd('click',cfg); segSync(); applyCfg(false); return;}
+    var tv=b.getAttribute('data-tv'); if(tv){var gp=b.parentNode.getAttribute('data-grp'); cfg[gp]=tv; if(gp==='neb') nebOv=null; snd('click',cfg); segSync(); applyCfg(false); return;}
     if(b.classList.contains('dr-reset')){var snd0=false; cfg=JSON.parse(JSON.stringify(DEF)); cfg.sound=snd0; if(op.focus) closeTier(); drHTML(); applyCfg(true); scArm(); return;}
     var p=b.getAttribute('data-pre'); if(p){var P=PRESETS[p]; cfg.theme=p; cfg.c=P.c.slice(); cfg.beam=P.beam; cfg.bg=P.bg; cfg.tMode=P.tMode; cfg.trailCol=P.trailCol; snd('click',cfg); drHTML(); applyCfg(true); return;}
     var ok=b.getAttribute('data-orb'), row=b.closest('.orb-row');
@@ -809,10 +818,89 @@ function init(D,THREE){
     if(sel>=0){select(-1); e.preventDefault();} else if(op.t>=0&&op.target>0){closeTier(); e.preventDefault();}});
   soSync();
   // ---------------------------------------------------------------- SCATTER & REGATHER (10 Oct 2026; replaces the black-hole events)
+  // ---------------------------------------------------------------- NEBULA CLOUDS variant
+  // camera-plane frame: X = world x (screen right), Y = screen up through the stack centre, Z = toward the camera
+  var clK=0, clC=[], clOf=new Int8Array(M), clRole=new Int8Array(NB), clS=new Float32Array(NB), clRr=new Float32Array(NB), clA=new Float32Array(NB), clF=new Int8Array(NB), clQ=new Float32Array(NB), clDl=new Float32Array(NB);
+  var clPz=new Float32Array(KMAX*NPF*4);
+  function clSetup(){if(scMode!=='clouds'){nbK.set(nbK0); ng.attributes.aK.needsUpdate=true; return;}
+    var hh=camD*Math.tan(cam.fov*Math.PI/360)*0.92, hw=hh*W/H, cp=Math.cos(pitch), yc=(coreY()-cyC)*cp, portrait=W<H*0.8;
+    clK=portrait?(Math.random()<0.5?3:4):3+Math.floor(Math.random()*3); clC=[];
+    // place cloud centres from spread-out layouts (normalised to the view; the core sits top-centre), mirrored / jittered at random
+    var LY=portrait?{3:[[-0.5,0.3],[0.52,-0.1],[-0.32,-0.64]],4:[[-0.52,0.34],[0.54,0.12],[-0.46,-0.34],[0.42,-0.68]]}
+      :{3:[[-0.62,0.12],[0.6,0.28],[0.12,-0.56]],4:[[-0.66,0.3],[0.63,0.34],[-0.42,-0.5],[0.46,-0.52]],5:[[-0.72,0.36],[0.7,0.36],[-0.6,-0.42],[0.62,-0.46],[0.04,-0.64]]};
+    var mx=Math.random()<0.5?-1:1; (LY[clK]||LY[3]).forEach(function(q){clC.push({x:(q[0]*mx+(Math.random()-0.5)*0.1)*hw, y:(q[1]+(Math.random()-0.5)*0.1)*hh});}); clK=clC.length;
+    var un=Math.min(hw*0.58,hh*0.36)*Math.sqrt(4/clK);
+    clC.forEach(function(c,k){c.ph=Math.random()*6.28; c.tl=(Math.random()-0.5)*0.9+(c.x>0?0.12:-0.12); c.L=un*(1.6+0.8*Math.random()); c.W=un*(0.34+0.1*Math.random());
+      c.nF=1+Math.floor(Math.random()*3); c.fo=[]; c.fl=[]; for(var f=0;f<c.nF;f++){c.fo.push((f-(c.nF-1)/2)*1.15+(Math.random()-0.5)*0.4); c.fl.push(0.6+0.4*Math.random()-(f===Math.floor(c.nF/2)?0:0.15));}
+      c.dir=Math.random()<0.5?-1:1; c.col=[0,0,0]; c.n=0; c.ang=Math.atan2(c.y,c.x);});
+    // planets -> clouds: balanced contiguous groups by screen angle (each cloud tinted by the rings that formed it)
+    var ord=[]; for(var i=0;i<N;i++){var y0=(sP[i*3+1]-cyC)*cp-sP[i*3+2]*Math.sin(pitch); ord.push([Math.atan2(y0,sP[i*3]),i]);} ord.sort(function(a,b){return a[0]-b[0];});
+    var cs=clC.map(function(c,k){return k;}).sort(function(a,b){return clC[a].ang-clC[b].ang;});
+    ord.forEach(function(o,r){var k=cs[Math.min(clK-1,Math.floor(r*clK/N))]; clOf[o[1]]=k; var c=TC[clamp(info[o[1]].g,0,4)]; clC[k].col[0]+=c[0]; clC[k].col[1]+=c[1]; clC[k].col[2]+=c[2]; clC[k].n++;});
+    clC.forEach(function(c){var n=Math.max(1,c.n); c.col=[c.col[0]/n,c.col[1]/n,c.col[2]/n];});
+    // closed stream loop through the cloud centres
+    clLoop=cs.map(function(k){return clC[k];});
+    for(var j=0;j<NB;j++){var r=Math.random(), role=r<0.22?3:r<0.231?4:r<0.36?1:r<0.44?2:0; clRole[j]=role;
+      clS[j]=role===4?0.78+0.22*Math.random():Math.pow(Math.random(),0.85); clRr[j]=role===3?Math.pow(Math.random(),0.6)*1.7:role===4?Math.random()*0.35:Math.pow(Math.random(),1.25)*(Math.random()<0.12?1.6:1);
+      clA[j]=Math.random()*6.2832; clF[j]=Math.floor(Math.random()*5); clQ[j]=Math.random(); clDl[j]=(0.45*Math.random()+0.55*(1-clS[j]))*7;
+      nbK[j]=role===3?1:role===4?2:3;}
+    ng.attributes.aK.needsUpdate=true;
+    for(var p=0;p<KMAX*NPF;p++){clPz[p*4]=Math.random(); clPz[p*4+1]=Math.random()*6.2832; clPz[p*4+2]=Math.pow(Math.random(),0.7)*0.5; clPz[p*4+3]=Math.floor(Math.random()*3);}
+    for(p=NB;p<NBT;p++) nbK[p]=3;}
+  var clLoop=[], clO={x:0,y:0,z:0};
+  function cmr(a,b,c,d,u){var u2=u*u,u3=u2*u; return 0.5*(2*b+(-a+c)*u+(2*a-5*b+4*c-d)*u2+(-a+3*b-3*c+d)*u3);}
+  // a point of cloud k in the camera plane frame (X,Y,Z); s along the pillar, rr radial fraction, al angle round the spine, f finger
+  function clPt(k,s,rr,al,f,t,L,o){var c=clC[k], nf=f%c.nF, fl=c.fl[nf], sx=Math.sin(c.tl), cx=Math.cos(c.tl);
+    var sl=s*fl, base=c.L*0.45, ax=-base+sl*c.L, px=c.fo[nf]*c.W*(0.25+0.9*sl)+c.W*0.45*Math.sin(sl*3.1+c.ph+nf*1.7)+c.W*0.12*Math.sin(t*0.13+c.ph+sl*4);
+    var w=c.W*(0.5+1.25*Math.exp(-sl*4.5)+0.6*Math.exp(-Math.pow((s-0.93)/0.08,2)))*(1+0.22*Math.sin(sl*11+c.ph*3+nf)+0.1*Math.sin(t*0.21+sl*7+c.ph));
+    var aa=al+t*0.11*c.dir*(1.2-rr*0.5), rad=w*rr*L, ox=px+Math.cos(aa)*rad, oz=Math.sin(aa)*rad*0.8;
+    o.x=c.x+ox*cx+ax*sx; o.y=c.y-ox*sx+ax*cx; o.z=oz; return w;}
+  function clUpd(){var clDn=Math.min(1,22/NP)*(W>H?0.8:1), t=sc.t, t3=t-SC1-SC2, cp=Math.cos(pitch), sp=Math.sin(pitch), cyy=cyC, cyR=coreY(), form=sstep((t-9)/9), Lf=1+1.7*(1-form), nL=clLoop.length;
+    var hw=sc.hw, ret=t3>0?sstep(t3/9):0;
+    for(var i=0;i<N;i++){var a0=scBA[i], b0=i*NP, k=clOf[i], c=clC[k];
+      if(a0<0.01||!c){for(var q=0;q<NP;q++){nbS[b0+q]=0; var z0=(b0+q)*3; nbC[z0]=nbC[z0+1]=nbC[z0+2]=0;} continue;}
+      var hx=hpX[i], hy=hpY[i], hz=hpZ[i], cr=scBC[i*3], cg=scBC[i*3+1], cb=scBC[i*3+2];
+      for(q=0;q<NP;q++){var j=b0+q, o=j*3, role=clRole[j], u, fin, e=0, s1;
+        if(t<SC1){s1=clamp((t-scD[i]*4.5-nbE[j]*2.5)/6,0,1); u=sstep(s1); fin=sstep(s1/0.12);}
+        else if(t3<0){u=1; fin=1;}
+        else{s1=clamp((t3-scD2[i]*3-clDl[j])/11,0,1); e=ease3(s1); u=1; fin=1-sstep((s1-0.85)/0.15);}
+        if(fin<=0.001){nbS[j]=0; nbC[o]=nbC[o+1]=nbC[o+2]=0; continue;}
+        var ph=nbPh[j], w, X, Y, Z, I, sz;
+        if(role===1){var br=(1.0+0.6*clQ[j])*Math.max(c.L*0.55,c.W*2.2)*Lf*0.8, be=clA[j]+t*(0.05+0.06*clQ[j])*c.dir;
+          X=c.x+Math.cos(be)*br*0.75; Y=c.y+Math.sin(be)*br; Z=Math.sin(be*1.3+ph)*br*0.35; I=0.6; sz=0.8;}
+        else if(role===2&&nL>1){var qq=(clQ[j]+t*0.011)%1, sg=Math.floor(qq*nL), lu=qq*nL-sg, A_=clLoop[(sg+nL-1)%nL], B_=clLoop[sg], C_=clLoop[(sg+1)%nL], D_=clLoop[(sg+2)%nL], sw=0.35*Math.sin(ph+qq*20);
+          X=cmr(A_.x,B_.x,C_.x,D_.x,lu)+sw*Math.cos(ph)*Lf; Y=cmr(A_.y,B_.y,C_.y,D_.y,lu)+sw*Math.sin(ph*1.3)*Lf; Z=sw*0.6; I=0.55; sz=0.7;}
+        else{w=clPt(k,clS[j],clRr[j],clA[j],clF[j],t,Lf,clO); X=clO.x; Y=clO.y; Z=clO.z;
+          var dn=1-Math.min(1,clRr[j]); I=role===0?0.3+0.85*dn*dn:1; sz=role===0?0.6+0.55*(1-dn):1;}
+        // curl-like churn / billow
+        var nb=role===0?0.16:0.28; X+=nb*(Math.sin(Y*1.1+t*0.23+ph)+0.5*Math.sin(Z*1.7+t*0.31+ph*2.1)); Y+=nb*Math.sin(X*0.9+t*0.19+ph*1.7); Z+=nb*Math.sin(X*1.3+Y*0.7+t*0.21+ph*0.6);
+        var gx=X, gy=cyy+Y*cp+Z*sp, gz=-Y*sp+Z*cp;
+        var px, py, pz;
+        if(t3<0){var fw=4*u*(1-u)*1.1; px=hx+(gx-hx)*u+fw*Math.sin(t*0.4+ph); py=hy+(gy-hy)*u+fw*0.6*Math.sin(t*0.33+ph*2); pz=hz+(gz-hz)*u+fw*Math.cos(t*0.37+ph);
+          var th=nbSw[j]*2.2*u*(1-u), cs=Math.cos(th), sn=Math.sin(th), qx=px; px=qx*cs-pz*sn; pz=qx*sn+pz*cs;}
+        else{px=gx+(hx-gx)*e; py=gy+(hy-gy)*e; pz=gz+(hz-gz)*e;
+          var pin=Math.sin(Math.PI*e); px*=1-0.55*pin; pz*=1-0.55*pin; py+=(cyR-py)*0.35*pin;
+          var th2=6.2832*(1-e)*c.dir, cs2=Math.cos(th2), sn2=Math.sin(th2), qx2=px; px=qx2*cs2-pz*sn2; pz=qx2*sn2+pz*cs2;}
+        nbP[o]=px; nbP[o+1]=py; nbP[o+2]=pz;
+        var mixT=role===0||role===1||role===2?0.3:0, wh=role===3?0.5:role===4?0.65:0;
+        var rr_=cr+(c.col[0]-cr)*mixT, gg_=cg+(c.col[1]-cg)*mixT, bb_=cb+(c.col[2]-cb)*mixT; rr_+=(1-rr_)*wh; gg_+=(1-gg_)*wh; bb_+=(1-bb_)*wh;
+        var In, Sz;
+        if(role===3){In=(0.5+0.5*Math.sin(t*(1.3+ph*0.6)+ph*7))*0.9*(0.4+0.6*form); Sz=0.05+0.07*clQ[j];}
+        else if(role===4){In=(1.1+0.5*Math.sin(t*0.7+ph*5))*sstep((t-12)/5); Sz=0.2+0.14*clQ[j];}
+        else{var fr=ph/6.2832; In=(0.05+0.06*fr)*I*(role===0?0.9:1.5)*clDn*(0.65+0.35*form); Sz=(0.55+0.8*nbE[j])*sz*1.5*(0.15+0.85*u)*(1+0.15*Math.sin(t*0.5+ph))*(t3>0?1-0.45*e:1);}
+        var Ia=a0*fin*In; nbS[j]=Sz; nbC[o]=rr_*Ia; nbC[o+1]=gg_*Ia; nbC[o+2]=bb_*Ia;}}
+    // puffs: big faint sprites along each pillar for volume
+    for(var p=0;p<KMAX*NPF;p++){var j2=NB+p, o2=j2*3, k2=Math.floor(p/NPF), c2=clC[k2];
+      if(!c2){nbS[j2]=0; nbC[o2]=nbC[o2+1]=nbC[o2+2]=0; continue;}
+      clPt(k2,clPz[p*4],clPz[p*4+2],clPz[p*4+1],clPz[p*4+3],t,Lf,clO);
+      nbP[o2]=clO.x; nbP[o2+1]=cyy+clO.y*cp+clO.z*sp; nbP[o2+2]=-clO.y*sp+clO.z*cp;
+      var pa=0.075*sstep((t-8)/10)*(1-ret)*(0.8+0.2*Math.sin(t*0.3+p)); nbS[j2]=c2.W*(3.2+2.2*clPz[p*4+2])*(1.1-0.35*clPz[p*4]);
+      nbC[o2]=c2.col[0]*pa; nbC[o2+1]=c2.col[1]*pa; nbC[o2+2]=c2.col[2]*pa;}
+    nebPts.visible=true; ng.setDrawRange(0,NBT); ng.attributes.position.needsUpdate=ng.attributes.aS.needsUpdate=ng.attributes.aC.needsUpdate=true;}
   // planet presence 1 (solid) .. 0 (fully dissolved into gas)
-  function scPA(i){var t=sc.t; if(t<SC1) return 1-sstep((t-scD[i]*4.5)/4.5); if(t<SC1+SC2) return 0; return sstep((t-SC1-SC2-scD2[i]*5-9)/6.5);}
+  function scPA(i){var t=sc.t; if(t<SC1) return 1-sstep((t-scD[i]*4.5)/4.5); if(t<SC1+SC2) return 0; if(scMode==='clouds') return sstep((t-SC1-SC2-scD2[i]*3-10)/9); return sstep((t-SC1-SC2-scD2[i]*5-9)/6.5);}
   // particles: emitted from the planet, billow in its gas cloud, swirl back onto the planet's live pose
-  function nebUpd(){var t=sc.t, hw=sc.hw, hh=sc.hh, cy=sc.cy, CR=0.95, t3=t-SC1-SC2;
+  function nebUpd(){if(scMode==='clouds'){clUpd(); return;} var t=sc.t, hw=sc.hw, hh=sc.hh, cy=sc.cy, CR=0.95, t3=t-SC1-SC2;
     for(var i=0;i<N;i++){var a0=scBA[i], b0=i*NP;
       if(a0<0.01){for(var k=0;k<NP;k++){nbS[b0+k]=0; var z0=(b0+k)*3; nbC[z0]=nbC[z0+1]=nbC[z0+2]=0;} continue;}
       var A=scA0[i]+0.012*t, Rr=scRs[i]*hw, cx=Math.cos(A)*Rr, cz=Math.sin(A)*Rr, cyy=cy+scYs[i]*hh, hx=hpX[i], hy=hpY[i], hz=hpZ[i], cr=scBC[i*3], cg=scBC[i*3+1], cbb=scBC[i*3+2];
@@ -830,7 +918,7 @@ function init(D,THREE){
     nebPts.visible=true; ng.setDrawRange(0,NB); ng.attributes.position.needsUpdate=ng.attributes.aS.needsUpdate=ng.attributes.aC.needsUpdate=true;}
   function scArm(){sc.wait=0; sc.next=120+Math.random()*120;}
   function scCan(){return !rp.on&&!RM&&!frozen&&!(op.t>=0)&&!sc.on;}
-  function scTrigger(manual){if(!scCan()) return false; if(sel>=0) select(-1); sc.on=true; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; for(var i=0;i<N;i++) scA0[i]=Math.atan2(sP[i*3+2],sP[i*3])+scDa[i]*0.6;
+  function scTrigger(manual){if(!scCan()) return false; if(sel>=0) select(-1); scMode=nebMode(); SC2=scMode==='clouds'?24:18; SC3=scMode==='clouds'?22:21; SCEND=SC1+SC2+SC3+0.8; sc.on=true; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; for(var i=0;i<N;i++) scA0[i]=Math.atan2(sP[i*3+2],sP[i*3])+scDa[i]*0.6; clSetup();
     root.classList.add('scatter'); snd('play',cfg); scSync(); need(); return true;}
   function scReset(){sc.on=false; nebPts.visible=false; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; root.classList.remove('scatter');
     for(var t=0;t<tiltG.length;t++) tiltG[t].rotation.x=0; core.scale.setScalar(1); retic.scale.setScalar(1); torus.scale.setScalar(1);
@@ -918,7 +1006,7 @@ function init(D,THREE){
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
-    focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, mvr:function(on){if(on!=null&&!!on!==!!cfg.mv) mvTog.click(); else if(on) mvRestart(); return {on:!!cfg.mv,t:mv.t,end:mvEnd,up:mvUp,dn:mvDn,win:WIN[wi]};}, mvT:function(){return mv.t;}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'dissolve':sc.t<SC1+SC2?'nebula':'condense'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, nebula:function(m){if(m==='clouds'||m==='drift'){cfg.neb=m; nebOv=null; applyCfg(false);} return {style:nebMode(),running:sc.on?scMode:null,clouds:clK};}, mvr:function(on){if(on!=null&&!!on!==!!cfg.mv) mvTog.click(); else if(on) mvRestart(); return {on:!!cfg.mv,t:mv.t,end:mvEnd,up:mvUp,dn:mvDn,win:WIN[wi]};}, mvT:function(){return mv.t;}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'dissolve':sc.t<SC1+SC2?'nebula':'condense'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
