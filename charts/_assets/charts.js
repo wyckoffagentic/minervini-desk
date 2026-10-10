@@ -511,7 +511,8 @@
   // ---------------------------------------------------------------- VSA SEQUENCES markers + TradeGuider-style pop-up cards (Chris, 8 Oct 2026)
   // Sequences (overlay 'vsaseq', research-tools/vsa_ui.seq_overlay_for): one tag on the COMPLETING bar only - bearish W codes pink above the
   // high, bullish S codes cyan below the low; lifted clear of taller neighbours (small dot marks the bar); on the newest bar stacked above the
-  // 1UP / BUY markers. Several fires on one bar = one tag 'S4+2' (best backtest first). Daily (1D) only. Pill 'VSA SEQUENCES' next to
+  // 1UP / BUY markers. Several fires on one bar = one tag 'S4+2' (best backtest first). Holmes codes daily (1D) only; the desk two-bar combos
+  // TN 'Thriller in the Night' / WB 'Who's Bad' (10 Oct 2026) carry tf 'D' or 'W' and draw on the matching 1D / 1W view (weekly keyed by the week's Monday). Pill 'VSA SEQUENCES' next to
   // VOL: PLAIN | VSA (localStorage wa.desk.chartseq.v1, default on, shared by every chart). Hover / tap a tag: card (span, trigger,
   // invalidation, status, plain-English read, backtest verdict) + a faint band over the spanned bars while hovered.
   // Single-bar VSA tags (overlay 'vsa': VSA volume-pane tags, PLAIN-mode price tags, ▲ / ○ glyphs): hover / tap card with the bar's measured
@@ -549,19 +550,19 @@
     ".tc-ovl .sq-leg{font:400 7px/1.6 'Press Start 2P',monospace;color:#f2efff;white-space:normal}.tc-ovl .sq-leg b{font-weight:400;color:#ffffff}.tc-ovl .sq-leg .pk{color:#ffb3c9}.tc-ovl .sq-leg .cy{color:#a8fff0}"
   ].join('\n');document.head.appendChild(st);}
   if(SQO)sqCSS();
-  function sqBT(c){var b=SQO&&SQO.bt&&SQO.bt[c];if(!b||!b[0])return null;return 'Backtest: '+b[0]+(b[1]!=null?', '+(b[1]>=0?'+':'')+(+b[1]).toFixed(2)+'R avg':'')+(b[2]!=null?', '+b[2]+' trades':'')+', 1y';}
-  function sqGroups(){if(!SQO)return [];if(SQO._g)return SQO._g;var G={},out=[];
-    SQO.seq.forEach(function(f){var k=f.d+'|'+f.dir;if(!G[k]){G[k]={d:f.d,dir:f.dir,f:[]};out.push(G[k]);}G[k].f.push(f);});
-    out.forEach(function(g){g.f.sort(function(a,b){var ra=(SQO.bt&&SQO.bt[a.code]||[])[1],rb=(SQO.bt&&SQO.bt[b.code]||[])[1];return (rb==null?-9:rb)-(ra==null?-9:ra);});
+  function sqBT(c){if(c&&typeof c==='object')c=c.bk||c.code;var b=SQO&&SQO.bt&&SQO.bt[c];if(!b||!b[0])return null;return 'Backtest: '+b[0]+(b[1]!=null?', '+(b[1]>=0?'+':'')+(+b[1]).toFixed(2)+'R avg':'')+(b[2]!=null?', '+b[2]+' trades':'')+', 1y';}
+  function sqGroups(){if(!SQO)return [];SQO._gt=SQO._gt||{};if(SQO._gt[TF])return SQO._gt[TF];var G={},out=[];
+    SQO.seq.forEach(function(f){if((f.tf||'D')!==TF)return;var k=f.d+'|'+f.dir;if(!G[k]){G[k]={d:f.d,dir:f.dir,f:[]};out.push(G[k]);}G[k].f.push(f);});
+    out.forEach(function(g){g.f.sort(function(a,b){var ra=(SQO.bt&&SQO.bt[a.bk||a.code]||[])[1],rb=(SQO.bt&&SQO.bt[b.bk||b.code]||[])[1];return (rb==null?-9:rb)-(ra==null?-9:ra);});
       g.d0=g.f.reduce(function(m,f){var s=(f.span||[])[0]||f.d;return s<m?s:m;},g.d);g.lab=g.f[0].code+(g.f.length>1?'+'+(g.f.length-1):'');});
-    SQO._g=out;return out;}
+    SQO._gt[TF]=out;return out;}
   function sqRR(x,x0,y0,w,h,r){x.beginPath();x.moveTo(x0+r,y0);x.lineTo(x0+w-r,y0);x.quadraticCurveTo(x0+w,y0,x0+w,y0+r);x.lineTo(x0+w,y0+h-r);x.quadraticCurveTo(x0+w,y0+h,x0+w-r,y0+h);
     x.lineTo(x0+r,y0+h);x.quadraticCurveTo(x0,y0+h,x0,y0+h-r);x.lineTo(x0,y0+r);x.quadraticCurveTo(x0,y0,x0+r,y0);x.closePath();}
   // faint band over the hovered sequence's bars (drawn under the price bars)
-  function sqBand(x,g){if(!SQH||!SQON||TF!=='D')return;var a=dix(SQH.d0)-g.off,b=dix(SQH.d)-g.off;if(b<0||a>g.n-1)return;a=Math.max(0,a);b=Math.min(g.n-1,b);
+  function sqBand(x,g){if(!SQH||!SQON||TF==='M')return;var a=dix(SQH.d0)-g.off,b=dix(SQH.d)-g.off;if(b<0||a>g.n-1)return;a=Math.max(0,a);b=Math.min(g.n-1,b);
     var x0=g.X(a)-g.bw/2-2,x1=g.X(b)+g.bw/2+2;x.save();x.fillStyle=SQH.dir==='bear'?'rgba(255,143,177,.17)':'rgba(95,245,214,.15)';x.fillRect(x0,g.pt-2,x1-x0,g.yb-g.pt+2);x.restore();}
   // the tags (after the 1UP sprite, so they sit on top). g: draw0 geometry + the 1UP top (newest bar)
-  function drawSeq(x,g){SQST={on:SQON?1:0,tags:0,fires:0,hb:HB.length,tf:TF};window.TC_SEQ=SQST;if(!SQO||!SQON||TF!=='D'||!g.TX||!g.LY.bars)return;
+  function drawSeq(x,g){SQST={on:SQON?1:0,tags:0,fires:0,hb:HB.length,tf:TF};window.TC_SEQ=SQST;if(!SQO||!SQON||TF==='M'||!g.TX||!g.LY.bars)return;
     var fz=g.narrow?6:8,ph2=g.narrow?3:4,TH=fz+ph2*2,V=g.V;x.save();x.font=fz+'px '+FONT;x.textBaseline='alphabetic';
     var placed=[];
     sqGroups().forEach(function(G){var bi=DIX[G.d];if(bi==null)return;var j=bi-g.off;if(j<0||j>=g.n)return;var b=bars[bi],cx=g.X(j),bear=G.dir==='bear',hv=SQH===G;
@@ -581,7 +582,7 @@
       x.shadowBlur=0;x.lineWidth=hv?2.4:1.5;x.strokeStyle=hv?'#ffffff':cb;x.stroke();
       x.fillStyle=cb;x.beginPath();if(bear){x.moveTo(cx-4,y0+TH);x.lineTo(cx+4,y0+TH);x.lineTo(cx,y0+TH+4);}else{x.moveTo(cx-4,y0);x.lineTo(cx+4,y0);x.lineTo(cx,y0-4);}x.closePath();x.fill();
       x.fillStyle=hv?'#ffffff':bear?'#ffd0dd':'#c8fff6';x.textAlign='left';x.fillText(G.lab,x0+ph2+.5,y0+TH-ph2);
-      HB.push({t:'seq',g:G,b:[x0,y0-(bear?0:4),tw,TH+4],bi:bi});SQST.tags++;SQST.fires+=G.f.length;});
+      HB.push({t:'seq',g:G,b:[x0,y0-(bear?0:4),tw,TH+4],bi:bi});SQST.tags++;SQST.fires+=G.f.length;(SQST.box=SQST.box||[]).push([G.lab,G.d,Math.round(x0+tw/2),Math.round(y0+TH/2)]);});
     x.restore();SQST.hb=HB.length;window.TC_SEQ=SQST;}
   // ---- hit test + cards
   function sqHit(px,py,tap){var pad=tap?7:3,best=null,bd=1e9;HB.forEach(function(h){var b=h.b;if(px>=b[0]-pad&&px<=b[0]+b[2]+pad&&py>=b[1]-pad&&py<=b[1]+b[3]+pad){
@@ -599,16 +600,16 @@
       if(s<bs){bs=s;best=[l,t];}});
     el.style.left=Math.round(best[0])+'px';el.style.top=Math.round(best[1])+'px';}
   function sqPol(p){return p>0?['bull','▲ BULLISH']:p<0?['','▼ BEARISH']:['neu','◆ NEUTRAL (READ BY CONTEXT)'];}
-  function sqSeqHTML(G){var f=G.f[0],bull=G.dir!=='bear',n=(f.span||[]).length||1,nm=String(f.name||'').toUpperCase(),X2=(VX&&VX.seq)||{};
-    var st=f.st==='triggered'?'TRIGGERED '+sqd(f.sd):f.st==='invalidated'?'INVALIDATED '+sqd(f.sd):f.st==='expired'?'EXPIRED (no trigger within 3 bars)':'ARMED (waiting for the trigger)';
+  function sqSeqHTML(G){var f=G.f[0],bull=G.dir!=='bear',n=(f.span||[]).length||1,nm=String(f.name||'').toUpperCase(),X2=(VX&&VX.seq)||{},wk=f.tf==='W',un=wk?'week':'bar';
+    var st=f.st==='triggered'?'TRIGGERED '+sqd(f.sd):f.st==='invalidated'?'INVALIDATED '+sqd(f.sd):f.st==='expired'?'EXPIRED (no trigger within 3 '+(f.tf==='W'?'weeks':'bars')+')':'ARMED (waiting for the trigger)';
     var steps=(f.steps||[]).map(function(s){return sqd(s[1])+' '+esc(String(s[2]||'').toLowerCase());}).join(' · ');
-    var h='<div class="h"><span class="c'+(bull?' bull':'')+'">'+esc(f.code)+'</span>'+esc(nm)+'</div><span class="dir">'+(bull?'▲ BULLISH':'▼ BEARISH')+' · TRADEGUIDER SET-UP SEQUENCE</span>'+
-      '<table><tr><td class="k">COMPLETED</td><td>'+sqdl(f.d)+' (EOD)</td></tr><tr><td class="k">SPANNED</td><td>'+sqd((f.span||[f.d])[0])+' → '+sqd(f.d)+', '+n+' bar'+(n===1?'':'s')+(steps?'<br><span class="sqm">'+steps+'</span>':'')+'</td></tr>'+
+    var h='<div class="h"><span class="c'+(bull?' bull':'')+'">'+esc(f.code)+'</span>'+esc(nm)+'</div><span class="dir">'+(bull?'▲ BULLISH':'▼ BEARISH')+(f.custom?' · VSA COMBO · '+(wk?'WEEKLY':'DAILY')+(f.strength?' · STRENGTH '+f.strength+'/3':''):' · TRADEGUIDER SET-UP SEQUENCE')+'</span>'+
+      '<table><tr><td class="k">COMPLETED</td><td>'+(wk?'week of '+sqdl(f.d)+' (weekly close)':sqdl(f.d)+' (EOD)')+'</td></tr><tr><td class="k">SPANNED</td><td>'+sqd((f.span||[f.d])[0])+' → '+sqd(f.d)+', '+n+' '+un+(n===1?'':'s')+(steps?'<br><span class="sqm">'+steps+'</span>':'')+'</td></tr>'+
       '<tr><td class="k">TRIGGER</td><td>'+(bull?'buy stop above ':'sell stop below ')+(f.trigger!=null?(+f.trigger).toFixed(2):'?')+'</td></tr>'+
       '<tr><td class="k">INVALIDATION</td><td>close '+(bull?'below ':'above ')+(f.stop!=null?(+f.stop).toFixed(2):'?')+'</td></tr>'+
-      '<tr><td class="k">STATUS</td><td>'+st+'</td></tr>'+(sqBT(f.code)?'<tr><td class="k">BACKTEST</td><td class="bt">'+esc(sqBT(f.code).replace(/^Backtest: /,''))+'</td></tr>':'')+'</table>'+
+      '<tr><td class="k">STATUS</td><td>'+st+'</td></tr>'+(sqBT(f)?'<tr><td class="k">BACKTEST</td><td class="bt">'+esc(sqBT(f).replace(/^Backtest: /,'')+(f.custom?' (indicative only)':''))+'</td></tr>':'')+'</table>'+
       '<div class="rd"><b>READ</b>'+esc(X2[f.code]||(VX?nm.toLowerCase():'loading…'))+'</div>'+(f.ref?'<div class="ref">Ref: '+esc(String(f.ref).split('; glossary')[0])+'</div>':'');
-    if(G.f.length>1)h+='<div class="also">ALSO COMPLETING ON THIS BAR:'+G.f.slice(1).map(function(o){return '<br><span class="c'+(bull?' bull':'')+'">'+esc(o.code)+'</span>'+esc(o.name)+' · '+esc(o.st||'')+(sqBT(o.code)?' · <span class="bt">'+esc(sqBT(o.code))+'</span>':'');}).join('')+'</div>';
+    if(G.f.length>1)h+='<div class="also">ALSO COMPLETING ON THIS BAR:'+G.f.slice(1).map(function(o){return '<br><span class="c'+(bull?' bull':'')+'">'+esc(o.code)+'</span>'+esc(o.name)+' · '+esc(o.st||'')+(sqBT(o)?' · <span class="bt">'+esc(sqBT(o))+'</span>':'');}).join('')+'</div>';
     return h;}
   function sqCls(v,e,names){if(v==null||!e)return '';return v>=e[0]?names[0]:v>=e[1]?names[1]:v>e[2]?names[2]:v>e[3]?names[3]:names[4];}
   function sqFacts(bi,x){var S=vsaGet(),b=bars[bi],p1=bars[bi-1],p2=bars[bi-2],cl=(VX&&VX.cls)||{},f=x&&x.f,vr,sr,c,v2,up,vp;
@@ -1085,7 +1086,7 @@
     window._tcObHTML=function(){return OVL.map(function(o,k){return '<div class="ovr"><button type="button" data-o="'+k+'" aria-pressed="'+o.on+'" title="Show / hide the detector drawing">'+obtn(o)+'</button>'+
       '<span class="ol">'+oleg(o).map(function(l){return '<span><i style="background:'+esc(l[0])+'"></i>'+esc(l[1])+'</span>';}).join('')+
       (o.asof?'<span class="oa">AS OF '+esc(o.asof)+'</span>':'')+'</span>'+(o.note?'<details class="onote"><summary>STORY</summary><p>'+esc(o.note)+'</p></details>':'')+'</div>';}).join('')+
-      (SQO&&SQON?'<div class="ovr sq-row"><span class="sq-leg"><b>VSA SEQ:</b> <span class="pk">▼ PINK TAG ABOVE HIGH = BEARISH</span> · <span class="cy">▲ CYAN TAG BELOW LOW = BULLISH</span> · ON THE COMPLETING BAR ONLY · '+(TF==='D'?'HOVER / TAP FOR DETAIL':'1D CHART ONLY')+'</span></div>':'');};
+      (SQO&&SQON?'<div class="ovr sq-row"><span class="sq-leg"><b>VSA SEQ:</b> <span class="pk">▼ PINK TAG ABOVE HIGH = BEARISH</span> · <span class="cy">▲ CYAN TAG BELOW LOW = BULLISH</span> · ON THE COMPLETING BAR ONLY · '+(TF!=='M'?'HOVER / TAP FOR DETAIL':'1D / 1W CHARTS ONLY')+'</span></div>':'');};
     ob.innerHTML=window._tcObHTML();
     host.parentNode.insertBefore(ob,host);OBAR=ob;OBTN=obtn;
     ob.addEventListener('click',function(e){var b=e.target.closest('button[data-o]');if(!b)return;var o=OVL[+b.getAttribute('data-o')];o.on=!o.on;
