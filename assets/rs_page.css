@@ -9,3 +9,122 @@ body.dk .arw.eq{color:#d6d2f5}
 body.dk .idx .c{color:#cfc9ff}
 body.dk .idx.up .c{color:#7dffb0}
 /* ATH / 52wH badges: light text on a tinted chip (desk.css carries the same rule site-wide since 9 Oct 2026) */
+/* 10 Oct 2026: New in / dropped out move-size badges (light readable on the dark theme) */
+body.dk.dk-pg-rs .chip .mv{display:inline-block;margin-left:5px;font-size:12px;font-weight:700;border-radius:6px;padding:0 5px;line-height:1.35}
+body.dk.dk-pg-rs .chip .mv.up{color:#8dffbe;background:rgba(57,255,136,.12);border:1px solid rgba(141,255,190,.5)}
+body.dk.dk-pg-rs .chip .mv.dn{color:#ffa3b8;background:rgba(255,61,127,.12);border:1px solid rgba(255,163,184,.5)}
+body.dk.dk-pg-rs .chip .mv.nw{color:#fff2a8;background:rgba(255,210,63,.12);border:1px solid rgba(255,242,168,.5)}
+/* 10 Oct 2026: All RS 90+ on phones = two-column grid of compact cards (top line: ticker + chart ▸ + TT; then a 2-col mini grid).
+   Cells (fixed order from rs_page.py): 1 # · 2 ticker · 3 name · 4 overall · 5 earn · 6 EPS Q · 7-10 hidden extras · 11 RS · 12 RS 1W ·
+   13 price · 14 off high · 15 TT · 16-17 hidden extras.  desk.js still labels each cell; we only re-lay them out and shorten labels. */
+@media (max-width:600px){
+ body.dk.dk-pg-rs #rs90.dk-stack tbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+ body.dk.dk-pg-rs #rs90.dk-stack tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:8px;row-gap:1px;margin:0;padding:5px 7px 6px;align-content:start;min-width:0}
+ body.dk.dk-pg-rs #rs90.dk-stack tr.hide{display:none!important}
+ body.dk.dk-pg-rs #rs90.dk-stack tr.dk-vrow,body.dk.dk-pg-rs #rs90.dk-stack tr.dk-tfempty{grid-column:1/-1;display:block}
+ body.dk.dk-pg-rs #rs90.dk-stack tr.dk-vrow td,body.dk.dk-pg-rs #rs90.dk-stack tr.dk-tfempty td{display:block}
+ body.dk.dk-pg-rs #rs90.dk-stack td{font-size:11.5px;line-height:1.35;gap:3px;flex-wrap:nowrap;white-space:nowrap!important;align-items:center;color:#f2f0ff;order:5}
+ body.dk.dk-pg-rs #rs90.dk-stack td::before{font-size:9px;letter-spacing:.2px;color:#cfd8ee;max-width:none;line-height:1.5}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(2){order:0;grid-column:1;justify-content:flex-start;gap:4px;flex-wrap:nowrap;white-space:nowrap!important;overflow:hidden;padding-bottom:3px!important}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(2)::before{content:none}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(2) b{font-size:14px!important}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(15){order:1;grid-column:2;justify-content:flex-end;padding-bottom:3px!important}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(15)::before{content:"TT"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(1)::before{content:"#"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(4)::before{content:"Overall"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(5)::before{content:"Earn"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(6)::before{content:"EPS Q"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(11)::before{content:"RS"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(12)::before{content:"RS 1W"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(13)::before{content:"Price"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(14)::before{content:"Off hi"}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(5){justify-content:space-between}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(5) .tagc{font-size:8.5px;padding:0 3px;margin:0;line-height:1.4;white-space:nowrap}
+ body.dk.dk-pg-rs #rs90.dk-stack td .rsb{min-width:0;padding:0 4px;font-size:11px;line-height:1.3}
+ body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(3),body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(n+7):nth-child(-n+10),body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(n+16){display:none}
+}
+/* 10 Oct 2026 (b): orbit band colours everywhere (= RS ORBITAL rings, rs_orbital.js NEON): 0 99-95 #ffd23f · 1 94-90 #a8ff3e · 2 89-80 #00e5ff
+   · 3 79-70 #b06bff · 4 <70 #ff2bd6.  RS badges: band-colour border + light band-tinted text; chips: band accent on the left edge; movers: old → new dots */
+body.dk.dk-pg-rs .rsb.b0,body.dk.dk-pg-rs .rsb.b1,body.dk.dk-pg-rs .rsb.b2,body.dk.dk-pg-rs .rsb.b3,body.dk.dk-pg-rs .rsb.b4{background:rgba(255,255,255,.04);border-width:1.5px;border-style:solid}
+body.dk.dk-pg-rs .rsb.b0{border-color:#ffd23f;color:#ffe27a;background:rgba(255,210,63,.13)}
+body.dk.dk-pg-rs .rsb.b1{border-color:#a8ff3e;color:#c8ff85;background:rgba(168,255,62,.11)}
+body.dk.dk-pg-rs .rsb.b2{border-color:#00e5ff;color:#8ef3ff;background:rgba(0,229,255,.11)}
+body.dk.dk-pg-rs .rsb.b3{border-color:#b06bff;color:#d2b0ff;background:rgba(176,107,255,.15)}
+body.dk.dk-pg-rs .rsb.b4{border-color:#ff2bd6;color:#ff9be9;background:rgba(255,43,214,.13)}
+body.dk.dk-pg-rs .bd{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin:0 1px;box-shadow:0 0 5px currentColor}
+body.dk.dk-pg-rs .bd.b0{background:#ffd23f;color:#ffd23f}body.dk.dk-pg-rs .bd.b1{background:#a8ff3e;color:#a8ff3e}body.dk.dk-pg-rs .bd.b2{background:#00e5ff;color:#00e5ff}
+body.dk.dk-pg-rs .bd.b3{background:#b06bff;color:#b06bff}body.dk.dk-pg-rs .bd.b4{background:#ff2bd6;color:#ff2bd6}
+body.dk.dk-pg-rs .bda{font-style:normal;font-size:10px;color:#e6f3ff;margin:0 1px;vertical-align:middle}
+body.dk.dk-pg-rs .chip.bc{border-left-width:4px!important;border-left-style:solid!important}
+body.dk.dk-pg-rs .chip.bc .bd{margin-right:4px}
+body.dk.dk-pg-rs .chip.b0{border-left-color:#ffd23f!important}body.dk.dk-pg-rs .chip.b1{border-left-color:#a8ff3e!important}body.dk.dk-pg-rs .chip.b2{border-left-color:#00e5ff!important}
+body.dk.dk-pg-rs .chip.b3{border-left-color:#b06bff!important}body.dk.dk-pg-rs .chip.b4{border-left-color:#ff2bd6!important}
+/* (c) ORBITS lists: one block per ring, header in the ring colour, compact ticker + RS chips (first 60, "show all N" for the rest) */
+body.dk.dk-pg-rs .obs{padding:8px 10px}
+body.dk.dk-pg-rs .ob{border:1px solid rgba(255,255,255,.12);border-left:4px solid var(--bc);border-radius:8px;margin:0 0 6px;padding:4px 8px;background:rgba(255,255,255,.025)}
+body.dk.dk-pg-rs .ob.b0{--bc:#ffd23f}body.dk.dk-pg-rs .ob.b1{--bc:#a8ff3e}body.dk.dk-pg-rs .ob.b2{--bc:#00e5ff}body.dk.dk-pg-rs .ob.b3{--bc:#b06bff}body.dk.dk-pg-rs .ob.b4{--bc:#ff2bd6}
+body.dk.dk-pg-rs .ob summary{cursor:pointer;font-size:14px;line-height:1.6;color:var(--bc);text-shadow:0 0 8px color-mix(in srgb,var(--bc) 45%,transparent)}
+body.dk.dk-pg-rs .ob.b3 summary{color:#c99bff}body.dk.dk-pg-rs .ob.b4 summary{color:#ff7ae3}
+body.dk.dk-pg-rs .ob summary small{color:#e6f3ff;font-weight:600;text-shadow:none;margin-left:4px}
+body.dk.dk-pg-rs .ocs{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0 3px}
+body.dk.dk-pg-rs .oc{display:inline-flex;align-items:baseline;gap:3px;font-size:12px;font-weight:700;line-height:1.3;color:#f4f2ff;text-decoration:none;border:1px solid color-mix(in srgb,var(--bc) 55%,transparent);border-radius:5px;padding:1px 5px;background:color-mix(in srgb,var(--bc) 9%,transparent)}
+body.dk.dk-pg-rs .oc small{font-size:10.5px;font-weight:700;color:color-mix(in srgb,var(--bc) 70%,#fff)}
+body.dk.dk-pg-rs .oc.ex{display:none}body.dk.dk-pg-rs .ob.all .oc.ex{display:inline-flex}
+body.dk.dk-pg-rs .ob-more{font:inherit;font-size:11.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.07);border:1px solid var(--bc);border-radius:5px;padding:2px 9px;margin:2px 0 3px;cursor:pointer}
+/* (a) tighten every list / table on the page */
+body.dk.dk-pg-rs .bigsec{margin:16px 0 2px;line-height:1.15}
+body.dk.dk-pg-rs .chips{gap:4px;margin:4px 0}
+body.dk.dk-pg-rs .chip{padding:1px 7px;font-size:12.5px;line-height:1.45;box-shadow:none}
+body.dk.dk-pg-rs .chip small{font-size:11px}
+body.dk.dk-pg-rs .two{gap:8px}body.dk.dk-pg-rs .two .panel{margin:6px 0}
+body.dk.dk-pg-rs table.mini th,body.dk.dk-pg-rs table.mini td{padding:3px 6px}
+body.dk.dk-pg-rs table.mini td{line-height:1.3}
+@media (max-width:760px){
+ body.dk.dk-pg-rs .bigsec{margin:12px 0 2px}
+ body.dk.dk-pg-rs .panel{padding:8px 7px}
+ body.dk.dk-pg-rs .two .panel{margin:4px 0}
+ body.dk.dk-pg-rs .chip{font-size:12px;padding:1px 6px}
+ body.dk.dk-pg-rs .chip .mv{font-size:11px;padding:0 3px;margin-left:3px}
+ body.dk.dk-pg-rs .obs{padding:6px}
+ body.dk.dk-pg-rs .oc{font-size:11.5px;padding:1px 4px}
+}
+/* phones: every stacked table on rs.html = compact two-column cards (ticker line on top, then a 2-col label/value mini grid) */
+@media (max-width:600px){
+ body.dk.dk-pg-rs table.dk-stack tbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:5px}
+ body.dk.dk-pg-rs table.dk-stack tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:8px;row-gap:0;margin:0!important;padding:4px 6px 5px!important;align-content:start;min-width:0}
+ body.dk.dk-pg-rs table.dk-stack tr.hide{display:none!important}
+ body.dk.dk-pg-rs table.dk-stack tr.dk-vrow,body.dk.dk-pg-rs table.dk-stack tr.dk-tfempty,body.dk.dk-pg-rs table.dk-stack tr.dk-hrow+tr:only-child{grid-column:1/-1}
+ body.dk.dk-pg-rs table.dk-stack tr.dk-vrow,body.dk.dk-pg-rs table.dk-stack tr.dk-tfempty{display:block}
+ body.dk.dk-pg-rs table.dk-stack tr.dk-vrow td,body.dk.dk-pg-rs table.dk-stack tr.dk-tfempty td{display:block}
+ body.dk.dk-pg-rs table.dk-stack td{font-size:11.5px;line-height:1.35;gap:3px;flex-wrap:wrap;align-items:center;color:#f2f0ff;order:5}
+ body.dk.dk-pg-rs table.dk-stack td::before{font-size:9px;letter-spacing:.2px;color:#cfd8ee;max-width:none;line-height:1.5}
+ body.dk.dk-pg-rs table.dk-stack td.tkc{order:0;grid-column:1/-1;justify-content:flex-start;gap:4px;flex-wrap:nowrap;white-space:nowrap!important;overflow:hidden;padding-bottom:2px!important}
+ body.dk.dk-pg-rs table.dk-stack td.tkc::before{content:none}
+ body.dk.dk-pg-rs table.dk-stack td.tkc b{font-size:14px!important}
+ body.dk.dk-pg-rs table.dk-stack td[colspan]{grid-column:1/-1}
+ body.dk.dk-pg-rs table.dk-stack td .rsb{min-width:0;padding:0 4px;font-size:11px;line-height:1.3}
+ body.dk.dk-pg-rs table.dk-stack td .arw{min-width:0;font-size:10.5px;padding:0 3px}
+ body.dk.dk-pg-rs table.dk-stack td .tagc{font-size:8.5px;padding:0 3px;margin:0;line-height:1.4;white-space:nowrap}
+ body.dk.dk-pg-rs #rs90.dk-stack td.tkc{grid-column:1}
+}
+@media (max-width:600px){
+ body.dk.dk-pg-rs table.dk-stack td{flex-wrap:nowrap;background:transparent!important;white-space:nowrap!important}
+ body.dk.dk-pg-rs table.dk-stack td::before{white-space:nowrap;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;font-size:8.5px}
+ body.dk.dk-pg-rs table.dk-stack td.dk-long,body.dk.dk-pg-rs #rs90.dk-stack td:nth-child(5),body.dk.dk-pg-rs #top50.dk-stack td:nth-child(7){flex-wrap:wrap;white-space:normal!important}
+ body.dk.dk-pg-rs table.dk-stack tr.mine{background:rgba(255,210,63,.07)!important;border-color:rgba(255,210,63,.45)!important}
+}
+@media (max-width:600px){
+ body.dk.dk-pg-rs table.dk-stack td[data-label^="Earn" i]::before{content:"Earn"}
+ body.dk.dk-pg-rs table.dk-stack td[data-label^="EPS Q" i]::before{content:"EPS Q"}
+ body.dk.dk-pg-rs table.dk-stack td[data-label^="Off h" i]::before{content:"Off hi"}
+ body.dk.dk-pg-rs table.dk-stack td .bd{width:7px;height:7px;margin:0;box-shadow:none}
+ body.dk.dk-pg-rs table.dk-stack td .bda{font-size:9px;margin:0}
+ body.dk.dk-pg-rs table.dk-stack td{gap:2px}
+ body.dk.dk-pg-rs table.dk-stack td::before{min-width:1.6em}
+}
+@media (min-width:601px){
+ body.dk.dk-pg-rs table.mini td.tkc{white-space:nowrap}
+ body.dk.dk-pg-rs table.mini td.hm:not(.acc):not(.r){max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ body.dk.dk-pg-rs table.mini td .tagc{font-size:9.5px;padding:0 4px;margin-left:3px}
+ body.dk.dk-pg-rs table.mini td:has(>.tagc){white-space:nowrap}
+}

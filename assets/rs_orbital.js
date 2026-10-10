@@ -443,7 +443,7 @@ function init(D,THREE){
 
   // ---------------------------------------------------------------- HTML overlay: tier labels, ticker tags, reticle, callout
   var labels=TIERS.map(function(t,ti){var e=document.createElement('div');e.className='rso-tl'+(ti===4?' dim':'');
-    e.innerHTML='<span class="hit">'+esc(t.label)+'</span><i>'+t.shown+(t.dust?' +'+t.dust.toLocaleString()+' dust':'')+'</i>';ov.appendChild(e);return e;});
+    e.innerHTML='<span class="hit">'+esc(t.label)+'</span><i>'+t.shown+(t.dust?' +'+t.dust.toLocaleString()+' dust':'')+'</i>';return e;});   // 10 Oct 2026: ring range labels removed from the stage (kept detached so layout code is unchanged); ORBITS buttons are the control
   var topIdx=[]; (function(){for(var i=0;i<N&&topIdx.length<6;i++){if(S[i].g===0) topIdx.push(i);} for(var t=1;t<5;t++){for(i=0;i<N;i++){if(S[i].g===t){topIdx.push(i);break;}}}})();
   var tags={};
   function tag(i){if(tags[i]) return tags[i];var e=document.createElement('div');e.className='rso-tag';e.textContent=info[i].t;ov.appendChild(e);tags[i]=e;return e;}
@@ -735,10 +735,6 @@ function init(D,THREE){
   var tp=document.createElement('div'); tp.className='rso-tp'; tp.hidden=true; stage.parentNode.insertBefore(tp,ctl);
   var backB=document.createElement('button'); backB.type='button'; backB.className='rso-cb back'; backB.innerHTML='<i>✕</i>SHOW ALL'; backB.setAttribute('aria-label','Show all orbits'); backB.hidden=true; cb.insertBefore(backB,hudB);
   backB.addEventListener('click',function(){closeTier();});
-  labels.forEach(function(e,t){var h=e.querySelector('.hit'); h.setAttribute('role','button'); h.setAttribute('tabindex','0'); h.setAttribute('aria-label','Show / hide '+TIERS[t].label);
-    h.insertAdjacentHTML('afterbegin','<u>⊕</u>');
-    h.addEventListener('click',function(ev){ev.stopPropagation(); toggleRing(t);});
-    h.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault(); h.click();}});});
   function labelsState(){labels.forEach(function(e,t){e.classList.toggle('open',op.t===t&&op.target>0); e.classList.toggle('off',rp.on||(op.t>=0&&op.target>0&&t!==op.t)||!maskOn(t));}); soSync();}
   function ringAt(x,y,lim){if(sc.on) return -1; var best=-1,bd=lim||30,o=new Float32Array(3);cY=Math.cos(yaw);sY=Math.sin(yaw);
     for(var t=0;t<TIERS.length;t++){if(!maskOn(t)) continue; for(var j=0;j<180;j++){W3(1.0,t,j/180*6.2832,0,o); v.set(o[0],o[1],o[2]).project(cam); var d=Math.hypot((v.x*0.5+0.5)*W-x,(-v.y*0.5+0.5)*H-y); if(d<bd){bd=d;best=t;}}}
@@ -796,13 +792,14 @@ function init(D,THREE){
   function onList(){var L=[]; for(var t=0;t<5;t++){if(cfg.on5[t]) L.push(t);} return L;}
   function soOpen(){return onList();}
   function soSync(){var L=onList(), all=L.length===5;
+    try{document.dispatchEvent(new CustomEvent('rso-rings',{detail:cfg.on5.slice()}));}catch(e){}   // rs.html Orbits lists open the shown rings
     sob.querySelectorAll('[data-so]').forEach(function(b){var v=+b.getAttribute('data-so'), on=v<0?all:!!cfg.on5[v]; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); if(v>=0) b.style.setProperty('--c',cfg.c[v]);});
     sob.style.setProperty('--c',L.length===1?cfg.c[L[0]]:cfg.beam); sob.classList.toggle('act',!all);
     var np_=0; L.forEach(function(t){np_+=TIERS[t].shown;});
     if(mvTog) mvSync();
     soSt.textContent=all?'ALL ORBITS · '+np_+' PLANETS':'ORBITS · '+L.map(shortLab).join(', ')+' · '+np_+' PLANETS';
     if(document.activeElement!==soIn) soIn.value=String(cfg.vs); soOut.textContent=cfg.vs.toFixed(2)+'×';
-    soHint.textContent=all?'Tap a ring button, ring line or label to turn that ring off/on · any mix · V-STRETCH spreads the shown rings up/down (orbits stay round)':
+    soHint.textContent=all?'Tap a ring button (or the ring line itself) to turn that ring off/on · any mix · V-STRETCH spreads the shown rings up/down (orbits stay round)':
       'Tap rings to add/remove · ALL shows every ring · turning off the last ring goes back to ALL · V-STRETCH spreads the shown rings up/down';}
   function setMask(a){if(!a.some(Boolean)) a=[true,true,true,true,true]; cfg.on5=a.slice(); saveCfg(cfg);
     if(sel>=0&&!a[grp[sel]]) select(-1); if(op.t>=0&&op.target>0&&!a[op.t]) closeTier();
