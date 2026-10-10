@@ -313,3 +313,12 @@
 /* ORBITS multi-select (10 Oct 2026): off rings = dashed outline, no fill, text stays bright; on = filled glow */
 #rso .so-btns button[data-so]:not(.on){background:rgba(3,10,24,.45);border-style:dashed;box-shadow:none;color:#f2fbff}
 #rso .so-btns button.on{font-weight:700}
+/* MOVERS row in the ORBITS bar (10 Oct 2026 PM) */
+#rso .so-mv{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:7px 1px 0}
+#rso .so-mv button{font:inherit;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#fff;background:rgba(10,20,34,.85);border:1px solid rgba(160,200,235,.55);border-radius:3px;padding:5px 9px;cursor:pointer}
+#rso .so-mv .mv-tog.on{border-color:#7dffb0;color:#eafff2;background:rgba(40,120,80,.35);box-shadow:0 0 12px -3px #3dff8a}
+#rso .so-mv button[hidden]{display:none}
+#rso .mv-rd{font-size:10px;letter-spacing:.4px;color:#e6f3ff;line-height:1.4}
+#rso .mv-rd b{color:#fff}
+#rso .mv-rd .u{color:#8dffbe;font-weight:700}
+#rso .mv-rd .d{color:#ffa3b8;font-weight:700}

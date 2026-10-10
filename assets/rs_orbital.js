@@ -14,12 +14,17 @@
            V-STRETCH (1-8x) only spreads the shown rings apart vertically (around the middle of the shown set) + gives each ring a slight vertical
            thickness (planets by rank, best on top) - never changes the radius. Camera keeps the ALL-view distance (pulls back only when the stretch needs it).
            cfg.on5 (shown rings) + cfg.vs (stretch) persist in localStorage ('rso.cfg.v1'). Replay always shows every ring at 1x.
-   SCATTER & REGATHER (10 Oct 2026, replaces the black-hole events): every ~2-4 min (first one 1.5-2.5 min after load; HUD 08: AUTO on/off + SCATTER NOW;
-           URL ?scatter=1 fires one 3 s after load) the shown rings wobble, their planets break orbit and spiral out with tangential momentum (ring lines,
-           labels, tags and tails fade), drift as a calm sky of small twinkling stars, then the blue core pulses and its gravity slowly spirals every
-           planet back in, landing exactly on its live orbit pose (positions are recomputed from the untouched orbit state every frame).  ~35 s.
-           Only the shown rings (cfg.on5) take part; V-STRETCH respected.  Skipped in replay, while frozen (the event pauses), with a tier panel open
-           and with prefers-reduced-motion.  cfg.scOn persists.
+   SCATTER & REGATHER = NEBULA (10 Oct 2026 PM; replaced the black-hole events): every ~2-4 min (first 1.5-2.5 min after load; HUD 08: AUTO on/off +
+           SCATTER NOW; URL ?scatter=1 fires one 3 s after load) the shown rings wobble and each planet slowly dissolves (~13 s) into many small particles
+           (soft additive gas sprites + bright specks, planet colours) that billow as a nebula with slow curl-like drift (~18 s), then the blue core pulses
+           and its gravity draws the gas back in on swirling paths (~21 s), condensing into the planets exactly on their live orbit slots.  ~53 s total.
+           Particles capped per planet (20 on phones / 36 desktop).  Only the shown rings take part; V-STRETCH respected.  Skipped in replay, while
+           frozen (the event pauses), with a tier panel open and with prefers-reduced-motion.  cfg.scOn persists.
+  MOVERS (10 Oct 2026 PM): ORBITS bar "⇅ SHOW MOVERS" (cfg.mv, persisted, off by default).  Window = the 1D / 1W / 4W buttons under the stage (the same
+           window CLIMBERS uses).  A mover = a shown stock whose RS band changed over that window: old RS = its RS-rating history (h) 1 / 5 / 20 sessions
+           back (= the 1D / 1W / 4W session dates), old band by RS score, old slot from its rank then (p).  It starts in its OLD ring in the OLD colour,
+           runs one lap there, then floats on a swinging spiral to its slot in the NEW ring, turning the new ring's colour as it arrives.  Green trail +
+           halo = climbed a band, red = fell.  Shown if its old OR new ring is on.  Readout counts ▲ up / ▼ down; ↻ REPLAY restarts it.
    prefers-reduced-motion: no auto motion (renders on interaction / replay steps).  No WebGL2 -> server-rendered static list. */
 (function(){
 'use strict';
@@ -51,7 +56,7 @@ function newOrbs(){return [0,1,2,3,4].map(function(){return {on:ORB0.on,ring:ORB
 var DEF={theme:'neon',c:PRESETS.neon.c.slice(),beam:'#00e5ff',bg:'#03030d',trailCol:'#ffffff',
   sx:1,sz:1,sy:1,tilt:0,size:1,trail:1,speed:1,glow:1,auto:true,autoSpd:1,fov:38,sound:false,
   tOn:true,tMode:'ring',tStyle:'solid',tW:1,tOp:1,tFade:1.6,tGlow:1,gspd:1,glide:2,
-  orb:newOrbs(),vs:1,solo:-1,on5:[true,true,true,true,true],scOn:true};
+  orb:newOrbs(),vs:1,solo:-1,on5:[true,true,true,true,true],scOn:true,mv:false};
 var KEY='rso.cfg.v1';
 function loadCfg(){var c=JSON.parse(JSON.stringify(DEF));try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s==='object'){for(var k in DEF){if(s[k]!==undefined&&typeof s[k]===typeof DEF[k]) c[k]=s[k];}if(!Array.isArray(c.c)||c.c.length!==5) c.c=DEF.c.slice(); if(s.tMode===undefined&&s.trailTier===false) c.tMode='custom';
     if(Array.isArray(s.orb)&&s.orb.length===5){c.orb=s.orb.map(function(o){return {on:o&&o.on!==false,ring:o&&o.ring!==false,ringOp:clamp(+(o&&o.ringOp!=null?o.ringOp:1),0,1),size:clamp(+(o&&o.size!=null?o.size:1),0.3,3)};});}
@@ -269,13 +274,44 @@ function init(D,THREE){
     'varying vec3 vC;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=length(p);if(r>1.0)discard;float ring=exp(-pow((r-0.8)/0.07,2.0))+exp(-pow((r-0.55)/0.04,2.0))*0.4;gl_FragColor=vec4(vC*ring,1.0);}'));
   bPts.frustumCulled=false;
   scene.add(pSeg); scene.add(rMesh); scene.add(tPts); scene.add(sPts); scene.add(bPts);
+  // NEBULA particles: NP per live planet; soft additive gas sprites (aK 0) + small bright specks (aK 1). CPU-animated in nebUpd (only during the event)
+  var NP=(window.matchMedia&&matchMedia('(pointer: coarse)').matches)||window.innerWidth<700?20:36, NB=N*NP;
+  var ng=new THREE.BufferGeometry(); ng.setAttribute('position',buf(NB,3)); ng.setAttribute('aS',buf(NB,1)); ng.setAttribute('aC',buf(NB,3));
+  var nbO=new Float32Array(NB*3), nbE=new Float32Array(NB), nbPh=new Float32Array(NB), nbSw=new Float32Array(NB), nbB=new Float32Array(NB), nbI=new Float32Array(NB), nbK=new Float32Array(NB);
+  (function(){for(var j=0;j<NB;j++){var u=Math.random()*2-1, th=Math.random()*6.2832, q=Math.sqrt(1-u*u), rr=Math.pow(Math.random(),0.6);
+      nbO[j*3]=Math.cos(th)*q*rr; nbO[j*3+1]=u*rr; nbO[j*3+2]=Math.sin(th)*q*rr; nbE[j]=Math.random(); nbPh[j]=Math.random()*6.2832; nbSw[j]=(0.8+1.6*Math.random())*(Math.random()<0.8?1:-1);
+      var spk=Math.random()<0.28; nbK[j]=spk?1:0; nbB[j]=spk?0.05+0.06*Math.random():0.55+0.8*Math.random(); nbI[j]=spk?0.55+0.45*Math.random():0.05+0.06*Math.random();}
+    ng.setAttribute('aK',new THREE.BufferAttribute(nbK,1));})();
+  var nbP=ng.attributes.position.array, nbS=ng.attributes.aS.array, nbC=ng.attributes.aC.array;
+  var nebPts=new THREE.Points(ng,mat('attribute float aS;attribute vec3 aC;attribute float aK;uniform float uScale;varying vec3 vC;varying float vK;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(aS*uScale/(-mv.z),1.0,110.0);vC=aC;vK=aK;gl_Position=projectionMatrix*mv;}',
+    'varying vec3 vC;varying float vK;void main(){vec2 p=gl_PointCoord*2.0-1.0;float r=dot(p,p);if(r>1.0)discard;float g=mix(exp(-r*2.6)*(1.0-r),exp(-r*14.0)*1.3+exp(-r*3.5)*0.25,vK);gl_FragColor=vec4(vC*g,1.0);}'));
+  nebPts.frustumCulled=false; nebPts.visible=false; scene.add(nebPts);
   var sel=-1, yaw=0.5, pitch=0.34, zoom=1;
   // opened tier: op.t = tier (-1 none), op.k = 0..1 animation, op.E = ring stretch (slider / pinch)
   var op={t:-1,k:0,target:0,E:1.35,focus:false}, PITCH_O=0.8, ea=new Float32Array(M);
-  // SCATTER & REGATHER state: phases breakup (SC1 s) -> drift (SC2 s) -> regather (SC3 s); per-planet sky slot + spiral params (seeded per ticker)
-  var SC1=8, SC2=9, SC3=17, SCEND=SC1+SC2+SC3+0.6;
+  // SCATTER & REGATHER (nebula) state: dissolve (SC1 s) -> nebula (SC2 s) -> condense (SC3 s); per-planet gas-cloud slot + timing (seeded per ticker)
+  var SC1=13, SC2=18, SC3=21, SCEND=SC1+SC2+SC3+0.8;
   var sc={on:false,t:0,next:90+Math.random()*60,wait:0,G:0,ring:1,tag:1,wob:0,hw:4,hh:4,cy:0,force:-1};
-  var scRs=new Float32Array(M),scYs=new Float32Array(M),scDa=new Float32Array(M),scDr=new Float32Array(M),scD=new Float32Array(M),scD2=new Float32Array(M),scTw=new Float32Array(M),scG0=new Float32Array(M),scT0=new Float32Array(M),scZ=new Float32Array(M);
+  var scRs=new Float32Array(M),scYs=new Float32Array(M),scDa=new Float32Array(M),scDr=new Float32Array(M),scD=new Float32Array(M),scD2=new Float32Array(M),scTw=new Float32Array(M),scA0=new Float32Array(M),scZ=new Float32Array(M);
+  var hpX=new Float32Array(M),hpY=new Float32Array(M),hpZ=new Float32Array(M),scBA=new Float32Array(M),scBC=new Float32Array(M*3);   // planet home pose + base alpha / colour this frame
+  // MOVERS state (old band / old slot per live stock for the selected 1D / 1W / 4W window)
+  var MVA=7, MVB=7.5, MVBACK=[1,5,20], mvOld=new Int8Array(M).fill(-1), mvRf=new Float32Array(M), mvDel=new Float32Array(M), mvUp=0, mvDn=0, mvEnd=0;
+  var mv={t:0}, mvP={ty:0,rf:0,ex:0,ck:0,ph:0}, mvQ={ty:0,rf:0,ex:0,ck:0,ph:0}, mvC=[0,0,0], MVG=hex('#3dff8a'), MVR=hex('#ff4d6d');
+  function mvBuild(){var back=MVBACK[wi]; mvEnd=0;
+    for(var i=0;i<M;i++) mvOld[i]=-1;
+    for(i=0;i<N;i++){var s0=info[i], h=s0.h||[], ix=h.length-1-back, o=ix>=0?h[ix]:null; if(o==null) continue; var ot=tierOf(o); if(ot===s0.g) continue;
+      mvOld[i]=ot; var pk=s0.p&&s0.p[wi]?s0.p[wi]:s0.k; mvRf[i]=rfrac(pk,D.universe,ot)+jit[i]; mvDel[i]=3*hash(s0.t+'mv'); mvEnd=Math.max(mvEnd,mvDel[i]+MVA+MVB);}
+    mvCount();}
+  function mvCount(){mvUp=0; mvDn=0; for(var i=0;i<N;i++){if(mvOld[i]<0||!(cfg.on5[mvOld[i]]||cfg.on5[info[i].g])) continue; if(info[i].g<mvOld[i]) mvUp++; else mvDn++;}}
+  function mvAct(){return cfg.mv&&!rp.on;}
+  // mover pose at mover-clock t: phase 0 wait in old ring, 1 one lap in the old ring, 2 float to the new ring (colour turns on arrival), 3 home
+  function mvPose(i,t,o){var g=info[i].g, od=mvOld[i], tl=t-mvDel[i];
+    if(tl<=0){o.ty=od; o.rf=mvRf[i]; o.ex=0; o.ck=0; o.ph=0;}
+    else if(tl<MVA){o.ty=od; o.rf=mvRf[i]; o.ex=6.2832*ease3(tl/MVA); o.ck=0; o.ph=1;}
+    else if(tl<MVA+MVB){var s1=(tl-MVA)/MVB, e=ease3(s1); o.ty=od+(g-od)*e; o.rf=mvRf[i]+(rf[i]-mvRf[i])*e+0.24*Math.sin(Math.PI*s1); o.ex=6.2832*(1+e); o.ck=sstep((s1-0.55)/0.45); o.ph=2;}
+    else{o.ty=g; o.rf=rf[i]; o.ex=0; o.ck=1; o.ph=3;}
+    return o;}
+  function ease3(x){x=clamp(x,0,1); return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
   function scSeed(){for(var i=0;i<M;i++){var key=(info[i]&&info[i].t)||('x'+i), r1=hash(key+'s1'), r2=hash(key+'s2'), r3=hash(key+'s3');
     scRs[i]=0.14+1.0*Math.sqrt(r1); scYs[i]=(r2-0.5)*1.7; scDa[i]=1.3+2.2*r3; scDr[i]=0.03+0.06*hash(key+'s4'); scTw[i]=hash(key+'s5');
     var t=clamp(info[i]?info[i].g:4,0,4); scD[i]=clamp(0.55*(1-t/4)+0.45*hash(key+'s6'),0,1); scD2[i]=hash(key+'s7'); scZ[i]=hash(key+'s8');}}
@@ -340,36 +376,38 @@ function init(D,THREE){
   function upd(dt){
     var TL=cfg.trail, SZ=cfg.size, tOn=cfg.tOn&&TL>0.001&&cfg.tOp>0.001, sty=cfg.tStyle, solid=sty==='solid', tw=cfg.tW, tfd=cfg.tFade, tamp=cfg.tOp*Math.min(1,TL*1.5), gu=Math.min(rp.gu,1), tm=cfg.tMode;
     cY=Math.cos(yaw);sY=Math.sin(yaw);cT=Math.cos(cfg.tilt*Math.PI/180);sT=Math.sin(cfg.tilt*Math.PI/180); camP.copy(cam.position);
-    var foc=op.t>=0&&op.focus&&op.k>0.05, scOnF=sc.on&&!rp.on;
+    var foc=op.t>=0&&op.focus&&op.k>0.05, scOnF=sc.on&&!rp.on, mvA=mvAct();
     for(var i=0;i<Mact;i++){
       if(rp.on){gEval(i,gu,gq); rf[i]=gq.rf; ty[i]=gq.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=clamp(Math.round(gq.ty),0,4);}
-      var tI=clamp(Math.round(ty[i]),0,4), oOn=orbOn(tI), oSz=cfg.orb[tI].size;
+      var isMv=mvA&&i<N&&mvOld[i]>=0, tyUse=ty[i], mvEx=0;
+      if(isMv){mvPose(i,mv.t,mvP); tyUse=mvP.ty; mvEx=mvP.ex;}
+      var tI=clamp(Math.round(tyUse),0,4), oOn=isMv?orbOn(mvOld[i])||orbOn(info[i].g):orbOn(tI), oSz=cfg.orb[tI].size;
       var c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI];
-      var aMul=(op.t<0||tI===op.t?1:1-op.k)*(oOn?1:0)*vk[tI], yo=yOff(i,tI);
+      if(isMv){var A0=TC[mvOld[i]], B0=TC[info[i].g]; for(var q0=0;q0<3;q0++) mvC[q0]=A0[q0]+(B0[q0]-A0[q0])*mvP.ck; c=mvC;}
+      var aMul=(op.t<0||tI===op.t?1:1-op.k)*(oOn?1:0)*(isMv?Math.max(vk[mvOld[i]],vk[info[i].g]):vk[tI]), yo=yOff(i,tI);
       if(foc&&tI!==op.t) aMul*=1-0.97*op.k;
       var a=al[i]*dm*aMul, sz=dia[i]*sm[i]*SZ*oSz*(i===sel?1.25:1)*(1+fl[i]*0.5);
       // focus: remap radius by RS score within the tier (high RS farther out)
       var rfUse=rf[i], angUse=ang[i];
       if(foc&&tI===op.t){var rsV=i<N?info[i].rs:(rp.on?Math.round(Math.exp(gq.lk||0)):50); rfUse=rf[i]+(rsFrac(rsV,tI)-rf[i])*op.k; angUse=ang[i]+(hash(info[i].t+'f')-0.5)*0.35*op.k;}
-      ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,ty[i],angUse,i*3,sP); sP[i*3+1]+=yo;
-      // SCATTER & REGATHER: displace the DRAWN pose only (orbit state keeps running underneath -> the regather lands exactly on the live orbit)
-      var scu=0, scw=0;
-      if(scOnF){scu=scU(i); if(scu>0.0005||sc.wob>0.001){var o3=i*3, hx=sP[o3], hy=sP[o3+1], hz=sP[o3+2], r0=Math.sqrt(hx*hx+hz*hz), a0=Math.atan2(hz,hx);
-          r0*=1+0.09*sc.wob*(1-scu)*Math.sin(sc.t*6.5+i*1.7); hy+=0.1*sc.wob*(1-scu)*Math.sin(sc.t*5.3+i*2.3);
-          var rr=r0+(scRs[i]*sc.hw-r0)*scu, yy=hy+(sc.cy+scYs[i]*sc.hh-hy)*scu, aa=a0+scAng(i,scu);
-          sP[o3]=Math.cos(aa)*rr; sP[o3+1]=yy+Math.sin(sc.t*0.5+scTw[i]*6.28)*0.18*scu; sP[o3+2]=Math.sin(aa)*rr;
-          scw=sstep((scu-0.3)/0.6); var twk=0.5+0.5*Math.sin(sc.t*(1.4+scTw[i]*2.6)+scTw[i]*40);
-          sz*=1+(0.26+0.3*twk-1)*scw; a*=1+(0.45+0.75*twk-1)*scw; if(scu>0.04) ea[i]=0;}}
-      if(scw>0){var lum=Math.max(c[0],c[1],c[2]), mx=0.7*scw; sC[i*3]=(c[0]+(0.86*lum-c[0])*mx)*a; sC[i*3+1]=(c[1]+(0.93*lum-c[1])*mx)*a; sC[i*3+2]=(c[2]+(1.0*lum-c[2])*mx)*a;}
-      else{sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a;} sS[i]=sz; sF[i]=fl[i];
+      if(isMv&&!foc) rfUse=mvP.rf;
+      ea[i]=oOn&&a>0.02?a/Math.max(dm,0.01):0; W3(rfUse,tyUse,angUse+mvEx,i*3,sP); sP[i*3+1]+=yo;
+      // SCATTER & REGATHER (nebula): the planet stays on its live orbit pose and fades as it dissolves into gas particles (nebUpd), then condenses back
+      var scu=0;
+      if(scOnF){var o3=i*3; hpX[i]=sP[o3]; hpY[i]=sP[o3+1]; hpZ[i]=sP[o3+2]; scBA[i]=a; scBC[o3]=c[0]; scBC[o3+1]=c[1]; scBC[o3+2]=c[2];
+        var pa=scPA(i); scu=1-pa;
+        if(sc.wob>0.001){var wq=sc.wob*pa; sP[o3]*=1+0.05*wq*Math.sin(sc.t*6.5+i*1.7); sP[o3+2]*=1+0.05*wq*Math.sin(sc.t*5.9+i*1.3); sP[o3+1]+=0.08*wq*Math.sin(sc.t*5.3+i*2.3);}
+        sz*=0.3+0.7*pa; a*=pa; if(pa<0.6) ea[i]=0;}
+      sC[i*3]=c[0]*a;sC[i*3+1]=c[1]*a;sC[i*3+2]=c[2]*a; sS[i]=sz; sF[i]=fl[i];
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
+      else if(isMv&&(mvP.ph===1||mvP.ph===2)){var hc=info[i].g<mvOld[i]?MVG:MVR, ha=0.42*a*(mvP.ph===2?1:0.6); bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2]; bS[i]=sz*2.3; bC[i*3]=hc[0]*ha;bC[i*3+1]=hc[1]*ha;bC[i*3+2]=hc[2]*ha;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
       // TAILS: live = arc behind the sphere along its orbit (length ~ orbit speed); replay = the same arc + the glide path it just drifted along
-      if(tOn){var tcol=tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
-        var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=(grp[i]===0?0.8:1)*(scOnF?1-sstep(scu*5):1);
+      if(tOn){var tcol=isMv&&mvP.ph>0&&mvP.ph<3?(info[i].g<mvOld[i]?MVG:MVR):tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
+        var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=(grp[i]===0?0.8:1)*(scOnF?1-sstep(scu*5):1)*(isMv&&mvP.ph>0&&mvP.ph<3?0.85:1);
         for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
-          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
+          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else if(isMv){mvPose(i,mv.t-f*0.8,mvQ); W3(mvQ.rf,mvQ.ty,ang[i]-f*span+mvQ.ex,o,tP); tP[o+1]+=yo;} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
           tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
         if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
           for(k=0;k<K;k++){var o5=(i*K+k)*3,oa=(i*K+Math.max(0,k-1))*3,ob=(i*K+Math.min(K-1,k+1))*3,
@@ -386,6 +424,7 @@ function init(D,THREE){
           var pc=TC[st.g]; pC[o3]=pc[0]*fa3;pC[o3+1]=pc[1]*fa3;pC[o3+2]=pc[2]*fa3;pC[o3+3]=pc[0]*fa3*0.9;pC[o3+4]=pc[1]*fa3*0.9;pC[o3+5]=pc[2]*fa3*0.9; s++;}
         for(;s<PK;s++){var o4=base+s*6; for(var z=0;z<6;z++){pP[o4+z]=0;pC[o4+z]=0;}}}
     }
+    if(scOnF) nebUpd(); else if(nebPts.visible) nebPts.visible=false;
     var tr=tOn&&!solid, rb=tOn&&solid; tPts.visible=tr; rMesh.visible=rb;
     sg.setDrawRange(0,Mact); tg.setDrawRange(0,tr?Mact*K:0); rg.setDrawRange(0,rb?Mact*(K-1)*6:0); pg.setDrawRange(0,Mact*PS); bg2.setDrawRange(0,Mact);
     [sg,bg2].forEach(function(g){for(var k in g.attributes) g.attributes[k].needsUpdate=true;});
@@ -511,7 +550,7 @@ function init(D,THREE){
     if(clBox){if(cl){clBox.innerHTML=cl.map(function(t){var i=byT[t],s=info[i];return '<button data-i="'+i+'" style="--c:'+tcss(s.g)+'">'+esc(t)+'<i>▲'+(s.c[wi]==null?'new':s.c[wi])+'</i></button>';}).join('')||'<span>none</span>'; clBox.hidden=false;}
       else{clBox.hidden=true; clBox.innerHTML='';}}
     if(sel>=0) fillCo(); if(RM){for(i=0;i<Mact;i++){om[i]=omT[i];al[i]=alT[i];sm[i]=smT[i];}} need();}
-  segB.forEach(function(b){b.addEventListener('click',function(){wi=WIN.indexOf(b.getAttribute('data-w')); snd('click',cfg); segB.forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b?'true':'false');}); setTargets();});});
+  segB.forEach(function(b){b.addEventListener('click',function(){wi=WIN.indexOf(b.getAttribute('data-w')); snd('click',cfg); segB.forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b?'true':'false');}); setTargets(); if(cfg.mv) mvRestart(); else mvSync();});});
   if(clB) clB.addEventListener('click',function(){climb=!climb; snd('tog',cfg); clB.classList.toggle('on',climb); clB.setAttribute('aria-pressed',climb?'true':'false'); setTargets();});
   if(clBox) clBox.addEventListener('click',function(e){var b=e.target.closest('button[data-i]'); if(b){var i=+b.getAttribute('data-i'); render(0); select(i);}});
 
@@ -543,7 +582,7 @@ function init(D,THREE){
     h+='<div class="orb-acts"><button type="button" class="orb-all" data-all="on">ALL ON</button><button type="button" class="orb-all" data-all="off">ALL OFF</button><button type="button" class="orb-all" data-all="solo" title="Leave only the focused / first-on orbit">SOLO FOCUS</button></div>'; return h;}
   function scHTML(){return '<label class="ck row"><input type="checkbox" data-k="scOn"'+(cfg.scOn?' checked':'')+'><span>AUTO · every 2–4 min</span></label>'+
     '<button type="button" class="sc-now">✦ SCATTER NOW</button>'+
-    '<div class="sc-ft">The planets break orbit and spin out, drift as a sky of stars, then the blue core\'s gravity slowly pulls them home (~35 s). Only the shown rings take part. Skipped in replay, while frozen and with reduced motion. Link: add ?scatter=1 to the page address.</div>';}
+    '<div class="sc-ft">The planets slowly dissolve into gas and drift as a nebula, then the blue core\'s gravity draws the gas back and it condenses into the planets on their orbits (~50 s). Only the shown rings take part. Skipped in replay, while frozen and with reduced motion. Link: add ?scatter=1 to the page address.</div>';}
   function seg(grp,opts){return '<div class="dr-seg tl-x" role="group" data-grp="'+grp+'">'+opts.map(function(o){return '<button type="button" data-tv="'+o[0]+'" aria-pressed="'+(cfg[grp]===o[0])+'" class="'+(cfg[grp]===o[0]?'on':'')+'">'+o[1]+'</button>';}).join('')+'</div>';}
   function tailsHTML(){return '<label class="ck row"><input type="checkbox" data-k="tOn"'+(cfg.tOn?' checked':'')+'><span>TAILS ON</span></label>'+
     '<div class="dr-sub tl-x">COLOUR MODE</div>'+seg('tMode',[['ring','RING'],['custom','CUSTOM'],['delta','Δ RANK']])+
@@ -734,7 +773,16 @@ function init(D,THREE){
     '<div class="so-btns" role="group" aria-label="Show or hide RS rings"><button type="button" class="all" data-so="-1" aria-pressed="true">ALL</button>'+
     TIERS.map(function(T,t){return '<button type="button" data-so="'+t+'" aria-pressed="true" aria-label="Show or hide '+esc(T.label)+'" style="--c:'+cfg.c[t]+'">'+esc(shortLab(t))+'</button>';}).join('')+'</div>'+
     '<label class="so-vs"><span>↕ V-STRETCH</span><input type="range" min="1" max="8" step="0.01" value="'+cfg.vs+'" aria-label="Vertical stretch between the shown rings, 1x to 8x"><output>'+cfg.vs.toFixed(2)+'×</output></label>'+
+    '<div class="so-mv"><button type="button" class="mv-tog" aria-pressed="false">⇅ SHOW MOVERS</button><button type="button" class="mv-re" aria-label="Replay the movers">↻ REPLAY</button><span class="mv-rd" aria-live="polite"></span></div>'+
     '<div class="so-hint"></div>';
+  var mvTog=sob.querySelector('.mv-tog'), mvRe=sob.querySelector('.mv-re'), mvRd=sob.querySelector('.mv-rd');
+  function mvSync(){mvTog.classList.toggle('on',!!cfg.mv); mvTog.setAttribute('aria-pressed',String(!!cfg.mv)); mvRe.hidden=!cfg.mv; mvCount();
+    var w=WL[WIN[wi]]||WIN[wi].toUpperCase();
+    mvRd.innerHTML=cfg.mv?'<b>'+w+'</b> band changes: <span class="u">▲'+mvUp+' up</span> · <span class="d">▼'+mvDn+' down</span>'+(mv.t>mvEnd&&mvEnd>0?' · landed':''):'stocks that changed RS band over <b>'+w+'</b> (1D / 1W / 4W below)';}
+  function mvRestart(){mvBuild(); mv.t=0; mvSync(); need();}
+  mvTog.addEventListener('click',function(){cfg.mv=!cfg.mv; saveCfg(cfg); snd('click',cfg); if(cfg.mv) mvRestart(); else{mvSync(); need();}});
+  mvRe.addEventListener('click',function(){snd('click',cfg); mvRestart();});
+  mvBuild(); mvSync();
   var soIn=sob.querySelector('input'), soOut=sob.querySelector('output'), soSt=sob.querySelector('.so-st'), soHint=sob.querySelector('.so-hint');
   function onList(){var L=[]; for(var t=0;t<5;t++){if(cfg.on5[t]) L.push(t);} return L;}
   function soOpen(){return onList();}
@@ -742,6 +790,7 @@ function init(D,THREE){
     sob.querySelectorAll('[data-so]').forEach(function(b){var v=+b.getAttribute('data-so'), on=v<0?all:!!cfg.on5[v]; b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); if(v>=0) b.style.setProperty('--c',cfg.c[v]);});
     sob.style.setProperty('--c',L.length===1?cfg.c[L[0]]:cfg.beam); sob.classList.toggle('act',!all);
     var np_=0; L.forEach(function(t){np_+=TIERS[t].shown;});
+    if(mvTog) mvSync();
     soSt.textContent=all?'ALL ORBITS · '+np_+' PLANETS':'ORBITS · '+L.map(shortLab).join(', ')+' · '+np_+' PLANETS';
     if(document.activeElement!==soIn) soIn.value=String(cfg.vs); soOut.textContent=cfg.vs.toFixed(2)+'×';
     soHint.textContent=all?'Tap a ring button, ring line or label to turn that ring off/on · any mix · V-STRETCH spreads the shown rings up/down (orbits stay round)':
@@ -760,17 +809,30 @@ function init(D,THREE){
     if(sel>=0){select(-1); e.preventDefault();} else if(op.t>=0&&op.target>0){closeTier(); e.preventDefault();}});
   soSync();
   // ---------------------------------------------------------------- SCATTER & REGATHER (10 Oct 2026; replaces the black-hole events)
-  function ease3(x){x=clamp(x,0,1); return x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;}
-  // per-planet "out" amount 0 (on its orbit) .. 1 (a star in the sky)
-  function scU(i){var t=sc.t; if(t<SC1){var s0=clamp((t-scD[i]*SC1*0.4)/(SC1*0.6),0,1); return Math.pow(sstep(s0),1.35);}
-    if(t<SC1+SC2) return 1; var s2=clamp((t-SC1-SC2-scD2[i]*SC3*0.28)/(SC3*0.72),0,1); return 1-ease3(s2);}
-  // angle offset: spin off forward (tangential momentum) + slow drift; on the way home keep curving forward to the next whole turn (= the orbit slot)
-  function scAng(i,u){var t=sc.t; if(t<SC1+SC2) return (scDa[i]+scDr[i]*t)*u; return scT0[i]+(scG0[i]-scT0[i])*u;}
+  // planet presence 1 (solid) .. 0 (fully dissolved into gas)
+  function scPA(i){var t=sc.t; if(t<SC1) return 1-sstep((t-scD[i]*4.5)/4.5); if(t<SC1+SC2) return 0; return sstep((t-SC1-SC2-scD2[i]*5-9)/6.5);}
+  // particles: emitted from the planet, billow in its gas cloud, swirl back onto the planet's live pose
+  function nebUpd(){var t=sc.t, hw=sc.hw, hh=sc.hh, cy=sc.cy, CR=0.95, t3=t-SC1-SC2;
+    for(var i=0;i<N;i++){var a0=scBA[i], b0=i*NP;
+      if(a0<0.01){for(var k=0;k<NP;k++){nbS[b0+k]=0; var z0=(b0+k)*3; nbC[z0]=nbC[z0+1]=nbC[z0+2]=0;} continue;}
+      var A=scA0[i]+0.012*t, Rr=scRs[i]*hw, cx=Math.cos(A)*Rr, cz=Math.sin(A)*Rr, cyy=cy+scYs[i]*hh, hx=hpX[i], hy=hpY[i], hz=hpZ[i], cr=scBC[i*3], cg=scBC[i*3+1], cbb=scBC[i*3+2];
+      for(k=0;k<NP;k++){var j=b0+k, o=j*3, u, fin, s1;
+        if(t<SC1){s1=clamp((t-scD[i]*4.5-nbE[j]*2.5)/6,0,1); u=sstep(s1); fin=sstep(s1/0.12);}
+        else if(t3<0){u=1; fin=1;}
+        else{s1=clamp((t3-scD2[i]*5-nbE[j]*2.5)/13,0,1); u=1-ease3(s1); fin=1-sstep((s1-0.82)/0.18);}
+        if(fin<=0.001){nbS[j]=0; nbC[o]=nbC[o+1]=nbC[o+2]=0; continue;}
+        var ph=nbPh[j], gx=cx+nbO[o]*CR*1.25, gy=cyy+nbO[o+1]*CR*0.8, gz=cz+nbO[o+2]*CR*1.25;
+        gx+=0.55*(Math.sin(gy*0.9+t*0.23+ph)+0.5*Math.sin(gz*1.4+t*0.31+ph*2.1)); gy+=0.32*Math.sin(gz*0.8+t*0.19+ph*1.7); gz+=0.55*(Math.sin(gx*0.85+t*0.21+ph*0.6)+0.5*Math.sin(gy*1.2+t*0.27+ph*1.3));
+        var px=hx+(gx-hx)*u, py=hy+(gy-hy)*u, pz=hz+(gz-hz)*u, th=nbSw[j]*4*u*(1-u)*(t<SC1?0.6:1), cs=Math.cos(th), sn=Math.sin(th);
+        nbP[o]=px*cs-pz*sn; nbP[o+1]=py; nbP[o+2]=px*sn+pz*cs;
+        nbS[j]=nbB[j]*(nbK[j]>0.5?1:0.2+0.8*u)*(1+0.18*Math.sin(t*0.5+ph));
+        var I=a0*fin*nbI[j]*(nbK[j]>0.5?0.6+0.4*Math.sin(t*(1.5+ph)+ph*7):1); nbC[o]=cr*I; nbC[o+1]=cg*I; nbC[o+2]=cbb*I;}}
+    nebPts.visible=true; ng.setDrawRange(0,NB); ng.attributes.position.needsUpdate=ng.attributes.aS.needsUpdate=ng.attributes.aC.needsUpdate=true;}
   function scArm(){sc.wait=0; sc.next=120+Math.random()*120;}
   function scCan(){return !rp.on&&!RM&&!frozen&&!(op.t>=0)&&!sc.on;}
-  function scTrigger(manual){if(!scCan()) return false; if(sel>=0) select(-1); sc.on=true; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; scG0.fill(0); scT0.fill(0);
+  function scTrigger(manual){if(!scCan()) return false; if(sel>=0) select(-1); sc.on=true; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; for(var i=0;i<N;i++) scA0[i]=Math.atan2(sP[i*3+2],sP[i*3])+scDa[i]*0.6;
     root.classList.add('scatter'); snd('play',cfg); scSync(); need(); return true;}
-  function scReset(){sc.on=false; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; root.classList.remove('scatter');
+  function scReset(){sc.on=false; nebPts.visible=false; sc.t=0; sc.G=0; sc.ring=1; sc.tag=1; sc.wob=0; root.classList.remove('scatter');
     for(var t=0;t<tiltG.length;t++) tiltG[t].rotation.x=0; core.scale.setScalar(1); retic.scale.setScalar(1); torus.scale.setScalar(1);
     beam.material.uniforms.uFade.value=1; torus.material.uniforms.uFade.value=1; scArm(); scSync(); need();}
   function scAbort(){if(sc.on) scReset();}
@@ -778,14 +840,13 @@ function init(D,THREE){
     if(sc.force>=0){sc.force-=dt; if(sc.force<0){sc.force=-1; if(!scTrigger(true)) sc.force=0.5;}}
     if(!sc.on){if(cfg.scOn&&scCan()&&document.visibilityState!=='hidden'){sc.wait+=dt; if(sc.wait>=sc.next) scTrigger(false);} return;}
     if(rp.on){scReset(); return;}
-    busyF=true; var t0=sc.t; if(!frozen) sc.t+=dt; var t=sc.t;
-    if(t0<SC1+SC2&&t>=SC1+SC2){for(var i=0;i<Mact;i++){var G=scDa[i]+scDr[i]*(SC1+SC2); scG0[i]=G; scT0[i]=6.2832*Math.ceil((G+2.6)/6.2832);}}   // regather targets
+    busyF=true; if(!frozen) sc.t+=dt; var t=sc.t;
     // sky extent from the live camera (fills the stage, follows V-STRETCH pull-back)
     var hh=camD*Math.tan(cam.fov*Math.PI/360); sc.hh=hh*0.92; sc.hw=Math.max(hh*W/H*1.08,R*0.9); sc.cy=cyC;
-    sc.G=t<SC1?sstep(t/(SC1*0.55)):t<SC1+SC2?1:1-sstep((t-SC1-SC2)/(SC3*0.92));
+    sc.G=t<SC1?sstep(t/(SC1*0.6)):t<SC1+SC2?1:1-sstep((t-SC1-SC2)/(SC3*0.92));
     sc.ring=1-sstep(sc.G/0.55); sc.tag=1-sstep(sc.G/0.12);
-    sc.wob=t<SC1?sstep(t/1.2)*(1-sstep((t-2.5)/3.5)):0;
-    for(var r=0;r<tiltG.length;r++) tiltG[r].rotation.x=0.11*sc.wob*Math.sin(t*3.1+r*1.3);
+    sc.wob=t<SC1?sstep(t/2)*(1-sstep((t-3)/4.5)):0;
+    for(var r=0;r<tiltG.length;r++) tiltG[r].rotation.x=0.08*sc.wob*Math.sin(t*2.6+r*1.3);
     var regT=t-SC1-SC2, reg=regT>0?Math.sin(Math.PI*clamp(regT/SC3,0,1)):0;   // regather envelope: the core pulses, gravity-wave ripples
     var pul=reg*(0.16+0.1*Math.sin(t*4.2)); core.scale.setScalar(1+pul); retic.scale.setScalar(1+pul*0.8);
     var dimK=sstep(sc.G); beam.material.uniforms.uFade.value=1-0.85*dimK*(1-reg*0.5);
@@ -834,6 +895,7 @@ function init(D,THREE){
     if(op.t>=0){var ok=op.k; op.k=RM?op.target:op.k+(op.target-op.k)*Math.min(1,dt*3.2); if(Math.abs(op.k-op.target)<0.02) op.k=op.target; if(op.target===0&&op.pre) zoom+=(op.pre.zoom-zoom)*Math.min(1,dt*4); if(op.k===0&&op.target===0){opDone(); labelsState();} if(op.k!==ok){need(); busyF=true;}}
     scStep(dt);   // scatter runs in real time (pauses while frozen)
     var gS=frozen?0:cfg.gspd, dS=dt*gS;
+    if(cfg.mv&&!rp.on){var mt0=mv.t; mv.t+=dS; if(mt0<=mvEnd&&mv.t>mvEnd) mvSync();}
     if(rp.on&&rp.play&&dS>0){var np2=rp.p+dS*rp.spd/cfg.glide; if(np2>=rp.d1){rpSeek(rp.d1,'play'); rp.play=false; rp.done=true; rp.sumP=true; rpReadout();} else rpSeek(np2,'play');}
     if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();}}
     if(!RM){tNow+=dt; U.uTime.value+=dS;
@@ -856,7 +918,7 @@ function init(D,THREE){
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
-    focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'breakup':sc.t<SC1+SC2?'drift':'regather'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
+    focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, mvr:function(on){if(on!=null&&!!on!==!!cfg.mv) mvTog.click(); else if(on) mvRestart(); return {on:!!cfg.mv,t:mv.t,end:mvEnd,up:mvUp,dn:mvDn,win:WIN[wi]};}, mvT:function(){return mv.t;}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'dissolve':sc.t<SC1+SC2?'nebula':'condense'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
     ang:function(t){var i=byT[t]; return i==null?null:ang[i];}, gp:function(t){var i=byT[t]; if(i==null) return null; gEval(i,Math.min(rp.gu,1),gq); return {rf:gq.rf,ty:gq.ty,lk:gq.lk,G0:[G0[i*3],G0[i*3+1]],G1:[G1[i*3],G1[i*3+1]]};},
     ring:function(t){var o=new Float32Array(3),b=cv.getBoundingClientRect();cY=Math.cos(yaw);sY=Math.sin(yaw);W3(1.0,t,Math.PI/2+yaw,0,o);v.set(o[0],o[1],o[2]).project(cam);return {x:b.left+(v.x*0.5+0.5)*W,y:b.top+(-v.y*0.5+0.5)*H};},
