@@ -565,3 +565,10 @@ if(XP_ON){
 })();
 window.DKXP={scan:scan,open:openX,close:closeX};
 })();
+// ROYALTY crowns (11 Oct 2026): a small crown next to every RS-orbit planet ('royal', research-tools/royalty.py -> data/royals.json) in dashboard rows
+(function(){var me=document.currentScript||document.querySelector('script[src*="assets/desk.js"]'),B=me&&me.src?me.src.replace(/assets\/desk\.js.*$/,''):'';
+  function run(){fetch(B+'data/royals.json',{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).then(function(J){if(!J||!J.t)return;var R={};J.t.forEach(function(t){R[t]=1;});
+    var mark=function(el,t){if(!el||!R[t]||el.querySelector('.dk-crown'))return;var s=document.createElement('span');s.className='dk-crown';s.title='Royal: a planet in the RS orbit (rs.html)';s.textContent='👑';el.appendChild(s);};
+    document.querySelectorAll('tr[data-tk],li.row[data-tk]').forEach(function(r){var t=r.getAttribute('data-tk');mark(r.querySelector('td.tkc')||r.querySelector('.tk')||r.querySelector('td'),t);});
+    document.querySelectorAll('td.tkc').forEach(function(c){var t=(c.textContent||'').trim().split(/[\s👑]/)[0];mark(c,t);});}).catch(function(){});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(run,300);});else setTimeout(run,300);})();

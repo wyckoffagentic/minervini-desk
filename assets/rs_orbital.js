@@ -228,6 +228,11 @@ function init(D,THREE){
   S.forEach(function(s,i){byT[s.t]=i; info[i]={t:s.t,n:s.n,ind:s.ind,g:s.g,k:s.k,rs:s.rs,tt:s.tt,h:s.h,c:s.c,p:s.p,m:s.m};
     jit[i]=(hash(s.t)-0.5)*0.05; grp[i]=s.g; ty[i]=s.g; rf[i]=rfrac(s.k,D.universe,s.g)+jit[i]; ang[i]=hash(s.t+'a')*6.2832;
     dia[i]=0.1+0.29*Math.max(0,1-Math.log(s.k)/lnU); al[i]=alT[i]=1; sm[i]=smT[i]=1;});
+  // ROYALTY (11 Oct 2026): planets with a strong setup firing today (rs.html #royalty data-fire, research-tools/royalty.py) get a soft gold pulse
+  var rfire=new Uint8Array(M), RFG=[1,0.8,0.32], rfN=0;
+  function rfInit(){var el=document.getElementById('royalty'), L=el?(el.getAttribute('data-fire')||'').split(','):[]; rfN=0; for(var q=0;q<N;q++) rfire[q]=0;
+    L.forEach(function(t){var q=byT[t]; if(q!=null&&q<N){rfire[q]=1; rfN++;}});}
+  rfInit(); if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',rfInit);
   var BASE=0.2;
   // SOLO V-STRETCH: each live sphere gets a vertical slot in its ring, ordered by rank (best on top), -1..1
   var vslot=new Float32Array(M);
@@ -437,6 +442,7 @@ function init(D,THREE){
       // burst ring on Top-50 entry/exit
       if(fl[i]>0.01){bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2];bS[i]=sz*(1.2+(1-fl[i])*5.0);var fc=flS[i]>0?[1,0.95,0.7]:[1,0.3,0.35],fa=fl[i]*al[i];bC[i*3]=fc[0]*fa;bC[i*3+1]=fc[1]*fa;bC[i*3+2]=fc[2]*fa;}
       else if(isMv&&(mvP.ph===1||mvP.ph===2)){var hc=info[i].g<mvOld[i]?MVG:MVR, ha=0.42*a*(mvP.ph===2?1:0.6); bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2]; bS[i]=sz*2.3; bC[i*3]=hc[0]*ha;bC[i*3+1]=hc[1]*ha;bC[i*3+2]=hc[2]*ha;}
+      else if(i<N&&rfire[i]&&!scOnF&&cfg.royal!==false){var gp=0.5+0.5*Math.sin(tNow*2.1+i*1.7), ga=(0.16+0.30*gp)*a; bP[i*3]=sP[i*3];bP[i*3+1]=sP[i*3+1];bP[i*3+2]=sP[i*3+2]; bS[i]=sz*(1.5+0.35*gp); bC[i*3]=RFG[0]*ga;bC[i*3+1]=RFG[1]*ga;bC[i*3+2]=RFG[2]*ga;}
       else{bS[i]=0;bC[i*3]=bC[i*3+1]=bC[i*3+2]=0;}
       // TAILS: live = arc behind the sphere along its orbit (length ~ orbit speed); replay = the same arc + the glide path it just drifted along
       if(tOn){var tcol=isMv&&mvP.ph>0&&mvP.ph<3?(info[i].g<mvOld[i]?MVG:MVR):tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
@@ -1030,6 +1036,7 @@ function init(D,THREE){
   root.classList.add('live');
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
+    royal:function(){return {fire:rfN};},
     rpGate:function(){var q=0,tr=0,bad=0; for(var i=0;i<Mact;i++){if(bgQ[i]>=0) q++; if(bgS[i]>=0) tr++; var g=bgData(i); if(g>=0&&bgS[i]<0&&g!==bgB[i]) bad++;} return {moves:bgSt.moves,queued:bgSt.queued,collapsed:bgSt.collapsed,cancelled:bgSt.cancelled,viol:bgSt.viol,minLap:bgSt.minLap,pending:q,moving:tr,offBand:bad};},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
     focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, nebula:function(m){if(m==='clouds'||m==='drift'){cfg.neb=m; nebOv=null; applyCfg(false);} return {style:nebMode(),running:sc.on?scMode:null,clouds:clK};}, mvr:function(on){if(on!=null&&!!on!==!!cfg.mv) mvTog.click(); else if(on) mvRestart(); return {on:!!cfg.mv,t:mv.t,end:mvEnd,up:mvUp,dn:mvDn,win:WIN[wi]};}, mvT:function(){return mv.t;}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'dissolve':sc.t<SC1+SC2?'nebula':'condense'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
