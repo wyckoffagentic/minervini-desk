@@ -739,7 +739,7 @@
     HB=[];window.TC_HB=HB;   // pop-up card hit boxes for this frame (VSA tags, glyphs, sequence tags)
     var x=setup(cv,W,H), narrow=W<700, LY=LS.L, TX=!!LS.text, AX=!!LS.axis, RSP=hasRT&&!!LY.rsp;
     x.fillStyle=C.bg;x.fillRect(0,0,W,H);x.strokeStyle=C.frame;x.lineWidth=2;x.strokeRect(1,1,W-2,H-2);
-    var fs=narrow?7:8, tfs=narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=34+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
+    var CP=narrow&&W<=480, fs=narrow?7:8, tfs=CP?5:narrow?6:8, pl=narrow?6:10, rh=RSP?Math.round(H*(narrow?.2:.17)):0, ry0=6, pt=34+(RSP?rh+ry0+4:0), pb=AX?(narrow?26:34):(narrow?8:10), vh=LY.vol?Math.round(H*(VM==='vsa'?(narrow?.2:.19):(narrow?.13:.14))):0, ph=H-pt-pb-vh-10;
     var LK={entry:'entry',stop:'stop',a05:'acct',a10:'acct',cut:'cuts',r2:'targets',r3:'targets'};
     var axisW=(AX||(!narrow&&TX&&LY.last))?(narrow?46:56):8, L=levels().filter(function(l){return l.v!=null&&LY[LK[l.k]];});
     // far-off targets (2R / 3R well above the visible bars) go in the key at the top instead of stretching the price scale
@@ -750,12 +750,13 @@
     if(narrow&&TX&&LY.last) L.push({k:'last',v:last.c,c:last.up?C.up:C.dn,nt:last.c.toFixed(2),t:[last.c.toFixed(2)],w:1,inv:1});
     // measure tag widths first so the right margin always fits them (nothing covers the bars)
     x.font=tfs+'px '+SYM;
-    var tags=L.map(function(l){var t=narrow?[l.nt||(l.short||l.t)[0]]:l.t;return {l:l,t:t,tw:Math.max.apply(null,t.map(function(s){return x.measureText(s).width;}))+(narrow?12:22)+(l.skull&&!narrow?22:0),bh:(l.thin?(narrow?12:16):(narrow?13:20))+(t.length-1)*(narrow?11:12)};});
-    var tagW=TX?4+Math.max(narrow?(AX?40:8):120,Math.max.apply(null,tags.map(function(t){return t.tw;}).concat([0]))):(narrow&&AX?34:8);   // text off: no tag column (just the axis on phones)
+    var tags=L.map(function(l){var t=narrow?[l.nt||(l.short||l.t)[0]]:l.t;if(CP)t=[t[0].replace(/^\u25b6\s*/,'')];return {l:l,t:t,tw:Math.max.apply(null,t.map(function(s){return x.measureText(s).width;}))+(CP?9:narrow?12:22)+(l.skull&&!narrow?22:0),bh:(l.thin?(CP?10:narrow?12:16):(CP?11:narrow?13:20))+(t.length-1)*(narrow?11:12)};});
+    var _axw=40;if(CP&&AX){x.font='6px '+FONT;var _ah=isFinite(_bhi)?_bhi*1.05:99,_as=isFinite(_bhi)?(_bhi-_blo)/5:2;_axw=Math.ceil(x.measureText(_as<1?_ah.toFixed(2):Math.floor(_ah)+'.5').width)+2;x.font=tfs+'px '+SYM;}   // phones: the column fits the widest price label tightly
+    var tagW=TX?(CP?3:4)+Math.max(narrow?(AX?_axw:8):120,Math.max.apply(null,tags.map(function(t){return t.tw;}).concat([0]))):(narrow&&AX?34:8);   // text off: no tag column (just the axis on phones)
     // exact geometry (approved v5): GAP px from the end of the last close tick, STUB px stubs, NOTCH px notch, then the tag body
-    var GAP=narrow?4:30, STUB=narrow?5:70, NOTCH=narrow?5:10;
+    var GAP=CP?3:narrow?4:30, STUB=CP?3:narrow?5:70, NOTCH=CP?3:narrow?5:10;
     if(narrow) axisW=0;
-    var avail=W-pl-axisW-tagW-NOTCH-(narrow?2:6);
+    var avail=W-pl-axisW-tagW-NOTCH-(CP?1:narrow?2:6);
     // visible window (density / pan) from chart_zoom.js; without it fall back to the newest ~130 bars
     var ZV=window.TCZoom?TCZoom.view(avail-GAP-STUB,narrow):{start:Math.max(0,bars.length-(narrow?60:130)),n:Math.min(bars.length,narrow?60:130),fut:7};
     var V=bars.slice(ZV.start,ZV.start+ZV.n), off=ZV.start, n=V.length, atLatest=off+n>=bars.length;
@@ -1030,10 +1031,10 @@
       if(!l.thin&&!l.inv){x.shadowBlur=0;x.fillStyle=c;x.globalAlpha=.9;x.fillRect(bx+t.tw-4,by+2,2,t.bh-4);x.globalAlpha=1;} // pixel "pole" edge
       if(Math.abs(t.cy-t.y)>0.5){x.save();x.setLineDash([]);x.strokeStyle=c;x.lineWidth=1.5;x.shadowColor=c;x.shadowBlur=3;x.beginPath();x.moveTo(sx1,t.y);x.lineTo(nx+2,t.cy);x.stroke();x.restore();}
       x.fillStyle=l.inv?'#07061a':c;x.shadowColor=c;x.shadowBlur=(l.thin||l.inv||narrow)?0:8;x.textAlign='left';x.font=tfs+'px '+SYM;
-      var tx=bx+(narrow?5:6);
+      var tx=bx+(CP?3:narrow?5:6);
       if(l.skull&&!narrow){var SP=narrow?2:2.5,SK=['.#####.','#######','#..#..#','#..#..#','#######','.##.##.','.#.#.#.'];x.shadowBlur=6;
         SK.forEach(function(r,ry){r.split('').forEach(function(ch,cx){if(ch=='#')x.fillRect(Math.round(tx+cx*SP),Math.round(t.cy-(t.t.length-1)*(narrow?11:12)/2-SP*3.5+ry*SP),Math.ceil(SP),Math.ceil(SP));});});tx+=SP*7+(narrow?4:6);}
-      var lh=narrow?11:12;t.t.forEach(function(s,k){x.fillText(s,k?bx+6:tx,t.cy+(narrow?3:4)-(t.t.length-1)*lh/2+k*lh);});
+      var lh=narrow?11:12;t.t.forEach(function(s,k){x.fillText(s,k?bx+6:tx,t.cy+(CP?2.5:narrow?3:4)-(t.t.length-1)*lh/2+k*lh);});
       if(l.warn){x.shadowBlur=0;for(var q=0;q<t.tw-6;q+=6){x.fillRect(bx+3+q,by-4,3,2);x.fillRect(bx+3+q,by+t.bh+2,3,2);}}
       x.restore();});
     // price axis numbers: skipped where a tag / the last-price box sits (no hidden or overlapping numbers)
