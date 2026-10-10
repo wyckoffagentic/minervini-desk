@@ -370,6 +370,32 @@ function init(D,THREE){
       GA[i*2]=fresh||mode==='scrub'?0:Math.min(0.22,0.09*dT); GA[i*2+1]=fresh||mode==='scrub'?0:-Math.min(0.14,0.35*dR)*(dT<0.5?1:0.3);
       alT[i]=Math.max(0,A); if(RM) al[i]=alT[i];}
     rp.gm=mode; rp.gu=RM?1:0;}
+  // ---- ONE BAND CHANGE PER LAP (11 Oct 2026): in replay the data's band (ring) per planet goes through a gate. A planet may move to another
+  //      ring at most once per full lap of its own ring: a change that arrives too early is queued (the planet hurries round, up to 3x, to finish
+  //      the lap); further changes before it can move collapse to the latest target, and a target equal to its current ring cancels the move.
+  //      Transfers = the SHOW MOVERS float (ease, outward swing, one spiral turn, colour turns on arrival). Min dwell BG_DW s (sim) per ring.
+  //      Scrub / jump / start snap the gate to the data. The first change of a replay is free (no lap owed yet).
+  var BG_TR=6, BG_DW=2.5, bgB=new Int8Array(M), bgQ=new Int8Array(M).fill(-1), bgF=new Int8Array(M), bgS=new Float32Array(M).fill(-1), bgL=new Float32Array(M), bgW=new Float32Array(M),
+      bgPA=new Float32Array(M), bgH=new Float32Array(M).fill(1), bgN=new Int16Array(M), bgP={ty:0,ex:0,rb:0,ck:0,tr:false,g:0}, bgP2={ty:0,ex:0,rb:0,ck:0,tr:false,g:0},
+      bgSt={moves:0,queued:0,collapsed:0,cancelled:0,viol:0,minLap:1e9};
+  function bgData(i){var d=rp.gday>=0?rp.gday:curDay(), st=rpState(i,d); return st?st.g:-1;}
+  function bgSnap(){for(var i=0;i<Mact;i++){var g=bgData(i); bgB[i]=g>=0?g:clamp(Math.round(ty[i]),0,4); bgQ[i]=-1; bgS[i]=-1; bgL[i]=99; bgW[i]=99; bgPA[i]=ang[i]; bgH[i]=1; bgN[i]=0;}}
+  function bgReset(){bgSt={moves:0,queued:0,collapsed:0,cancelled:0,viol:0,minLap:1e9}; bgSnap();}
+  function bgTy(i,back,o){var s1=bgS[i];
+    if(s1<0){o.ty=bgB[i]; o.ex=0; o.rb=0; o.ck=0; o.tr=false; o.g=bgB[i]; return o;}
+    s1=clamp(s1-back,0,1); var e=ease3(s1); o.ty=bgF[i]+(bgB[i]-bgF[i])*e; o.ex=6.2832*e; o.rb=0.24*Math.sin(Math.PI*s1); o.ck=sstep((s1-0.55)/0.45); o.tr=true; o.g=o.ck>0.5?bgB[i]:bgF[i]; return o;}
+  function bgStep(dt,dS){var endK=rp.done?2:1;
+    for(var i=0;i<Mact;i++){var da=Math.abs(ang[i]-bgPA[i]); bgPA[i]=ang[i]; bgL[i]+=da; bgW[i]+=dS;
+      if(bgS[i]>=0){bgS[i]+=dS/BG_TR; if(bgS[i]>=1){bgS[i]=-1; bgL[i]=0; bgW[i]=0;} continue;}
+      var g=bgData(i); if(g<0) continue;
+      if(g===bgB[i]){if(bgQ[i]>=0){bgSt.cancelled++; bgQ[i]=-1;}}
+      else{var free=bgL[i]>=6.2832&&bgW[i]>=BG_DW;
+        if(bgQ[i]<0){if(!free) bgSt.queued++;} else if(bgQ[i]!==g) bgSt.collapsed++;
+        bgQ[i]=g;
+        if(free){if(bgN[i]>0&&bgL[i]<6.2832-1e-3) bgSt.viol++; if(bgN[i]>0) bgSt.minLap=Math.min(bgSt.minLap,bgL[i]);
+          bgF[i]=bgB[i]; bgB[i]=g; bgQ[i]=-1; bgS[i]=0; bgN[i]++; bgSt.moves++;}}
+      var want=bgQ[i]>=0&&bgS[i]<0?3*endK:1; bgH[i]+=(want-bgH[i])*Math.min(1,dt*1.5);}}
+  function bgAny(){for(var i=0;i<Mact;i++){if(bgQ[i]>=0||bgS[i]>=0) return true;} return false;}
   function rkChg(i,rk){if(rpFirst[i]>0) rpChg[i]=Math.tanh(Math.log(rpFirst[i]/rk)/0.7);}
   function dayFn(d){return function(i,o){var st=rpState(i,d); if(!st) return 0; o.rf=rfrac(st.rk,st.N,st.g)+jit[i]; o.ty=st.g; o.lk=Math.log(st.rk); rkChg(i,st.rk); return 1;};}
   function fracFn(p){return function(i,o){rpPose(i,p,pose); if(pose.a<=0) return 0; o.rf=pose.rf;o.ty=pose.ty;o.lk=pose.lk; var st=rpState(i,Math.floor(p+1e-6)); if(st) rkChg(i,st.rk); return pose.a;};}
@@ -380,17 +406,18 @@ function init(D,THREE){
 
   var TMC=[hex('#ff3d5a'),hex('#8a7432'),hex('#3dff8a')], ccol=[0,0,0], dcl=[0,0,0], camP=new THREE.Vector3();
   function dcol(m,o){m=clamp(m,-1,1); var e=m<0?TMC[0]:TMC[2], b=TMC[1], f=Math.pow(Math.abs(m),0.6); for(var j=0;j<3;j++) o[j]=b[j]+(e[j]-b[j])*f; return o;}
+  function tierMix(a,b,k,o){var A=TC[a],B=TC[b]; for(var j=0;j<3;j++) o[j]=A[j]+(B[j]-A[j])*k; return o;}
   function tierCol(v,o){var t0=clamp(Math.floor(v),0,4),t1=Math.min(4,t0+1),f=clamp(v-t0,0,1),A=TC[t0],B=TC[t1]; for(var j=0;j<3;j++) o[j]=A[j]+(B[j]-A[j])*f; return o;}
   function upd(dt){
     var TL=cfg.trail, SZ=cfg.size, tOn=cfg.tOn&&TL>0.001&&cfg.tOp>0.001, sty=cfg.tStyle, solid=sty==='solid', tw=cfg.tW, tfd=cfg.tFade, tamp=cfg.tOp*Math.min(1,TL*1.5), gu=Math.min(rp.gu,1), tm=cfg.tMode;
     cY=Math.cos(yaw);sY=Math.sin(yaw);cT=Math.cos(cfg.tilt*Math.PI/180);sT=Math.sin(cfg.tilt*Math.PI/180); camP.copy(cam.position);
     var foc=op.t>=0&&op.focus&&op.k>0.05, scOnF=sc.on&&!rp.on, mvA=mvAct();
     for(var i=0;i<Mact;i++){
-      if(rp.on){gEval(i,gu,gq); rf[i]=gq.rf; ty[i]=gq.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=clamp(Math.round(gq.ty),0,4);}
-      var isMv=mvA&&i<N&&mvOld[i]>=0, tyUse=ty[i], mvEx=0;
+      if(rp.on){gEval(i,gu,gq); bgTy(i,0,bgP); rf[i]=gq.rf+bgP.rb; ty[i]=bgP.ty; dia[i]=0.1+0.29*Math.max(0,1-gq.lk/lnU); grp[i]=bgP.g;}
+      var isMv=mvA&&i<N&&mvOld[i]>=0, tyUse=ty[i], mvEx=rp.on?bgP.ex:0;
       if(isMv){mvPose(i,mv.t,mvP); tyUse=mvP.ty; mvEx=mvP.ex;}
       var tI=clamp(Math.round(tyUse),0,4), oOn=isMv?orbOn(mvOld[i])||orbOn(info[i].g):orbOn(tI), oSz=cfg.orb[tI].size;
-      var c=rp.on?tierCol(ty[i],ccol):colOf(i),dm=TDIM[tI];
+      var c=rp.on?(bgP.tr?tierMix(bgF[i],bgB[i],bgP.ck,ccol):TC[bgB[i]]):colOf(i),dm=TDIM[tI];
       if(isMv){var A0=TC[mvOld[i]], B0=TC[info[i].g]; for(var q0=0;q0<3;q0++) mvC[q0]=A0[q0]+(B0[q0]-A0[q0])*mvP.ck; c=mvC;}
       var aMul=(op.t<0||tI===op.t?1:1-op.k)*(oOn?1:0)*(isMv?Math.max(vk[mvOld[i]],vk[info[i].g]):vk[tI]), yo=yOff(i,tI);
       if(foc&&tI!==op.t) aMul*=1-0.97*op.k;
@@ -415,7 +442,7 @@ function init(D,THREE){
       if(tOn){var tcol=isMv&&mvP.ph>0&&mvP.ph<3?(info[i].g<mvOld[i]?MVG:MVR):tm==='ring'?c:tm==='delta'?dcol(rp.on?rpChg[i]:(i<N?info[i].m[wi]:0),dcl):trailRGB;
         var span=clamp(Math.abs(om[i])*2.6,0.07,1.45)*TL*(rp.on?0.6:1), g0=(grp[i]===0?0.8:1)*(scOnF?1-sstep(scu*5):1)*(isMv&&mvP.ph>0&&mvP.ph<3?0.85:1);
         for(var k=0;k<K;k++){var f=k/(K-1),o=(i*K+k)*3,fa2=Math.pow(1-f,tfd)*0.6*a*tamp*g0;
-          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); W3(gq2.rf,gq2.ty,ang[i]-f*span,o,tP);} else if(isMv){mvPose(i,mv.t-f*0.8,mvQ); W3(mvQ.rf,mvQ.ty,ang[i]-f*span+mvQ.ex,o,tP); tP[o+1]+=yo;} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
+          if(rp.on){gEval(i,rp.gu-f*0.9*TL,gq2); bgTy(i,f*0.12,bgP2); W3(gq2.rf+bgP2.rb,bgP2.ty,ang[i]-f*span+bgP2.ex,o,tP);} else if(isMv){mvPose(i,mv.t-f*0.8,mvQ); W3(mvQ.rf,mvQ.ty,ang[i]-f*span+mvQ.ex,o,tP); tP[o+1]+=yo;} else {W3(rf[i],ty[i],ang[i]-f*span,o,tP); tP[o+1]+=yo;}
           tS[i*K+k]=solid?0:sz*(sty==='dotted'?0.5*tw*(1-0.55*f):0.75*tw*(1-0.4*f)); tC[o]=tcol[0]*fa2;tC[o+1]=tcol[1]*fa2;tC[o+2]=tcol[2]*fa2;}
         if(solid){var hw0=sz*0.3*tw*(1+0.35*cfg.tGlow);
           for(k=0;k<K;k++){var o5=(i*K+k)*3,oa=(i*K+Math.max(0,k-1))*3,ob=(i*K+Math.min(K-1,k+1))*3,
@@ -679,12 +706,12 @@ function init(D,THREE){
     if(flash&&nd>rp.lastDay&&rp.lastDay>=rp.d0){for(var d=rp.lastDay+1;d<=nd;d++){var ups=0,dns=0;for(var i=0;i<Mact;i++){var a=RP.v[i*RP.nd+d-1],b=RP.v[i*RP.nd+d],ra=a<0?1e9:Math.floor(a/100),rb=b<0?1e9:Math.floor(b/100);
         if(rb<=50&&ra>50){fl[i]=1;flS[i]=1;ups++;rp.events.push([info[i].t,1,RP.dates[d]]);} else if(ra<=50&&rb>50){fl[i]=1;flS[i]=-1;dns++;rp.events.push([info[i].t,-1,RP.dates[d]]);}}
       if(ups) snd('up',cfg); else if(dns) snd('dn',cfg); else snd('tick',cfg);} if(rp.events.length>30) rp.events=rp.events.slice(-30);}
-    if(mode==='scrub'){gRetarget('scrub',fracFn(rp.p)); rp.gday=-1;}
-    else if(mode==='jump'){gJump(nd); rp.gday=nd;}
+    if(mode==='scrub'){gRetarget('scrub',fracFn(rp.p)); rp.gday=-1; bgSnap();}
+    else if(mode==='jump'){gJump(nd); rp.gday=nd; bgSnap();}
     else if(nd!==rp.gday){gRetarget(mode,dayFn(nd)); rp.gday=nd;}
     if(nd!==rp.lastDay){rp.lastDay=nd; rpReadout(); if(sel>=0) fillCo();} need();}
   function rpStart(){scAbort(); if(op.t>=0){closeTier(); opDone();} rp.on=true; rpOn=true; rp.done=false; rp.sumP=false; rp.events=[]; winRange(); rp.p=rp.d0; rp.lastDay=rp.d0; rp.play=true; Mact=N+RP.nx; sumC.classList.remove('on');
-    for(var i=N;i<Mact;i++){al[i]=0;} firstRanks(); gJump(rp.d0); rpHTML(); var sc=rpBar.querySelector('.rp-scrub input'); sc.min=String(rp.d0); sc.max=String(rp.d1); sc.value=String(rp.p);
+    for(var i=N;i<Mact;i++){al[i]=0;} firstRanks(); gJump(rp.d0); bgReset(); rpHTML(); var sc=rpBar.querySelector('.rp-scrub input'); sc.min=String(rp.d0); sc.max=String(rp.d1); sc.value=String(rp.p);
     rpBar.querySelector('.rp-ends .a').textContent=RP.dates[rp.d0]; rpBar.querySelector('.rp-ends .b').textContent=RP.dates[rp.d1];
     pSeg.visible=rp.paths; rpBar.hidden=false; tm.hidden=false; ctl.hidden=true; if(clBox) clBox.hidden=true; root.classList.add('replay'); rpB.classList.add('on'); rpB.setAttribute('aria-pressed','true');
     setTargets(); rpReadout(); snd('play',cfg); labelsState(); need();}
@@ -982,13 +1009,13 @@ function init(D,THREE){
     var gS=frozen?0:cfg.gspd, dS=dt*gS;
     if(cfg.mv&&!rp.on){var mt0=mv.t; mv.t+=dS; if(mt0<=mvEnd&&mv.t>mvEnd) mvSync();}
     if(rp.on&&rp.play&&dS>0){var np2=rp.p+dS*rp.spd/cfg.glide; if(np2>=rp.d1){rpSeek(rp.d1,'play'); rp.play=false; rp.done=true; rp.sumP=true; rpReadout();} else rpSeek(np2,'play');}
-    if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();}}
+    if(rp.on){var er=effRate(); if(rp.gu<10) rp.gu=Math.min(10,rp.gu+dt*er); if(RM&&rp.gu<1) rp.gu=1; if(rp.gu<1&&er>0) busyF=true; if(rp.sumP&&rp.gu>=1){rp.sumP=false; rpSummary();} bgStep(dt,dS); if(bgAny()) busyF=true;}
     if(!RM){tNow+=dt; U.uTime.value+=dS;
       var ar=(cfg.auto?0.05*cfg.autoSpd:0)*(op.t>=0?1-0.6*op.k:1)*gS;
       if(frozen&&np===0){yawV*=Math.pow(0.002,dt);} else if(tNow-lastUser>2.5&&np===0){yawV+=(ar-yawV)*Math.min(1,dt*0.8);} else if(np===0){yawV*=Math.pow(0.04,dt);}
       if(np===0) yaw+=yawV*dt; if(Math.abs(yawV)>2e-4) busyF=true;
       var e=Math.min(1,dt*3), spd=cfg.speed*(rp.on?0.5:1), ar2=rp.on?Math.min(1,dt*Math.max(0.6,effRate())*3.5):Math.min(1,dt*3);
-      for(var i=0;i<Mact;i++){om[i]+=(omT[i]-om[i])*e; var da=alT[i]-al[i]; al[i]+=da*ar2; if(da>0.004||da<-0.004) busyF=true; sm[i]+=(smT[i]-sm[i])*e; ang[i]+=om[i]*dS*spd*(i===sel?0.15:1)*(op.t>=0?1-0.72*op.k:1); if(fl[i]>0) fl[i]=Math.max(0,fl[i]-dS*0.9);}
+      for(var i=0;i<Mact;i++){om[i]+=(omT[i]-om[i])*e; var da=alT[i]-al[i]; al[i]+=da*ar2; if(da>0.004||da<-0.004) busyF=true; sm[i]+=(smT[i]-sm[i])*e; ang[i]+=om[i]*dS*spd*(i===sel?0.15:1)*(op.t>=0?1-0.72*op.k:1)*(rp.on?bgH[i]:1); if(fl[i]>0) fl[i]=Math.max(0,fl[i]-dS*0.9);}
       core.rotation.y+=dS*0.25;}
     else{for(var j=0;j<Mact;j++){if(fl[j]>0) fl[j]=0;}}
     placeCam(); upd(dt); renderer.render(scene,cam); project(); overlay(); dirty=false; frames++;}
@@ -1002,6 +1029,7 @@ function init(D,THREE){
   root.classList.add('live');
   window.RSO={select:function(t){var i=byT[t]; if(i!=null){render(0); select(i);} return i;}, frames:function(){return frames;}, n:N,
     pos:function(t){var i=byT[t]; if(i==null) return null; var b=cv.getBoundingClientRect(); return {x:b.left+sx[i],y:b.top+sy[i],r:sr[i]};}, sel:function(){return sel<0?null:info[sel].t;},
+    rpGate:function(){var q=0,tr=0,bad=0; for(var i=0;i<Mact;i++){if(bgQ[i]>=0) q++; if(bgS[i]>=0) tr++; var g=bgData(i); if(g>=0&&bgS[i]<0&&g!==bgB[i]) bad++;} return {moves:bgSt.moves,queued:bgSt.queued,collapsed:bgSt.collapsed,cancelled:bgSt.cancelled,viol:bgSt.viol,minLap:bgSt.minLap,pending:q,moving:tr,offBand:bad};},
     replay:function(){return {on:rp.on,p:rp.p,d0:rp.d0,d1:rp.d1,play:rp.play,date:RP?RP.dates[curDay()]:null,events:rp.events.length,gu:rp.gu,gm:rp.gm,spd:rp.spd,glide:cfg.glide};}, cfg:function(){return cfg;}, open:function(t){openTier(t);}, close:function(){closeTier();}, tier:function(){return {t:op.t,k:op.k,E:op.E,zoom:zoom,focus:op.focus};}, orb:function(){return cfg.orb.map(function(o){return {on:o.on,ring:o.ring,ringOp:o.ringOp,size:o.size};});},
     focus:function(t){openFocus(t);}, scatter:function(){return scTrigger(true);}, nebula:function(m){if(m==='clouds'||m==='drift'){cfg.neb=m; nebOv=null; applyCfg(false);} return {style:nebMode(),running:sc.on?scMode:null,clouds:clK};}, mvr:function(on){if(on!=null&&!!on!==!!cfg.mv) mvTog.click(); else if(on) mvRestart(); return {on:!!cfg.mv,t:mv.t,end:mvEnd,up:mvUp,dn:mvDn,win:WIN[wi]};}, mvT:function(){return mv.t;}, scStop:function(){scAbort();}, sc:function(){return {on:sc.on,t:sc.t,G:sc.G,ring:sc.ring,next:sc.next,wait:sc.wait,phase:!sc.on?'idle':sc.t<SC1?'dissolve':sc.t<SC1+SC2?'nebula':'condense'};}, solo:function(t){if(t===undefined) return soOpen(); soloOrbit(t); return soOpen();}, rings:function(a){if(Array.isArray(a)) setMask([0,1,2,3,4].map(function(i){return a.indexOf(i)>=0;})); return onList();}, toggle:function(t){toggleRing(t); return onList();}, stack:function(){return {y:tyD.slice(),vk:vk.slice(),top:stk.top,bot:stk.bot,dist:dist,cy:cyC};}, vstretch:function(x){if(x!=null){cfg.vs=clamp(+x,1,8); saveCfg(cfg); soSync(); need();} return cfg.vs;}, speed:function(){return {g:cfg.gspd,frozen:frozen,uTime:U.uTime.value};}, freeze:function(b){setFreeze(b);}, setSpeed:function(g){setGs(g);},
     movers:function(n){var L=[]; for(var i=0;i<Mact;i++){if(al[i]>0.5) L.push([Math.abs(G1[i*3+1]-G0[i*3+1])+Math.abs(G1[i*3]-G0[i*3]),info[i].t]);} L.sort(function(a,b){return b[0]-a[0];}); return L.slice(0,n||5);},
