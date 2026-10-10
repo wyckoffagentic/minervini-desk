@@ -226,7 +226,7 @@
   function tfFetch(){   // data/tf/<T>.json once (older W / M periods); never blocks the chart for long, never throws
     if(TFXP)return TFXP;var src=TFROOT,i=src.indexOf('charts/_assets/charts.js'),root=i>=0?src.slice(0,i):'';
     function tfGet(t){return fetch(root+'data/tf/'+encodeURIComponent(String(t).replace(/\//g,'_'))+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});}
-    TFXP=(window.fetch&&D.ticker?Promise.all([tfGet(D.ticker),(RSD.line||[]).length?tfGet(RSD.bench||'SPY'):Promise.resolve(null)]):Promise.resolve([null,null]))
+    TFXP=(window.fetch&&D.ticker?Promise.all([tfGet(D.ticker),Promise.resolve(null)]):Promise.resolve([null,null]))
       .then(function(jj){var j=jj[0],bj=jj[1];if(bj&&(bj.w||bj.m))TFB=bj;if(j&&(j.w||j.m)){TFX=j;TFC={};}return j;});return TFXP;}
   function smaNames(){return TF==='W'?['SMA10W','SMA30W','SMA40W']:TF==='M'?['SMA3M','SMA7M','SMA10M']:['SMA50','SMA150','SMA200'];}
   function rtMaLbl(){return TF==='W'?'MA4W':TF==='M'?'MA3M':'MA'+((RTH&&RTH.ma)||21);}
@@ -234,8 +234,7 @@
   function smaLeg(){var n=smaNames();return '<span><i style="background:#ff9f1c"></i>'+n[0]+'</span><span><i style="background:#b86bff"></i>'+n[1]+'</span><span><i style="background:#4da3ff"></i>'+n[2]+'</span>';}
   function tfNote(){if(TF==='D')return '';var w=TF==='W'?'WEEK':'MONTH',h=TFC[TF]||{};
     return '<span class="tc-warnline" style="white-space:normal">'+TFN[TF]+' BARS: '+(TF==='W'?'MON-FRI WEEKS':'CALENDAR MONTHS')+' FROM THE DAILY BARS'+(h.srv?' + OLDER '+w+'S FROM THE 10Y HISTORY':' (NO LONG HISTORY LOADED)')+
-      ' · NEWEST '+w+' PROVISIONAL UNTIL ITS LAST SESSION'+(TFHID?' · '+TFHID+' DAILY MARKER'+(TFHID===1?'':'S')+' HIDDEN (1D TO SEE)':'')+(TFSC?' · '+esc(TFSC.toUpperCase()):'')+
-      (h.rsx?' · RS LINE ON THE '+h.rsx+' OLDER '+w+'S = CLOSE ÷ '+esc(RSD.bench||'SPY')+' FROM THE 10Y HISTORY, SCALED TO THE DAILY LINE':'')+'</span>';}
+      ' · NEWEST '+w+' PROVISIONAL UNTIL ITS LAST SESSION'+(TFHID?' · '+TFHID+' DAILY MARKER'+(TFHID===1?'':'S')+' HIDDEN (1D TO SEE)':'')+(TFSC?' · '+esc(TFSC.toUpperCase()):'')+'</span>';}
   function ovlPrices(off,n){var out=[];OVL.forEach(function(o){if(!o.on)return;o.items.forEach(function(it){if(it.pane==='vol')return;if(it.t==='point'&&!ptShow(o,it))return;var sp=ovlSpan(it);
     if(sp[1]<off||sp[0]>off+n-1)return;[it.p,it.p0,it.p1,it.lo,it.hi].forEach(function(v){if(v!=null)out.push(v);});});});return out;}
   function ovlTag(x,t,cx,cy,c,al,fs){x.font=fs+'px '+FONT;var w=x.measureText(t).width+6,h=fs+5,x0=al==='left'?cx:al==='right'?cx-w:cx-w/2,pb=freeBox(x0,cy-h/2,w,h);x0=pb[0];cy=pb[1]+h/2;
@@ -857,15 +856,7 @@
         function maPath(edge){x.beginPath();sg.forEach(function(i,k){var y=RY(vis[i][2]);k?x.lineTo(X(i),y):x.moveTo(X(i),y);});
           x.lineTo(X(sg[sg.length-1]),edge);x.lineTo(X(sg[0]),edge);x.closePath();}
         [[ry0-2,RTC.up],[ry0+RH+2,RTC.dn]].forEach(function(p){x.save();maPath(p[0]);x.clip();band();x.fillStyle=p[1];x.fill();x.restore();});});
-      // RS LINE (9 Oct 2026, Chris: "the relative strength indicator still doesn't go back"): the rating only exists where the desk could
-      // rank a full 252-session lookback (2y Massive plan -> about the last year), so the panel also draws the RS line (close ÷ SPY,
-      // research-tools/charts.py rs_payload; W / M: + the 10y history) over EVERY bar in view, light blue, its own scale fitted to the
-      // bars in view (re-fitted on every pan / zoom / reset; no 1-99 meaning, the right-hand tag is the line × 100)
-      var rlv=V.map(function(b){var q=RSL[b.d];return q==null||!(q>0)?null:q;}),rln=Infinity,rlx=-Infinity;rlv.forEach(function(q){if(q!=null){rln=Math.min(rln,q);rlx=Math.max(rlx,q);}});
-      var hasRL=rlx>=rln, RLY=null;
-      if(hasRL){var rpd=(rlx-rln)*.08||rlx*.02||1e-9,rla=rln-rpd,rlb=rlx+rpd;RLY=function(q){return ry0+rtp+(rlb-q)/(rlb-rla)*(RH-rtp-3);};
-        x.strokeStyle=RSC.line;x.lineWidth=narrow?1.1:1.4;x.globalAlpha=.95;x.beginPath();var ron=0;
-        rlv.forEach(function(q,i){if(q==null){ron=0;return;}var y=RLY(q);ron?x.lineTo(X(i),y):x.moveTo(X(i),y);ron=1;});x.stroke();x.globalAlpha=1;}
+      // RS LINE (close ÷ SPY) removed from the panel 10 Oct 2026 (Chris): the panel shows the IBD-style RS rating, its MA and the crossing dots only
       x.strokeStyle=RTC.ma;x.lineWidth=narrow?1.1:1.4;x.beginPath();var on=0;
       vis.forEach(function(r,i){if(!r||r[2]==null){on=0;return;}var y=RY(r[2]);on?x.lineTo(X(i),y):x.moveTo(X(i),y);on=1;});x.stroke();
       x.strokeStyle=RTC.r;x.lineWidth=narrow?1.4:1.8;x.shadowColor=RTC.r;x.shadowBlur=narrow?0:5;
@@ -877,21 +868,17 @@
       function rsNote(t,x0,y0,al){var tw=x.measureText(t).width;var bx=al==='center'?x0-tw/2:al==='right'?x0-tw:x0;bx=Math.max(pl+2,Math.min(barsEnd-tw-4,bx));
         x.fillStyle='rgba(0,0,0,.78)';x.fillRect(bx-3,y0-8,tw+6,11);x.fillStyle='#d6d2f5';x.textAlign='left';x.fillText(t,bx,y0);}   // light text on a dark plate (readable over the line)
       var f0y=f0?' '+f0.slice(2,4):'';
-      if(!TX){}else if(!f0||!any){if(hasRL)rsNote(narrow?(f0?'RATING STARTS '+sday(f0)+f0y:'NO RATING HISTORY')+' · BLUE = RS LINE':(f0?'RS RATING STARTS '+sday(f0)+f0y:'NO RS RATING HISTORY')+' · BLUE = RS LINE (PRICE / '+(RSD.bench||'SPY')+')',pl+6,ry0+RH-5,'left');
-        else{x.fillStyle=C.axis;x.textAlign='center';x.fillText(f0?'NO RS RATING IN VIEW':'NO RS RATING HISTORY',pl+rw/2,ry0+RH/2+3);}}
+      if(!TX){}else if(!f0||!any){x.fillStyle=C.axis;x.textAlign='center';x.fillText(f0?'RS RATING STARTS '+sday(f0)+f0y:'NO RS RATING HISTORY',pl+rw/2,ry0+RH/2+3);}
       else if(fi>0){x.strokeStyle='rgba(57,255,136,.45)';x.setLineDash([3,3]);x.beginPath();x.moveTo(X(fi)-bw/2,ry0);x.lineTo(X(fi)-bw/2,ry0+RH);x.stroke();x.setLineDash([]);
         var ht='RS RATING FROM '+sday(f0)+f0y;var htw=x.measureText(ht).width;
         if(X(fi)-bw/2-pl>htw+12){rsNote(ht,X(fi)-bw/2-4,ry0+RH-5,'right');}else{rsNote(ht,X(fi)+4,ry0+RH-5,'left');}}
       x.restore();
-      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(TX){var rtt='RS RATING · '+rtMaLbl();x.fillText(rtt,pl+5,ry0+10);
-        if(hasRL){x.fillStyle=RSC.line;x.fillText(narrow?' · RS LINE':' · RS LINE (PRICE / '+(RSD.bench||'SPY')+')',pl+5+x.measureText(rtt).width,ry0+10);}}
+      x.fillStyle='#cfe9d8';x.font=(narrow?6:7)+'px '+FONT;x.textAlign='left';if(TX){var rtt='RS RATING · '+rtMaLbl();x.fillText(rtt,pl+5,ry0+10);}
       x.strokeStyle='rgba(57,255,136,.35)';x.lineWidth=1;x.strokeRect(pl+.5,ry0+.5,rw-1,RH-1);
       // right column: value tags (rating green, MA orange) + scale labels that don't collide with them
       var lr=null;for(var k=vis.length-1;k>=0;k--){if(vis[k]&&vis[k][1]!=null){lr=vis[k];break;}}
       var tx=sx0+2, tg=[];x.font=(narrow?6:7)+'px '+FONT;
-      var lrl=null;if(hasRL)for(var k2=rlv.length-1;k2>=0;k2--){if(rlv[k2]!=null){lrl=rlv[k2];break;}}
-      if((lr||lrl!=null)&&TX){if(lr){tg.push({y:RY(lr[1]),t:String(lr[1]),bg:RTC.r});if(lr[2]!=null)tg.push({y:RY(lr[2]),t:lr[2].toFixed(2),bg:RTC.ma});}
-        if(lrl!=null)tg.push({y:RLY(lrl),t:(lrl*100).toPrecision(4),bg:RSC.line});
+      if(lr&&TX){if(lr){tg.push({y:RY(lr[1]),t:String(lr[1]),bg:RTC.r});if(lr[2]!=null)tg.push({y:RY(lr[2]),t:lr[2].toFixed(2),bg:RTC.ma});}
         tg.sort(function(a,b){return a.y-b.y;});for(var q2=1;q2<tg.length;q2++)if(tg[q2].y-tg[q2-1].y<11)tg[q2].y=tg[q2-1].y+11;   // no overlapping tags
         var tmin=Math.min.apply(null,tg.map(function(t){return t.y;})),tmax=Math.max.apply(null,tg.map(function(t){return t.y;})),sh0=tmin<ry0+5?ry0+5-tmin:tmax>ry0+RH-5?ry0+RH-5-tmax:0;
         tg.forEach(function(t){t.y+=sh0;var w=x.measureText(t.t).width+6;x.fillStyle=t.bg;x.fillRect(tx,t.y-5,w,10);x.fillStyle='#07061a';x.textAlign='left';x.fillText(t.t,tx+3,t.y+3);});}
@@ -947,8 +934,6 @@
       x.lineWidth=tLW;x.beginPath();x.moveTo(cx-bLW/2,yc);x.lineTo(cx+bLW/2+tLen,yc);x.stroke();
       if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
     // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
-    if(LY.rsl&&RDS[RDM])V.forEach(function(b,i){if(RSM[b.d]!=='L')return;var r0=narrow?2.4:2.9,rr=r0*RDS[RDM],cy=Y(b.l)+(narrow?6:7)+Math.max(0,rr-r0);if(cy>pt+ph+4)return;x.fillStyle=RSC.lead;x.shadowColor=RSC.lead;x.shadowBlur=6;
-      x.beginPath();x.arc(X(i),cy,rr,0,Math.PI*2);x.fill();x.shadowBlur=0;x.strokeStyle='#fff';x.lineWidth=.8;x.stroke();});
     OVR=[];OVB={l:pl+2,r:barsEnd+2};
     // BUY lines: 5 bars from the trigger bar (open) / the last bar (pending); a trigger bar out of view -> from the newest visible bar
     var BUYD=[],BUYL=[],BFS=narrow?6:7;
@@ -1080,7 +1065,7 @@
     if(i<0||!TIPON||TL.mode){tip.hidden=true;return;}   // info box off (LAYERS) / drawing: crosshair + header only
     var b=bars[i],prev=i>0?bars[i-1].c:null,ch=prev?((b.c/prev-1)*100):null, r=(D.risk&&D.entry!=null)?((b.c-D.entry)/D.risk):null;
     tip.innerHTML='<b>'+tfDate(b)+'</b>'+(b.prov?'<br><span style="color:#ffd23f">PROVISIONAL: '+b.n+' OF '+b.ns+' SESSIONS</span>':'')+(LS.text?'':'<br>C '+b.c.toFixed(2)+(ch==null?'':' <span class="'+(ch>=0?'pos':'neg')+'">'+(ch>=0?'+':'')+ch.toFixed(1)+'%</span>'))+
-      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]&&!LS.text?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+(RSL[b.d]!=null?'<br>RS LINE '+(RSL[b.d]*100).toPrecision(4)+(RSM[b.d]==='L'?' <span style="color:'+RSC.lead+'">BLUE DOT: NEW HI BEFORE PRICE</span>':RSM[b.d]?' <span style="color:'+RSC.hi+'">NEW HI W/ PRICE</span>':''):'')+
+      '<br>VOL '+(b.v>=1e6?(b.v/1e6).toFixed(2)+'M':Math.round(b.v/1e3)+'K')+vsaTip(i)+(S50[b.d]&&!LS.text?'<br>'+smaNames()[0]+' '+S50[b.d].toFixed(2):'')+(r==null?'':'<br>'+(r>=0?'+':'')+r.toFixed(2)+'R')+
       (RTM[b.d]&&RTM[b.d][1]!=null?'<br><span style="color:'+RTC.r+'">RS RATING '+RTM[b.d][1]+'</span>'+(RTM[b.d][2]!=null?' · <span style="color:'+RTC.ma+'">'+rtMaLbl()+' '+RTM[b.d][2].toFixed(2)+'</span>':'')+(RTM[b.d][3]?' · '+RTC.bandName[RTM[b.d][3]]:'')+(RTM[b.d][4]?' · '+(RTM[b.d][4]==='U'?'CROSS UP':'CROSS DOWN'):''):(hasRT?'<br>RS RATING n/a':''))+ovlTips(i)+sqzTip(i);
     tip.hidden=false;var w=host.clientWidth,ty=geo&&geo.pt!=null?geo.pt+4:py-40;tip.style.left=(px>w/2?Math.max(4,Math.min(px-tip.offsetWidth-14,geo?geo.pl+4:4)):Math.max(px+14,(geo?geo.barsEnd:w)-tip.offsetWidth-4))+'px';tip.style.top=Math.max(4,Math.min(host.clientHeight-tip.offsetHeight-4,ty))+'px';   // pinned to the top corner away from the pointer
   }
@@ -1177,9 +1162,8 @@
     (hasRT?'<span><i style="background:'+RTC.r+'"></i>RS RATING 1-99</span><span><i style="background:'+RTC.ma+'"></i>'+rtMaLbl()+' OF RATING</span>'+
       '<span><i style="background:'+RTC.up+';height:8px"></i>RATING ABOVE MA</span><span><i style="background:'+RTC.dn+';height:8px"></i>RATING BELOW MA</span>'+
       '<span><i style="background:'+RTC.r+';height:5px;width:5px;border-radius:50%"></i>/<i style="background:'+RTC.ma+';height:5px;width:5px;border-radius:50%;margin-left:4px"></i>RATING CROSSES MA UP / DOWN</span>'+
-      '<span>'+(RTF?'RS RATING FROM '+esc(sday(RTF))+' '+esc(RTF.slice(0,4))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY (NOT RANKED)')+'</span>'+
-      ((RSD.line||[]).length?'<span><i style="background:'+RSC.line+'"></i>RS LINE ÷'+esc(RSD.bench||'SPY')+' (PANEL, OWN SCALE, EVERY BAR)</span>':''):'')+
-    ((RSD.line||[]).length?'<span><i style="background:'+RSC.lead+';height:6px;width:6px;border-radius:50%"></i>UNDER BAR: RS LINE (÷'+esc(RSD.bench||'SPY')+') 52W HIGH BEFORE PRICE</span>':'<span class="tc-warnline">RS LINE N/A</span>')+'<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+volKey()+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
+      '<span>'+(RTF?'RS RATING FROM '+esc(sday(RTF))+' '+esc(RTF.slice(0,4))+' TO '+esc(sday(RTH.to)):'NO RS RATING HISTORY (NOT RANKED)')+'</span>':'')+
+    '<span>BAR = LOW→HIGH · TICK = CLOSE · NO OPEN</span>'+volKey()+(pgTxt?'<span class="tc-pgk '+pgCls+'" title="'+esc(pgTip)+'">◆ LAST '+esc(pgTxt)+(PGO&&rm!=null?' · '+rmTxt:'')+(pgSub?' · '+esc(pgSub):'')+'</span>':'')+
     PLS.map(function(x){return '<span class="tc-pgk '+plCls(x)+'" title="'+esc(x.pnl.basis||'')+'">◇ '+esc(String(x.label).toUpperCase())+': '+esc(plTxt(x,false).toUpperCase())+esc(plPos(x))+'</span>';}).join('')+(D.sma_note&&TF==='D'?'<span class="tc-warnline">'+esc(D.sma_note.toUpperCase())+'</span>':'')+tfNote();}
   $('tc-legend').innerHTML=legendHTML();window._tcLegend=legendHTML;
   function row(cls,name,v,src,r){return '<tr class="'+cls+'"><td>'+name+'</td><td class="px">'+(v==null?'—':money(v))+'</td><td class="rr">'+(r||'')+'</td><td class="tc-src">'+esc(src||'—')+'</td></tr>';}
@@ -1204,7 +1188,6 @@
   if(D.verdict) notes.push(['VERDICT','report: '+D.verdict]);
   (Array.isArray(D.checks)?D.checks:[]).forEach(function(c){notes.push(['CHECK',c]);});
   if(RTH&&RTH.src) notes.push(['RS PANEL',RTH.src+' Regime (tooltip only, not drawn): '+(RTH.rule||'')]);
-  if(RSD.src) notes.push(['RS LINE',RSD.src]);
   var RT=RSD.rating||{}; if(RT.src) notes.push(['RS RATING',(RT.status==='ranked'?'RS '+RT.rs+' · rank #'+RT.rank+' of '+RT.universe+' · 1w rank change '+(RT.chg_1w==null?'n/a':RT.chg_1w)+' (vs '+RT.week_ago+') · 4w '+(RT.chg_4w==null?'n/a':RT.chg_4w)+' (vs '+RT.four_week_ago+'); positive = moved up':
     RT.status==='unranked'?'not ranked: '+(RT.reason||'')+(RT.provisional?' · provisional RS '+RT.provisional+' (unverified, short history)':''):'no ranking feed')+' · '+(RT.label||'')+' · session '+(RT.asof||'?')+', file generated '+(RT.generated||'?')+' · '+RT.src]);
   $('tc-levels').innerHTML=(D.entry!=null?tbl:'<h2>LEVELS &amp; SOURCES</h2><p class="tc-src">'+(PLS.length?'NO CHART LEVELS · THE OPEN / PENDING PLANS ARE LISTED IN THE KEY':'NO DESK LEVELS OR PLANS FOR THIS NAME')+'</p>')+'<ul class="tc-notes">'+notes.map(function(n){return '<li><b>'+n[0]+'</b>'+esc(n[1])+'</li>';}).join('')+'</ul>';
@@ -1227,7 +1210,7 @@
       acct:'−0.5% / −1% acct loss',cuts:'Cut levels ✂',zones:'Risk / reward / buy-zone bands',last:'Price tag (last)',rsp:'RS panel (rating + RS line)',
       rsl:'RS line dots (new high first)',ovl:'Pattern overlays',oneup:'1UP marker (latest bar)',tl:'My trend lines (✎ LINE)'};
     var HAS={bars:1,vol:1,weis:1,sqz:!!SQZ,sma:NOMA?0:1,entry:D.entry!=null,stop:D.stop!=null,targets:D.r2!=null||D.r3!=null,pct:!!(D.entry>0&&$('tc-gauge')&&$('tc-gauge').offsetParent),pctl:D.entry>0,acct:RP.m05!=null||RP.m10!=null,cuts:(D.cuts||[]).length>0,
-      zones:!!D.buy_zone||(D.entry!=null&&D.stop!=null),last:1,rsp:hasRT,rsl:Object.keys(RSM).some(function(k){return RSM[k]==='L';}),ovl:OVL.length>0,oneup:1,tl:1};
+      zones:!!D.buy_zone||(D.entry!=null&&D.stop!=null),last:1,rsp:hasRT,rsl:0,ovl:OVL.length>0,oneup:1,tl:1};
     var zb=host.parentNode.querySelector('.tcz'),own=!zb;
     if(own){zb=document.createElement('div');zb.className='tcz tcz-m';host.parentNode.insertBefore(zb,host);}
     var g=document.createElement('div');g.className='tcg';g.setAttribute('role','group');g.setAttribute('aria-label','Chart layers');
@@ -1242,7 +1225,7 @@
       pn.innerHTML='<div class="tclh"><b>LAYERS</b><span class="pp">'+['full','levels','clean'].map(function(p){return '<button type="button" data-p="'+p+'" aria-pressed="'+(pre===p)+'">'+p.toUpperCase()+'</button>';}).join('')+'</span>'+
         '<button type="button" class="x" aria-label="Close layers">✕</button></div>'+
         '<div class="tcvp" role="radiogroup" aria-label="Bar style"><b>BARS</b>'+[['candle','CANDLES'],['hlc','HLC']].map(function(q){return '<button type="button" role="radio" data-bst="'+q[0]+'" aria-checked="'+(BST===q[0])+'" aria-pressed="'+(BST===q[0])+'">'+q[1]+'</button>';}).join('')+'</div>'+
-        ((HAS.rsp||HAS.rsl)?'<div class="tcvp" role="radiogroup" aria-label="RS dot size"><b>RS DOTS</b>'+[['off','OFF'],['s','S'],['m','M'],['l','L']].map(function(q){return '<button type="button" role="radio" data-rd="'+q[0]+'" aria-checked="'+(RDM===q[0])+'" aria-pressed="'+(RDM===q[0])+'" title="RS panel dot size (saved for every chart)">'+q[1]+'</button>';}).join('')+'</div>':'')+
+        (HAS.rsp?'<div class="tcvp" role="radiogroup" aria-label="RS dot size"><b>RS DOTS</b>'+[['off','OFF'],['s','S'],['m','M'],['l','L']].map(function(q){return '<button type="button" role="radio" data-rd="'+q[0]+'" aria-checked="'+(RDM===q[0])+'" aria-pressed="'+(RDM===q[0])+'" title="RS panel dot size (saved for every chart)">'+q[1]+'</button>';}).join('')+'</div>':'')+
         '<div class="tclg">'+LAYK.filter(function(k){return HAS[k];}).map(function(k){return tb(k,NAMES[k],LS.L[k]);}).join('')+'</div>'+
         '<div class="tcls">VOLUME PROFILE</div><div class="tclg">'+'<button type="button" class="tg" data-vp="on" aria-pressed="'+(VP.on?'true':'false')+'"><i></i><span>Volume profile (right side · POC · value area 70% · HVN / LVN · up / down split)</span></button></div>'+
         '<div class="tcvp" role="radiogroup" aria-label="Volume profile range"><b>RANGE</b>'+VPM.map(function(m){var dis=m==='tr'&&!vpTR();return '<button type="button" role="radio" data-vpm="'+m+'" aria-checked="'+(VP.m===m)+'" aria-pressed="'+(VP.m===m)+'"'+(dis?' disabled title="No Wyckoff trading range on this chart"':'')+'>'+{vis:'VISIBLE','20':'20','50':'50','100':'100',tr:'TR'}[m]+'</button>';}).join('')+'</div>'+
