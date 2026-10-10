@@ -277,7 +277,7 @@
 #rso.bhole .rso-hint{opacity:0}
 #rso.bhole .rso-cbar{opacity:.35;pointer-events:none}
 #rso.tierfocus .rso-leg{opacity:.45}
-/* ---- SOLO ORBIT bar + V-STRETCH (7 Oct 2026): pick one ring, hide the rest, stretch its planets apart vertically ---- */
+/* ---- ORBITS bar (multi-select ring toggles, 10 Oct 2026; was SOLO ORBIT 7 Oct) + V-STRETCH (vertical spacing of the shown rings) ---- */
 #rso .rso-solo{--c:var(--acc);margin:6px 8px 0;padding:8px 9px 7px;border:1px solid color-mix(in srgb,var(--c) 60%,transparent);border-radius:4px;
  background:linear-gradient(180deg,rgba(2,14,26,.86),rgba(2,8,18,.74));box-shadow:0 0 16px -9px var(--c),inset 0 0 14px -10px var(--c);
  font:500 10px/1.2 ui-monospace,'SF Mono',Menlo,monospace;color:#e6f6ff;letter-spacing:.8px;transition:border-color .25s,box-shadow .25s}
@@ -332,3 +332,6 @@
 /* ---- BLACK HOLE EVENTS rework (7 Oct 2026 PM): restored toast ---- */
 #rso .rso-toast.ok{border-color:#5af0ff;background:linear-gradient(180deg,rgba(0,34,44,.9),rgba(0,10,16,.88));box-shadow:0 0 22px -3px #00e5ff,inset 0 0 12px -6px #00e5ff;text-shadow:0 0 6px rgba(0,229,255,.7);color:#eafcff}
 #rso .rso-toast.ok b{color:#c8fbff}
+/* ORBITS multi-select (10 Oct 2026): off rings = dashed outline, no fill, text stays bright; on = filled glow */
+#rso .so-btns button[data-so]:not(.on){background:rgba(3,10,24,.45);border-style:dashed;box-shadow:none;color:#f2fbff}
+#rso .so-btns button.on{font-weight:700}
