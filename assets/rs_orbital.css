@@ -253,12 +253,12 @@
 #rso .rso-dr[data-tm=delta] .dr-grad{opacity:1}
 #rso .rso-dr[data-tm=custom] label.cp{color:#fff}
 #rso .rso-dr.toff .tl-x{opacity:.38;pointer-events:none}
-/* ---- per-orbit panel + black hole (5 Oct 2026) ---- */
+/* ---- per-orbit panel (5 Oct 2026) + scatter HUD (10 Oct 2026) ---- */
 #rso .orb-note{font-size:8.5px;color:#8fa7c0;letter-spacing:.4px;margin:2px 0 8px;line-height:1.35}
 #rso .orb-row{border:1px solid color-mix(in srgb,var(--c) 40%,transparent);border-radius:4px;padding:7px 8px 6px;margin:0 0 7px;background:rgba(255,255,255,.02)}
 #rso .orb-hd{display:flex;align-items:center;gap:5px;margin-bottom:4px}
 #rso .orb-hd b{flex:1;min-width:0;font-size:10.5px;letter-spacing:.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#rso .orb-tog,#rso .orb-foc,#rso .orb-all,#rso .bh-now{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.03);color:#cfe3f5;padding:7px 7px;border-radius:3px;font-size:9.5px;letter-spacing:.7px;flex:none}
+#rso .orb-tog,#rso .orb-foc,#rso .orb-all,#rso .sc-now{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.03);color:#cfe3f5;padding:7px 7px;border-radius:3px;font-size:9.5px;letter-spacing:.7px;flex:none}
 #rso .orb-tog.on{border-color:var(--c);color:#fff;box-shadow:inset 0 0 0 1px var(--c),0 0 8px -4px var(--c)}
 #rso .orb-foc.on{border-color:#fff;background:color-mix(in srgb,var(--c) 35%,transparent);color:#fff}
 #rso .orb-s{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 8px;margin:3px 0 0}
@@ -268,14 +268,13 @@
 #rso .orb-s input[type=range]:disabled{opacity:.35}
 #rso .orb-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin:4px 0 2px}
 #rso .orb-all{padding:9px 4px}
-#rso .bh-now{display:block;width:100%;margin:2px 0 8px;padding:12px 8px;border-color:rgba(255,140,40,.55);color:#ffd7a0;letter-spacing:1.5px;font-size:11px;
- background:linear-gradient(180deg,rgba(60,25,0,.55),rgba(20,8,0,.4));box-shadow:0 0 14px -6px #ff8a28}
-#rso .bh-now.busy{opacity:.55;pointer-events:none}
-#rso .bh-ft{font-size:8.5px;color:#7f97b0;letter-spacing:.4px;margin:4px 0 2px;line-height:1.35}
+#rso .sc-now{display:block;width:100%;margin:4px 0 8px;padding:12px 8px;border-color:rgba(120,220,255,.6);color:#e6f8ff;letter-spacing:1.5px;font-size:11px;
+ background:linear-gradient(180deg,rgba(0,40,60,.55),rgba(0,12,22,.4));box-shadow:0 0 14px -6px #00e5ff}
+#rso .sc-now.busy{opacity:.55;pointer-events:none}
+#rso .sc-ft{font-size:9.5px;color:#d7ebfa;letter-spacing:.3px;margin:4px 0 2px;line-height:1.4}
 #rso .tp-focnote{font-size:9.5px;color:#a9c2da;margin:6px 2px 4px;letter-spacing:.3px;line-height:1.4}
 #rso .rso-tl.offorb{filter:grayscale(.6)}
-#rso.bhole .rso-hint{opacity:0}
-#rso.bhole .rso-cbar{opacity:.35;pointer-events:none}
+#rso.scatter .rso-hint{opacity:0}
 #rso.tierfocus .rso-leg{opacity:.45}
 /* ---- ORBITS bar (multi-select ring toggles, 10 Oct 2026; was SOLO ORBIT 7 Oct) + V-STRETCH (vertical spacing of the shown rings) ---- */
 #rso .rso-solo{--c:var(--acc);margin:6px 8px 0;padding:8px 9px 7px;border:1px solid color-mix(in srgb,var(--c) 60%,transparent);border-radius:4px;
@@ -311,27 +310,6 @@
 #rso.solo .rso-tl.open{text-shadow:0 0 8px var(--c),0 0 2px #000,0 1px 2px #000}
 @media (max-width:420px){#rso .so-btns button{font-size:9.5px;letter-spacing:0}#rso .so-r1{flex-wrap:wrap}#rso .so-st{text-align:left;flex-basis:100%}}
 #rso.solo .rso-stage{height:clamp(470px,76vh,760px)}
-/* ---- CAPTURE EVENTS + SUPERNOVA (7 Oct 2026): toast, HUD buttons, captured planet's tag ---- */
-#rso .rso-toast{position:absolute;left:50%;top:44px;z-index:4;max-width:calc(100% - 24px);pointer-events:none;transform:translate(-50%,-8px) scale(.97);opacity:0;
- transition:opacity .35s,transform .35s cubic-bezier(.2,.8,.2,1);font:700 11.5px/1.35 ui-monospace,'SF Mono',Menlo,monospace;letter-spacing:.9px;color:#fff;text-align:center;
- padding:8px 13px;border-radius:4px;border:1px solid rgba(255,150,60,.85);background:linear-gradient(180deg,rgba(40,14,0,.88),rgba(14,4,0,.86));
- box-shadow:0 0 18px -4px #ff8a28,inset 0 0 12px -6px #ff8a28;text-shadow:0 0 6px rgba(255,150,60,.75);white-space:normal}
-#rso .rso-toast b{color:#ffe1a8;font-weight:800}
-#rso .rso-toast.on{opacity:1;transform:translate(-50%,0)}
-#rso .rso-toast.sn{border-color:#ff5ad8;background:linear-gradient(180deg,rgba(40,0,34,.9),rgba(12,0,14,.88));box-shadow:0 0 22px -3px #ff2bd6,inset 0 0 12px -6px #ff2bd6;text-shadow:0 0 6px rgba(255,90,216,.8)}
-#rso .rso-toast.sn b{color:#ffd0f4}
-@media (max-width:480px){#rso .rso-toast{font-size:10.5px;letter-spacing:.5px;top:42px;padding:7px 10px}}
-#rso .rso-tag.cap{z-index:2;background:rgba(30,10,0,.85);border-color:#ffb066;box-shadow:0 0 10px 0 #ff8a28;color:#fff;font-size:10px}
-#rso .cap-f{margin:8px 0 2px}
-#rso .cap-acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 4px}
-#rso .cap-now,#rso .sn-now{border:1px solid rgba(255,140,40,.6);background:linear-gradient(180deg,rgba(60,25,0,.55),rgba(20,8,0,.4));color:#ffe6c4;padding:12px 6px;border-radius:3px;
- font-size:10.5px;letter-spacing:1.2px;box-shadow:0 0 14px -6px #ff8a28;min-height:42px}
-#rso .sn-now{border-color:rgba(255,90,216,.65);background:linear-gradient(180deg,rgba(60,0,50,.55),rgba(20,0,18,.4));color:#ffd6f5;box-shadow:0 0 14px -6px #ff2bd6}
-#rso .cap-now.busy,#rso .sn-now.busy{opacity:.55;pointer-events:none}
-#rso .cap-ft{color:#c9dbec}
-/* ---- BLACK HOLE EVENTS rework (7 Oct 2026 PM): restored toast ---- */
-#rso .rso-toast.ok{border-color:#5af0ff;background:linear-gradient(180deg,rgba(0,34,44,.9),rgba(0,10,16,.88));box-shadow:0 0 22px -3px #00e5ff,inset 0 0 12px -6px #00e5ff;text-shadow:0 0 6px rgba(0,229,255,.7);color:#eafcff}
-#rso .rso-toast.ok b{color:#c8fbff}
 /* ORBITS multi-select (10 Oct 2026): off rings = dashed outline, no fill, text stays bright; on = filled glow */
 #rso .so-btns button[data-so]:not(.on){background:rgba(3,10,24,.45);border-style:dashed;box-shadow:none;color:#f2fbff}
 #rso .so-btns button.on{font-weight:700}
