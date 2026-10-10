@@ -27,10 +27,11 @@
   function vclass(v) { v = v || ""; return /^BUY/.test(v) ? "buy" : /^SELL/.test(v) ? "sell" : /^(WATCH|LATE|HOLD|WAIT)/.test(v) ? "watch" : "no"; }
   function render(d, host) {
     var h = '<section class="mb-box" id="mb-panel"><div class="mb-h"><b>🧠 MINERVINI BRAIN</b><small>' + esc(d.ticker) + " · session " + esc(d.session) +
-      ' · each line cites its M_BRAIN.md rule ID · research only, not advice</small></div>' +
+      ' · each line cites its <a href="' + base + 'mbrain.html" style="color:#8fe3ff">M_BRAIN.md</a> rule ID · research only, not advice</small></div>' +
       '<div class="mb-v ' + vclass(d.verdict) + '">' + esc(d.verdict) + ' <small style="opacity:.75">[' + esc(d.verdict_rule) + "]</small></div><table class=\"mb-t\">";
     (d.lines || []).forEach(function (l) {
-      h += '<tr><td class="mb-r">' + esc(l.rule) + '</td><td class="mb-l"><span class="mb-s ' + esc(l.state) + '"></span>' + esc(l.label) + "</td><td>" + esc(l.text) + "</td></tr>";
+      var rid = String(l.rule).split(/[\/·– ]/)[0].toLowerCase();
+      h += '<tr><td class="mb-r"><a href="' + base + 'mbrain.html#' + esc(rid) + '" style="color:inherit">' + esc(l.rule) + '</a></td><td class="mb-l"><span class="mb-s ' + esc(l.state) + '"></span>' + esc(l.label) + "</td><td>" + esc(l.text) + "</td></tr>";
     });
     h += "</table></section>";
     var ev = d.events || [];
@@ -40,7 +41,7 @@
     else {
       h += '<ul class="mb-tl">';
       ev.forEach(function (e) {
-        h += '<li><span class="mb-d">' + esc(e.date) + '</span><span class="mb-c">' + esc(e.rule) + '</span><span class="mb-e"><b>' + esc(String(e.event).replace(/_/g, " ")) + "</b>" +
+        h += '<li><span class="mb-d">' + esc(e.date) + '</span><a class="mb-c" style="text-decoration:none" href="' + base + 'mbrain.html#' + esc(String(e.rule).toLowerCase()) + '">' + esc(e.rule) + '</a><span class="mb-e"><b>' + esc(String(e.event).replace(/_/g, " ")) + "</b>" +
           (e.price != null ? " @ " + esc(e.price) : "") + (e.backfill ? '<span class="mb-bf">backfill</span>' : "") + "<br><i>" + esc(e.view) + '</i><br><span class="a">→ ' + esc(e.action) + "</span></span></li>";
       });
       h += "</ul>";
