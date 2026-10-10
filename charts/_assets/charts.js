@@ -933,7 +933,6 @@
       x.beginPath();x.moveTo(cx,yh);x.lineTo(cx,yl);x.stroke();
       x.lineWidth=tLW;x.beginPath();x.moveTo(cx-bLW/2,yc);x.lineTo(cx+bLW/2+tLen,yc);x.stroke();
       if(b.prov){x.globalAlpha=1;x.setLineDash([]);if(TX){x.font=(narrow?5:6)+'px '+FONT;x.fillStyle='#ffd23f';x.textAlign='center';x.fillText('PROV',X(i),Math.min(pt+ph+6,Y(b.l)+(narrow?9:11)));}}});   // provisional (unfinished) week / month
-    // RS-line new high BEFORE price (D.rs.marks 'L'): small blue dot under the bar
     OVR=[];OVB={l:pl+2,r:barsEnd+2};
     // BUY lines: 5 bars from the trigger bar (open) / the last bar (pending); a trigger bar out of view -> from the newest visible bar
     var BUYD=[],BUYL=[],BFS=narrow?6:7;
