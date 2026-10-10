@@ -41,7 +41,7 @@
     else {
       h += '<ul class="mb-tl">';
       ev.forEach(function (e) {
-        h += '<li><span class="mb-d">' + esc(e.date) + '</span><a class="mb-c" style="text-decoration:none" href="' + base + 'mbrain.html#' + esc(String(e.rule).toLowerCase()) + '">' + esc(e.rule) + '</a><span class="mb-e"><b>' + esc(String(e.event).replace(/_/g, " ")) + "</b>" +
+        h += '<li><span class="mb-d">' + esc(e.date) + '</span><a class="mb-c" style="text-decoration:none;color:#0a0f18" href="' + base + 'mbrain.html#' + esc(String(e.rule).toLowerCase()) + '">' + esc(e.rule) + '</a><span class="mb-e"><b>' + esc(String(e.event).replace(/_/g, " ")) + "</b>" +
           (e.price != null ? " @ " + esc(e.price) : "") + (e.backfill ? '<span class="mb-bf">backfill</span>' : "") + "<br><i>" + esc(e.view) + '</i><br><span class="a">→ ' + esc(e.action) + "</span></span></li>";
       });
       h += "</ul>";
